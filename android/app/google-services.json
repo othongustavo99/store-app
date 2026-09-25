@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "286842096605",
+    "project_id": "loja-roupas-demo",
+    "storage_bucket": "loja-roupas-demo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:286842096605:android:7827983a3c35ea7812c434",
+        "android_client_info": {
+          "package_name": "com.loja.roupas.loja_roupas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVe83SUGN-GPW6l1JiOYTw1XwFhqgoHlw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
