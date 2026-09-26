@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
+import '../../../providers/auth_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/mock/mock_categories.dart';
 import '../../../providers/product_providers.dart';
@@ -50,9 +50,14 @@ class HomeScreen extends ConsumerWidget {
                       onPressed: () => context.push('/search'),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.admin_panel_settings_outlined),
-                      tooltip: 'Área Admin (Demo)',
-                      onPressed: () => context.push('/admin/login'),
+                      icon: const Icon(Icons.logout),
+                      tooltip: 'Sair',
+                      onPressed: () async {
+                        await ref.read(authProvider.notifier).logout();
+                        if (context.mounted) {
+                          context.go('/login');
+                        }
+                      },
                     ),
                     const SizedBox(width: 4),
                   ],

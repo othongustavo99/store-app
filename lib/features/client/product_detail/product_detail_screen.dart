@@ -470,7 +470,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                           quantity: quantity,
                                         );
 
-                                    // Garante que qualquer SnackBar anterior suma
                                     final messenger =
                                         ScaffoldMessenger.of(context);
                                     messenger.clearSnackBars();
@@ -484,17 +483,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                         behavior: SnackBarBehavior.floating,
                                         margin: const EdgeInsets.fromLTRB(
                                             16, 0, 16, 90),
+                                        dismissDirection: DismissDirection.down,
                                         action: SnackBarAction(
                                           label: 'Ver carrinho',
                                           textColor: Colors.white,
                                           onPressed: () {
                                             messenger.hideCurrentSnackBar();
-                                            // Fora do shell → go troca para a aba do carrinho
                                             context.go('/cart');
                                           },
                                         ),
                                       ),
                                     );
+
+// Garante que some em 2 segundos (mesmo com o botão de ação)
+                                    Future.delayed(const Duration(seconds: 2),
+                                        () {
+                                      messenger.hideCurrentSnackBar();
+                                    });
                                   }
                                 : null,
                             child: const Text(

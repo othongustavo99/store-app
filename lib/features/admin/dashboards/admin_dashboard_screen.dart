@@ -40,9 +40,11 @@ class AdminDashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair',
-            onPressed: () {
-              ref.read(authProvider.notifier).logout();
-              context.go('/');
+            onPressed: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
           ),
         ],
