@@ -108,6 +108,16 @@ class HomeScreen extends ConsumerWidget {
                               const SizedBox(width: 12),
                           itemBuilder: (context, index) {
                             final category = cats[index];
+                            final categoryProducts = allProducts
+                                .where((product) =>
+                                    product.categoryId == category.id)
+                                .toList();
+
+                            final String? categoryImage =
+                                categoryProducts.isNotEmpty &&
+                                        categoryProducts.first.images.isNotEmpty
+                                    ? categoryProducts.first.images.first
+                                    : null;
                             return GestureDetector(
                               onTap: () =>
                                   context.push('/category/${category.id}'),
@@ -124,10 +134,12 @@ class HomeScreen extends ConsumerWidget {
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(16),
-                                      child: category.imageUrl.isNotEmpty
+                                      child: categoryImage != null
                                           ? CachedNetworkImage(
-                                              imageUrl: category.imageUrl,
+                                              imageUrl: categoryImage,
                                               fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: double.infinity,
                                               placeholder: (_, __) =>
                                                   const Center(
                                                 child:

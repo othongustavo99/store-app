@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
+import '../../../providers/product_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/category_providers.dart';
 
@@ -12,6 +12,7 @@ class CategoriesTabScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncCats = ref.watch(categoriesProvider);
+    final asyncProducts = ref.watch(productsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -29,6 +30,16 @@ class CategoriesTabScreen extends ConsumerWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final cat = cats[index];
+              final products = asyncProducts.valueOrNull ?? [];
+
+              final categoryProducts = products
+                  .where((product) => product.categoryId == cat.id)
+                  .toList();
+
+              final String? categoryImage = categoryProducts.isNotEmpty &&
+                      categoryProducts.first.images.isNotEmpty
+                  ? categoryProducts.first.images.first
+                  : null;
               return Material(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -44,23 +55,39 @@ class CategoriesTabScreen extends ConsumerWidget {
                     ),
                     child: Row(
                       children: [
-                        if (cat.imageUrl.isNotEmpty)
+                        if (categoryImage != null)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: CachedNetworkImage(
-                              imageUrl: cat.imageUrl,
+                              imageUrl: categoryImage,
                               width: 76,
                               height: 76,
                               fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => Text(
-                                cat.icon,
-                                style: const TextStyle(fontSize: 32),
+                              placeholder: (_, __) => const SizedBox(
+                                width: 76,
+                                height: 76,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => SizedBox(
+                                width: 76,
+                                height: 76,
+                                child: Center(
+                                  child: Text(
+                                    cat.icon,
+                                    style: const TextStyle(fontSize: 32),
+                                  ),
+                                ),
                               ),
                             ),
                           )
                         else
                           SizedBox(
                             width: 76,
+                            height: 76,
                             child: Center(
                               child: Text(
                                 cat.icon,
