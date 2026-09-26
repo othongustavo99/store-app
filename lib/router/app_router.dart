@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:loja_roupas/features/admin/dashboards/admin_dashboard_screen.dart';
 import 'package:loja_roupas/features/client/categories/categories_tab_screen.dart';
+import 'package:loja_roupas/features/client/discounted/discounted_products_screen.dart';
 import '../features/admin/orders/admin_orders_screen.dart';
 import '../features/admin/products/admin_products_screen.dart';
 import '../features/client/home/home_screen.dart';
@@ -16,20 +17,48 @@ import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/cart_providers.dart';
 
-// Shell do Cliente (com bottom navigation)
-final _clientShellNavigatorKey = GlobalKey<NavigatorState>();
-
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // Observa o auth para o redirect reagir ao login/logout
+  final auth = ref.watch(authProvider);
+
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/login',
+    redirect: (context, state) {
+      final loggedIn = auth.isLoggedIn;
+      final location = state.matchedLocation;
+      final isLogin = location == '/login';
+      final isAdminRoute = location.startsWith('/admin');
+
+      // 1) Sem login → só pode ficar na tela de login
+      if (!loggedIn) {
+        return isLogin ? null : '/login';
+      }
+
+      // 2) Já logado e tentando abrir /login → manda pro destino certo
+      if (loggedIn && isLogin) {
+        return auth.role == UserRole.admin ? '/admin' : '/';
+      }
+
+      // 3) Rotas /admin só para admin
+      if (isAdminRoute && auth.role != UserRole.admin) {
+        return '/';
+      }
+
+      return null;
+    },
     routes: [
+      // ========== LOGIN (primeira tela) ==========
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const AdminLoginScreen(),
+      ),
+
       // ========== ÁREA DO CLIENTE ==========
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return ClientShell(navigationShell: navigationShell);
         },
         branches: [
-          // Home
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -38,7 +67,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Categorias (vamos usar a Home por enquanto e depois expandir)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -47,7 +75,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Carrinho
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -56,7 +83,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Pedidos
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -68,7 +94,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // Rotas que ficam fora do shell (detalhes, busca, checkout...)
       GoRoute(
         path: '/product/:id',
         builder: (context, state) {
@@ -91,50 +116,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/checkout',
         builder: (context, state) => const CheckoutScreen(),
       ),
+      GoRoute(
+        path: '/discounted',
+        builder: (context, state) => const DiscountedProductsScreen(),
+      ),
 
       // ========== ÁREA ADMINISTRATIVA ==========
       GoRoute(
-        path: '/admin/login',
-        builder: (context, state) => const AdminLoginScreen(),
-      ),
-      GoRoute(
         path: '/admin',
         builder: (context, state) => const AdminDashboardScreen(),
-        redirect: (context, state) {
-          final auth = ref.read(authProvider);
-          if (!auth.isLoggedIn || auth.role != UserRole.admin) {
-            return '/admin/login';
-          }
-          return null;
-        },
       ),
       GoRoute(
         path: '/admin/orders',
         builder: (context, state) => const AdminOrdersScreen(),
-        redirect: (context, state) {
-          final auth = ref.read(authProvider);
-          if (!auth.isLoggedIn || auth.role != UserRole.admin) {
-            return '/admin/login';
-          }
-          return null;
-        },
       ),
       GoRoute(
         path: '/admin/products',
         builder: (context, state) => const AdminProductsScreen(),
-        redirect: (context, state) {
-          final auth = ref.read(authProvider);
-          if (!auth.isLoggedIn || auth.role != UserRole.admin) {
-            return '/admin/login';
-          }
-          return null;
-        },
       ),
     ],
   );
 });
 
-// ==================== SHELL DO CLIENTE ====================
 class ClientShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 

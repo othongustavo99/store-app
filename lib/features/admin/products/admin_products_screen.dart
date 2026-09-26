@@ -40,6 +40,202 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
     );
   }
 
+  void _showEditMediaDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Product product,
+  ) {
+    File? newMainImage;
+    final List<File> newGalleryImages = [];
+    final List<File> newVideos = [];
+    bool isSaving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                20 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mídia – ${product.name}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Imagens atuais
+                    if (product.images.isNotEmpty) ...[
+                      const Text('Imagens atuais:',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 80,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: product.images.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (_, i) => ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CachedNetworkImage(
+                              imageUrl: product.images[i],
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Botões de nova mídia
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final file = await _takePhoto();
+                              if (file != null) {
+                                setState(() => newMainImage = File(file.path));
+                              }
+                            },
+                            icon: const Icon(Icons.camera_alt),
+                            label: const Text('Câmera'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final file = await _pickPhoto();
+                              if (file != null) {
+                                setState(() =>
+                                    newGalleryImages.add(File(file.path)));
+                              }
+                            },
+                            icon: const Icon(Icons.photo_library),
+                            label: const Text('Galeria'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final file = await _pickVideo();
+                        if (file != null) {
+                          setState(() => newVideos.add(File(file.path)));
+                        }
+                      },
+                      icon: const Icon(Icons.videocam),
+                      label: Text('Adicionar vídeo (${newVideos.length})'),
+                    ),
+
+                    if (newMainImage != null || newGalleryImages.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          '${(newMainImage != null ? 1 : 0) + newGalleryImages.length} nova(s) imagem(ns)',
+                          style: const TextStyle(color: AppColors.success),
+                        ),
+                      ),
+
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                setState(() => isSaving = true);
+                                try {
+                                  final List<String> imageUrls =
+                                      List.from(product.images);
+                                  final List<String> videoUrls =
+                                      List.from(product.videos);
+
+                                  if (newMainImage != null) {
+                                    final url = await _media.uploadImage(
+                                      newMainImage!,
+                                      product.id,
+                                    );
+                                    imageUrls.insert(
+                                        0, url); // vira a principal
+                                  }
+                                  for (final f in newGalleryImages) {
+                                    final url =
+                                        await _media.uploadImage(f, product.id);
+                                    imageUrls.add(url);
+                                  }
+                                  for (final f in newVideos) {
+                                    final url =
+                                        await _media.uploadVideo(f, product.id);
+                                    videoUrls.add(url);
+                                  }
+
+                                  await ref
+                                      .read(productsActionsProvider)
+                                      .updateProduct(
+                                        product.copyWith(
+                                          images: imageUrls,
+                                          videos: videoUrls,
+                                        ),
+                                      );
+
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Mídia atualizada!'),
+                                        backgroundColor: AppColors.success,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  setState(() => isSaving = false);
+                                  _showError(
+                                      context, 'Erro ao atualizar mídia: $e');
+                                }
+                              },
+                        child: isSaving
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Salvar mídia'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<XFile?> _pickPhoto() async {
     return _picker.pickImage(
       source: ImageSource.gallery,
@@ -125,6 +321,8 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                               ref,
                               product,
                             ),
+                            onEditMedia: () =>
+                                _showEditMediaDialog(context, ref, product),
                             onDelete: () async {
                               await ref
                                   .read(productsActionsProvider)
@@ -715,33 +913,25 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                             final List<String> imageUrls = [];
                             final List<String> videoUrls = [];
 
-                            // Foto principal primeiro (card)
                             if (mainImage != null) {
                               final url = await _media.uploadImage(
-                                mainImage!,
-                                productId,
-                              );
+                                  mainImage!, productId);
                               imageUrls.add(url);
                             }
 
-                            // Galeria
                             for (final file in galleryImages) {
-                              final url = await _media.uploadImage(
-                                file,
-                                productId,
-                              );
+                              final url =
+                                  await _media.uploadImage(file, productId);
                               imageUrls.add(url);
                             }
 
-                            // Vídeos
                             for (final file in videos) {
-                              final url = await _media.uploadVideo(
-                                file,
-                                productId,
-                              );
+                              final url =
+                                  await _media.uploadVideo(file, productId);
                               videoUrls.add(url);
                             }
 
+                            // Permite produto sem foto (opcional)
                             final newProduct = Product(
                               id: productId,
                               name: name,
@@ -751,13 +941,11 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                               images: imageUrls,
                               videos: videoUrls,
                               variants: selectedColors
-                                  .map(
-                                    (color) => ProductVariant(
-                                      color: color,
-                                      size: 'M',
-                                      stock: stock,
-                                    ),
-                                  )
+                                  .map((color) => ProductVariant(
+                                        color: color,
+                                        size: 'M',
+                                        stock: stock,
+                                      ))
                                   .toList(),
                               isFeatured: false,
                               isNew: true,
@@ -768,9 +956,8 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                                 .read(productsActionsProvider)
                                 .addProduct(newProduct);
 
-                            if (dialogContext.mounted) {
+                            if (dialogContext.mounted)
                               Navigator.pop(dialogContext);
-                            }
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -780,13 +967,12 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                                 ),
                               );
                             }
-                          } catch (e) {
+                          } catch (e, st) {
+                            debugPrint(
+                                'Erro detalhado ao salvar produto: $e\n$st');
                             setDialogState(() => isSaving = false);
                             if (context.mounted) {
-                              _showError(
-                                context,
-                                'Erro ao salvar produto: $e',
-                              );
+                              _showError(context, 'Erro ao salvar produto: $e');
                             }
                           }
                         },
@@ -905,19 +1091,36 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                           _showError(context, 'Desconto inválido (1-99).');
                           return;
                         }
+
                         final ok = await ref
                             .read(productsActionsProvider)
                             .applyDiscount(product.id, percent);
-                        if (context.mounted) {
+
+                        if (!context.mounted) return;
+
+                        if (ok) {
+                          // Atualiza o campo de preço na tela com o valor já descontado
+                          final base = product.oldPrice ?? product.price;
+                          final newPrice = double.parse(
+                            (base * (1 - percent / 100)).toStringAsFixed(2),
+                          );
+                          priceController.text = newPrice.toStringAsFixed(2);
+
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ok
-                                    ? 'Desconto aplicado'
-                                    : 'Erro ao aplicar desconto',
-                              ),
-                              backgroundColor:
-                                  ok ? AppColors.success : AppColors.error,
+                            const SnackBar(
+                              content: Text('Desconto aplicado'),
+                              backgroundColor: AppColors.success,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+
+                          // Fecha o bottom sheet para forçar o stream do Firestore atualizar a lista
+                          Navigator.pop(context);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Erro ao aplicar desconto'),
+                              backgroundColor: AppColors.error,
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -987,20 +1190,23 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                           product.price;
 
                       final actions = ref.read(productsActionsProvider);
-                      await actions.updatePrice(product.id, newPrice);
+
+                      // Se já existe desconto e o usuário não mexeu no preço de forma intencional,
+                      // não chama updatePrice (que apagaria a lógica do oldPrice)
+                      final current = await actions.getById(product.id);
+                      if (current != null && current.oldPrice != null) {
+                        // Mantém o desconto; só atualiza estoque
+                      } else {
+                        await actions.updatePrice(product.id, newPrice);
+                      }
 
                       for (final v in product.variants) {
                         final key = '${v.color}|${v.size}';
-                        final stock = int.tryParse(
-                              stockControllers[key]?.text ?? '',
-                            ) ??
-                            v.stock;
+                        final stock =
+                            int.tryParse(stockControllers[key]?.text ?? '') ??
+                                v.stock;
                         await actions.updateVariantStock(
-                          product.id,
-                          v.color,
-                          v.size,
-                          stock,
-                        );
+                            product.id, v.color, v.size, stock);
                       }
 
                       if (context.mounted) {
@@ -1041,12 +1247,14 @@ class _ProductTile extends StatelessWidget {
   final Product product;
   final NumberFormat currency;
   final VoidCallback onEdit;
+  final VoidCallback onEditMedia;
   final VoidCallback onDelete;
 
   const _ProductTile({
     required this.product,
     required this.currency,
     required this.onEdit,
+    required this.onEditMedia,
     required this.onDelete,
   });
 
@@ -1106,6 +1314,11 @@ class _ProductTile extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.photo_library_outlined),
+              tooltip: 'Alterar fotos/vídeos',
+              onPressed: onEditMedia,
             ),
             IconButton(
               icon: const Icon(Icons.edit_outlined),

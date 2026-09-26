@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'app.dart';
 import 'providers/product_providers.dart';
 
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 

@@ -1,26 +1,44 @@
 {
   "project_info": {
-    "project_number": "286842096605",
-    "project_id": "loja-roupas-demo",
-    "storage_bucket": "loja-roupas-demo.firebasestorage.app"
+    "project_number": "1028372334457",
+    "project_id": "loja-roupas-77516",
+    "storage_bucket": "loja-roupas-77516.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:286842096605:android:7827983a3c35ea7812c434",
+        "mobilesdk_app_id": "1:1028372334457:android:334b9282d7c7aa45b991a8",
         "android_client_info": {
           "package_name": "com.loja.roupas.loja_roupas"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1028372334457-6hbihf60lflrhamvssbhr7jut5tt40lg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.loja.roupas.loja_roupas",
+            "certificate_hash": "d42ea0455471b1e1f94f62ed6bb50bbeb57e1d27"
+          }
+        },
+        {
+          "client_id": "1028372334457-f1vgre0pg8135uetbc5iti6t0o0ufij1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyAVe83SUGN-GPW6l1JiOYTw1XwFhqgoHlw"
+          "current_key": "AIzaSyA-7-VAX_kJZ_87vbEEaSxYAZ_aptxWCts"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1028372334457-f1vgre0pg8135uetbc5iti6t0o0ufij1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

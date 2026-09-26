@@ -100,6 +100,7 @@ class Product {
     bool clearOldPrice = false,
     String? categoryId,
     List<String>? images,
+    List<String>? videos, // ← adicionado
     List<ProductVariant>? variants,
     bool? isFeatured,
     bool? isNew,
@@ -113,11 +114,11 @@ class Product {
       oldPrice: clearOldPrice ? null : (oldPrice ?? this.oldPrice),
       categoryId: categoryId ?? this.categoryId,
       images: images ?? this.images,
+      videos: videos ?? this.videos, // ← agora funciona
       variants: variants ?? this.variants,
       isFeatured: isFeatured ?? this.isFeatured,
       isNew: isNew ?? this.isNew,
       createdAt: createdAt ?? this.createdAt,
-      videos: videos ?? this.videos,
     );
   }
 
