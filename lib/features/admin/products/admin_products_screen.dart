@@ -6,8 +6,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:loja_roupas/providers/category_providers.dart';
 import 'package:uuid/uuid.dart';
-
+import '../../../core/theme/app_colors.dart';
+import '../../../data/services/media_upload_service.dart';
+import '../../../models/category.dart';
+import '../../../models/product.dart';
+import '../../../providers/category_providers.dart';
+import '../../../providers/product_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/media_upload_service.dart';
 import '../../../models/product.dart';
@@ -406,16 +412,37 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
   }
 
   Widget _categoryFilters() {
+    final asyncCats = ref.watch(categoriesProvider);
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          _categoryButton(label: 'Todas', value: 'todos'),
-          _categoryButton(label: 'Camisetas', value: 'cat_camisetas'),
-          _categoryButton(label: 'Calças', value: 'cat_calcas'),
-          _categoryButton(label: 'Tênis', value: 'cat_tenis'),
-        ],
+      child: asyncCats.when(
+        loading: () => const SizedBox(
+          height: 40,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+        error: (_, __) => Row(
+          children: [
+            _categoryButton(label: 'Todas', value: 'todos'),
+          ],
+        ),
+        data: (cats) {
+          return Row(
+            children: [
+              _categoryButton(label: 'Todas', value: 'todos'),
+              ...cats.map(
+                (c) => _categoryButton(label: c.name, value: c.id),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -464,11 +491,18 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
     final List<File> galleryImages = [];
     final List<File> videos = [];
 
+    final existingCats = ref.read(categoriesProvider).valueOrNull ?? [];
     final List<Map<String, String>> categories = [
-      {'id': 'cat_camisetas', 'name': 'Camisetas'},
-      {'id': 'cat_calcas', 'name': 'Calças'},
-      {'id': 'cat_tenis', 'name': 'Tênis'},
+      for (final c in existingCats) {'id': c.id, 'name': c.name},
     ];
+    if (categories.isEmpty) {
+      categories.addAll([
+        {'id': 'cat_camisetas', 'name': 'Camisetas'},
+        {'id': 'cat_calcas', 'name': 'Calças'},
+        {'id': 'cat_tenis', 'name': 'Tênis'},
+      ]);
+    }
+    selectedCategory = categories.first['id']!;
 
     const availableColors = [
       'Preto',
@@ -562,13 +596,39 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                             IconButton(
                               icon: const Icon(Icons.check,
                                   color: AppColors.success),
-                              onPressed: () {
+                              onPressed: () async {
                                 final name = newCategoryController.text.trim();
                                 if (name.isEmpty) return;
                                 final id =
-                                    'cat_${name.toLowerCase().replaceAll(RegExp(r'\s+'), "_")}';
+                                    'cat_${name.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '_')}';
+
+                                final newCat = Category(
+                                  id: id,
+                                  name: name,
+                                  icon: '🏷️',
+                                  imageUrl: '',
+                                );
+                                try {
+                                  await ref
+                                      .read(categoryActionsProvider)
+                                      .addCategory(newCat);
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Erro ao salvar categoria: $e'),
+                                        backgroundColor: AppColors.error,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
                                 setDialogState(() {
-                                  categories.add({'id': id, 'name': name});
+                                  if (!categories.any((c) => c['id'] == id)) {
+                                    categories.add({'id': id, 'name': name});
+                                  }
                                   selectedCategory = id;
                                   showNewCategoryField = false;
                                   newCategoryController.clear();

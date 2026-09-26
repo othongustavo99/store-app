@@ -1,53 +1,79 @@
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
 class MediaUploadService {
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  // Conta Cloudinary
+  static const String cloudName = 'dvkcbddb';
+  static const String uploadPreset = 'loja_roupas';
 
-  Future<String> uploadImage(
-    File file,
-    String productId,
-  ) async {
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-    final ref = _storage
-        .ref()
-        .child('products')
-        .child(productId)
-        .child('images')
-        .child(fileName);
-
-    await ref.putFile(
-      file,
-      SettableMetadata(
-        contentType: 'image/jpeg',
-      ),
+  /// Sobe imagem e retorna a URL pública (secure_url)
+  Future<String> uploadImage(File file, String productId) async {
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
     );
 
-    return ref.getDownloadURL();
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = uploadPreset
+      ..fields['folder'] = 'products/$productId'
+      ..files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          filename: p.basename(file.path),
+        ),
+      );
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Erro ao enviar imagem (${response.statusCode}): ${response.body}',
+      );
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final url = data['secure_url'] as String?;
+    if (url == null || url.isEmpty) {
+      throw Exception('Cloudinary não retornou secure_url');
+    }
+    return url;
   }
 
-  Future<String> uploadVideo(
-    File file,
-    String productId,
-  ) async {
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}.mp4';
-
-    final ref = _storage
-        .ref()
-        .child('products')
-        .child(productId)
-        .child('videos')
-        .child(fileName);
-
-    await ref.putFile(
-      file,
-      SettableMetadata(
-        contentType: 'video/mp4',
-      ),
+  /// Sobe vídeo e retorna a URL pública
+  Future<String> uploadVideo(File file, String productId) async {
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/$cloudName/video/upload',
     );
 
-    return ref.getDownloadURL();
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = uploadPreset
+      ..fields['folder'] = 'products/$productId/videos'
+      ..files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          filename: p.basename(file.path),
+        ),
+      );
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Erro ao enviar vídeo (${response.statusCode}): ${response.body}',
+      );
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final url = data['secure_url'] as String?;
+    if (url == null || url.isEmpty) {
+      throw Exception('Cloudinary não retornou secure_url do vídeo');
+    }
+    return url;
   }
 }

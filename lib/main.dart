@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:loja_roupas/providers/category_providers.dart';
 import 'app.dart';
 import 'providers/product_providers.dart';
 
@@ -55,6 +56,7 @@ Future<void> main() async {
   // O seed não deve impedir o aplicativo de abrir.
   try {
     await container.read(productsActionsProvider).seedIfEmpty();
+    await container.read(categoryRepositoryProvider).seedIfEmpty();
   } catch (e) {
     debugPrint('Erro ao carregar produtos iniciais: $e');
   }

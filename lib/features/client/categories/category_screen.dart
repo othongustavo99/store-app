@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:loja_roupas/providers/category_providers.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/mock/mock_categories.dart';
@@ -21,6 +22,11 @@ class CategoryScreen extends ConsumerWidget {
       (c) => c.id == categoryId,
       orElse: () => mockCategories.first,
     );
+    final name = (ref.watch(categoriesProvider).valueOrNull ?? [])
+            .where((c) => c.id == categoryId)
+            .map((c) => c.name)
+            .firstOrNull ??
+        'Categoria';
 
     return Scaffold(
       backgroundColor: AppColors.background,

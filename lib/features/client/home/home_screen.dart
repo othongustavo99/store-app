@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../providers/auth_providers.dart';
+
 import '../../../core/theme/app_colors.dart';
-import '../../../data/mock/mock_categories.dart';
+import '../../../providers/auth_providers.dart';
+import '../../../providers/category_providers.dart';
 import '../../../providers/product_providers.dart';
 import '../widgets/product_card.dart';
 
@@ -12,10 +13,10 @@ class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncProducts = ref.watch(productsProvider);
     final featuredProducts = ref.watch(featuredProductsProvider);
+    final asyncCategories = ref.watch(categoriesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -79,54 +80,99 @@ class HomeScreen extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: SizedBox(
                     height: 110,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: mockCategories.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final category = mockCategories[index];
-                        return GestureDetector(
-                          onTap: () => context.push('/category/${category.id}'),
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: CachedNetworkImage(
-                                    imageUrl: category.imageUrl,
-                                    fit: BoxFit.cover,
-                                    placeholder: (_, __) => const Center(
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
+                    child: asyncCategories.when(
+                      loading: () => const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      error: (_, __) => const Center(
+                        child: Text('Erro ao carregar categorias'),
+                      ),
+                      data: (cats) {
+                        if (cats.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'Nenhuma categoria ainda',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: cats.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final category = cats[index];
+                            return GestureDetector(
+                              onTap: () =>
+                                  context.push('/category/${category.id}'),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 70,
+                                    height: 70,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border:
+                                          Border.all(color: AppColors.border),
                                     ),
-                                    errorWidget: (_, __, ___) => Center(
-                                      child: Text(
-                                        category.icon,
-                                        style: const TextStyle(fontSize: 28),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: category.imageUrl.isNotEmpty
+                                          ? CachedNetworkImage(
+                                              imageUrl: category.imageUrl,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) =>
+                                                  const Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                              errorWidget: (_, __, ___) =>
+                                                  Center(
+                                                child: Text(
+                                                  category.icon,
+                                                  style: const TextStyle(
+                                                    fontSize: 28,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          : Center(
+                                              child: Text(
+                                                category.icon,
+                                                style: const TextStyle(
+                                                  fontSize: 28,
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  SizedBox(
+                                    width: 70,
+                                    child: Text(
+                                      category.name,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                category.name,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -177,7 +223,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
@@ -194,7 +240,6 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
               ],
             );
           },
@@ -209,7 +254,6 @@ class _BannerSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // Navega para a tela de produtos com desconto
         context.push('/discounted');
       },
       child: Container(
