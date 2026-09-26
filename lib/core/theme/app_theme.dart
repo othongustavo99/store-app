@@ -20,7 +20,11 @@ class AppTheme {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         centerTitle: true,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 18,

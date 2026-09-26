@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
+import '../widgets/product_card.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/product.dart';
 import '../../../providers/product_providers.dart';
@@ -65,6 +65,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             body: const Center(child: Text('Produto não encontrado')),
           );
         }
+
+        // Produtos da mesma categoria (exceto o atual), máx. 8
+        final similar = all
+            .where((p) =>
+                p.categoryId == product!.categoryId && p.id != product.id)
+            .take(8)
+            .toList();
 
         final colors = product.availableColors;
         final sizes = product.availableSizes;
@@ -389,6 +396,45 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               ],
                             ),
                             const SizedBox(height: 40),
+
+                            // ========== ITENS SEMELHANTES ==========
+                            if (similar.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Itens semelhantes',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 260,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  itemCount: similar.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 12),
+                                  itemBuilder: (context, index) {
+                                    final item = similar[index];
+                                    return SizedBox(
+                                      width: 160,
+                                      child: ProductCard(product: item),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
                           ],
                         ),
                       ),
@@ -424,21 +470,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                           quantity: quantity,
                                         );
 
-                                    ScaffoldMessenger.of(context)
-                                        .hideCurrentSnackBar();
+                                    // Garante que qualquer SnackBar anterior suma
+                                    final messenger =
+                                        ScaffoldMessenger.of(context);
+                                    messenger.clearSnackBars();
 
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    messenger.showSnackBar(
                                       SnackBar(
                                         content: const Text(
-                                          'Produto adicionado ao carrinho!',
-                                        ),
-                                        duration: const Duration(seconds: 3),
+                                            'Produto adicionado ao carrinho!'),
+                                        duration: const Duration(seconds: 2),
                                         backgroundColor: AppColors.success,
                                         behavior: SnackBarBehavior.floating,
+                                        margin: const EdgeInsets.fromLTRB(
+                                            16, 0, 16, 90),
                                         action: SnackBarAction(
                                           label: 'Ver carrinho',
                                           textColor: Colors.white,
-                                          onPressed: () => context.go('/cart'),
+                                          onPressed: () {
+                                            messenger.hideCurrentSnackBar();
+                                            // Fora do shell → go troca para a aba do carrinho
+                                            context.go('/cart');
+                                          },
                                         ),
                                       ),
                                     );

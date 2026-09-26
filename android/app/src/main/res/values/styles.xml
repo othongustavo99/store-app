@@ -7,20 +7,12 @@
             @drawable/launch_background
         </item>
 
-        <item name="android:windowOptOutEdgeToEdgeEnforcement">
-            true
-        </item>
-
     </style>
 
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
 
         <item name="android:windowBackground">
             ?android:colorBackground
-        </item>
-
-        <item name="android:windowOptOutEdgeToEdgeEnforcement">
-            true
         </item>
 
     </style>

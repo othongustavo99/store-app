@@ -31,10 +31,11 @@ class ProductRepository {
   }
 
   Future<Product> addProduct(Product product) async {
-    final id = _uuid.v4();
+    // Usa o id já gerado (ex.: antes do upload de mídia) ou cria um novo
+    final id = product.id.isNotEmpty ? product.id : _uuid.v4();
     final newProduct = product.copyWith(
       id: id,
-      createdAt: DateTime.now(),
+      createdAt: product.createdAt,
     );
     await _col.doc(id).set(newProduct.toJson());
     return newProduct;

@@ -8,26 +8,46 @@ import 'providers/product_providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ============================================================
+  // BARRA SUPERIOR DO ANDROID
+  // ============================================================
+  // Deixa a barra de notificações/status transparente
+  // e coloca os ícones em preto.
+  //
+  // A barra inferior continua branca com ícones pretos.
+  // ============================================================
+
   await SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.manual,
-    overlays: SystemUiOverlay.values,
+    SystemUiMode.edgeToEdge,
   );
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Colors.white,
+      // Barra superior transparente
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+
+      // Barra inferior
       systemNavigationBarColor: Colors.white,
       systemNavigationBarIconBrightness: Brightness.dark,
       systemNavigationBarDividerColor: Colors.transparent,
     ),
   );
 
+  // ============================================================
+  // FIREBASE
+  // ============================================================
+
   try {
     await Firebase.initializeApp();
   } catch (e) {
     debugPrint('Erro ao inicializar Firebase: $e');
   }
+
+  // ============================================================
+  // RIVERPOD
+  // ============================================================
 
   final container = ProviderContainer();
 
@@ -37,6 +57,10 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Erro ao carregar produtos iniciais: $e');
   }
+
+  // ============================================================
+  // APLICATIVO
+  // ============================================================
 
   runApp(
     UncontrolledProviderScope(
