@@ -26,6 +26,39 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
+	<!-- Google Sign-In (obrigatório) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1028372334457-g1q00htn18f18o5h3ljs2vd61463copk</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Permissões (image_picker) -->
+	<key>NSCameraUsageDescription</key>
+	<string>Precisamos da câmera para você tirar fotos dos produtos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Precisamos acessar suas fotos para selecionar imagens dos produtos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Precisamos salvar imagens na sua galeria.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Precisamos do microfone caso você grave vídeos dos produtos.</string>
+
+	<!-- Queries necessárias para Google Sign-In -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>googlegmail</string>
+		<string>googlechrome</string>
+		<string>googlechromes</string>
+		<string>googlechrome-x-callback</string>
+	</array>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
