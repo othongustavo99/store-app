@@ -16,6 +16,7 @@ import '../features/client/checkout/checkout_screen.dart';
 import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/cart_providers.dart';
+import '../features/client/chat/chat_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Observa o auth para o redirect reagir ao login/logout
@@ -51,6 +52,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const AdminLoginScreen(),
+      ),
+
+      GoRoute(
+        path: '/chat',
+        builder: (context, state) => const ChatScreen(),
       ),
 
       // ========== ÁREA DO CLIENTE ==========

@@ -51,6 +51,11 @@ class HomeScreen extends ConsumerWidget {
                       onPressed: () => context.push('/search'),
                     ),
                     IconButton(
+                      icon: const Icon(Icons.chat_outlined),
+                      tooltip: 'Chat com a loja',
+                      onPressed: () => context.push('/chat'),
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.logout),
                       tooltip: 'Sair',
                       onPressed: () async {
