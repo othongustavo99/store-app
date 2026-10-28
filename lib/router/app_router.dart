@@ -25,6 +25,8 @@ import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/cart_providers.dart';
 import '../features/client/chat/chat_screen.dart';
+import '../features/support/railway_support_screen.dart';
+import '../features/support/railway_support_conversation_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Observa o auth para o redirect reagir ao login/logout
@@ -64,7 +66,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/chat',
-        builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const ChatScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RailwaySupportScreen(admin: false) : const ChatScreen(),
+      ),
+
+      GoRoute(
+        path: '/support',
+        builder: (context, state) => LojaBackend.isRailway
+            ? const RailwaySupportScreen(admin: false) : const ChatScreen(),
+      ),
+      GoRoute(
+        path: '/support/ticket/:id',
+        builder: (context, state) => LojaBackend.isRailway
+            ? RailwaySupportConversationScreen(
+                ticketId: state.pathParameters['id']!, admin: false)
+            : const RemotePendingScreen(),
+      ),
+      GoRoute(
+        path: '/admin/support',
+        builder: (context, state) => LojaBackend.isRailway
+            ? const RailwaySupportScreen(admin: true) : const RemotePendingScreen(),
+      ),
+      GoRoute(
+        path: '/admin/support/ticket/:id',
+        builder: (context, state) => LojaBackend.isRailway
+            ? RailwaySupportConversationScreen(
+                ticketId: state.pathParameters['id']!, admin: true)
+            : const RemotePendingScreen(),
       ),
 
       // ========== ÁREA DO CLIENTE ==========

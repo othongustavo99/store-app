@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/network/loja_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
+import '../../support/railway_order_timeline_dialog.dart';
 import '../../../data/repositories/railway_order_repository.dart';
 
 class RailwayAdminOrdersScreen extends ConsumerStatefulWidget {
@@ -56,6 +58,13 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
                 Text('Cliente: ${(o['customerContact'] as Map)['name'] ?? 'Não informado'} • '
                     '${(o['customerContact'] as Map)['phone'] ?? 'Sem telefone'}'),
               for(final line in(o['items'] as List? ?? const[])) Text('${line['quantity']}× ${line['name']}'),
+              Wrap(spacing: 8, children: [
+                TextButton.icon(onPressed: () => showRailwayOrderTimeline(context,
+                    orderId: o['id'].toString(), admin: true),
+                    icon: const Icon(Icons.timeline),label: const Text('Histórico')),
+                TextButton.icon(onPressed: () => context.push('/admin/support'),
+                    icon: const Icon(Icons.support_agent_outlined),label: const Text('Atendimentos')),
+              ]),
               if(status=='PAYMENT_REVIEW')const Text('ALERTA: pagamento precisa de revisão manual.'),
               if(next!=null)FilledButton(
                 onPressed:_busy==o['id']?null:()=>_advance(o['id'].toString(),next),

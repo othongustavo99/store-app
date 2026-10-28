@@ -4,6 +4,8 @@ import '../../../core/network/loja_api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
+import '../../support/railway_order_timeline_dialog.dart';
 import '../../../data/repositories/railway_order_repository.dart';
 
 class RailwayOrdersScreen extends ConsumerStatefulWidget {
@@ -51,6 +53,14 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
               Text('Total: ${_money.format(total)}  •  Retirada na loja'),
               for(final line in (order['items'] as List? ?? const []))
                 Text('${line['quantity']}× ${line['name']}',maxLines:2,overflow:TextOverflow.ellipsis),
+              Wrap(spacing: 8, children: [
+                TextButton.icon(onPressed: () => showRailwayOrderTimeline(context,
+                    orderId: order['id'].toString(), admin: false),
+                    icon: const Icon(Icons.timeline),label: const Text('Acompanhar')),
+                TextButton.icon(onPressed: () => context.push('/support'),
+                    icon: const Icon(Icons.support_agent_outlined),
+                    label: const Text('Preciso de ajuda')),
+              ]),
               if(status=='PENDING_PAYMENT') TextButton.icon(
                 onPressed:() async {
                   try {

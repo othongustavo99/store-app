@@ -10,6 +10,8 @@ import { ApiError } from './security/errors.js';
 import { commerceRoutes } from './routes/commerce.js';
 import { inventoryRoutes } from './routes/inventory.js';
 import { teamRoutes } from './routes/team.js';
+import { supportRoutes } from './routes/support.js';
+import { fulfillmentRoutes } from './routes/fulfillment.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -58,6 +60,8 @@ export async function buildApp() {
   await app.register(commerceRoutes);
   await app.register(inventoryRoutes);
   await app.register(teamRoutes);
+  await app.register(supportRoutes);
+  await app.register(fulfillmentRoutes);
   await startCatalogListener(app);
   return app;
 }

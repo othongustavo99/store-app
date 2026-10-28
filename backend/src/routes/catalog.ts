@@ -44,6 +44,8 @@ const catalogEvents = new EventEmitter();
 catalogEvents.setMaxListeners(0);
 export const orderEvents = new EventEmitter();
 orderEvents.setMaxListeners(0);
+export const supportEvents = new EventEmitter();
+supportEvents.setMaxListeners(0);
 
 // Uma conexão LISTEN dedicada por instância; PostgreSQL distribui entre réplicas.
 export async function startCatalogListener(app: FastifyInstance): Promise<void> {
@@ -57,6 +59,15 @@ export async function startCatalogListener(app: FastifyInstance): Promise<void> 
       listeningClient = client;
       client.on('notification', (msg) => {
         if (msg.channel === 'loja_catalog_changed' && msg.payload) catalogEvents.emit(msg.payload);
+        if (msg.channel === 'loja_support_changed' && msg.payload) {
+          try {
+            const evt = JSON.parse(msg.payload) as { storeId?: string; customerId?: string };
+            if (evt.storeId && evt.customerId) {
+              supportEvents.emit(`store:${evt.storeId}`);
+              supportEvents.emit(`user:${evt.storeId}:${evt.customerId}`);
+            }
+          } catch { app.log.warn('Evento de atendimento inválido'); }
+        }
         if (msg.channel === 'loja_order_changed' && msg.payload) {
           try {
             const evt = JSON.parse(msg.payload) as { storeId?: string; customerId?: string };
@@ -75,6 +86,7 @@ export async function startCatalogListener(app: FastifyInstance): Promise<void> 
       client.on('error', onError);
       await client.query('LISTEN loja_catalog_changed');
       await client.query('LISTEN loja_order_changed');
+      await client.query('LISTEN loja_support_changed');
     } catch (e) {
       app.log.warn({ err: String(e) }, 'Não foi possível iniciar LISTEN de catálogo');
       if (listeningClient) { listeningClient.release(true); listeningClient = null; }

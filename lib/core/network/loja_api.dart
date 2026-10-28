@@ -214,4 +214,36 @@ class LojaApi {
     }
   }
 
+  /// Atendimento: somente sinal de alteração, nunca textos privados via SSE.
+  /// Cada reconexão força nova leitura. Os tokens não são enviados pela URL.
+  Stream<int> supportChanges({required bool admin}) async* {
+    while (true) {
+      try {
+        if (_accessToken == null && !await _refresh()) {
+          throw const LojaApiException('Entre para acompanhar atendimentos.', 401);
+        }
+        if (admin) await fetchStoreId();
+        final path = admin
+            ? '/v1/stores/$storeId/support/events'
+            : '/v1/shops/${LojaBackend.storeSlug}/support/events';
+        final req = http.Request('GET', _uri(path));
+        req.headers['Authorization'] = 'Bearer $_accessToken';
+        req.headers['Accept'] = 'text/event-stream';
+        final response = await _http.send(req).timeout(const Duration(seconds: 15));
+        if (response.statusCode == 401) {
+          if (!await _refresh()) throw const LojaApiException('Sessão encerrada.', 401);
+          continue;
+        }
+        if (response.statusCode != 200) {
+          throw LojaApiException('Eventos indisponíveis (${response.statusCode}).');
+        }
+        await for (final line in response.stream.transform(utf8.decoder)
+            .transform(const LineSplitter())) {
+          if (line.startsWith('data:')) yield 1;
+        }
+      } catch (_) { /* A leitura completa é refeita após a reconexão. */ }
+      await Future<void>.delayed(const Duration(seconds: 4));
+    }
+  }
+
 }

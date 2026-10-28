@@ -69,6 +69,13 @@ class RailwayOrderRepository {
     return Map<String, dynamic>.from(response['order'] as Map);
   }
 
+  Future<Map<String, dynamic>> timeline(String orderId, {required bool admin}) async {
+    final path = admin
+        ? '/v1/stores/${await _api.fetchStoreId()}/orders/$orderId/timeline'
+        : '/v1/shops/${LojaBackend.storeSlug}/orders/$orderId/timeline';
+    return _api.request('GET', path, authenticated: true);
+  }
+
   List<Map<String, dynamic>> _list(Map<String, dynamic> data) =>
       (data['orders'] as List? ?? const [])
           .map((e) => Map<String, dynamic>.from(e as Map)).toList();
