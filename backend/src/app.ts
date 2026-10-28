@@ -27,8 +27,11 @@ export async function buildApp() {
     if (error instanceof ApiError) {
       return reply.code(error.statusCode).send({ error: 'REQUEST_FAILED', message: error.message, requestId: request.id });
     }
-    if ('statusCode' in error && typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 500) {
-      return reply.code(error.statusCode).send({ error: 'INVALID_REQUEST', message: 'Requisição inválida.', requestId: request.id });
+    const statusCode = typeof error === 'object' && error !== null
+      && 'statusCode' in error && typeof error.statusCode === 'number'
+      ? error.statusCode : undefined;
+    if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500) {
+      return reply.code(statusCode).send({ error: 'INVALID_REQUEST', message: 'Requisição inválida.', requestId: request.id });
     }
     request.log.error({ err: error }, 'Falha interna da API');
     return reply.code(500).send({ error: 'INTERNAL_ERROR', message: 'Não foi possível concluir a operação.', requestId: request.id });
