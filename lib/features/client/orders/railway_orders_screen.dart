@@ -95,6 +95,12 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                   }
                 },
                 icon:const Icon(Icons.open_in_new),label:const Text('Retomar pagamento')),
+              if(order['refundOperation'] is Map) ...[
+                Text(order['refundOperation']['status']=='CONFIRMED'
+                    ? 'Reembolso integral confirmado pelo Mercado Pago.'
+                    : 'Reembolso em conferência. Aguarde a loja antes de solicitar outra operação.',
+                  style:Theme.of(context).textTheme.bodySmall),
+              ],
               if(status=='PAYMENT_REVIEW') const Text(
                 'Pagamento em análise. Contate a loja; não faça um segundo pagamento.'),
             ])));

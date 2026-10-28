@@ -40,3 +40,37 @@ class RailwayAfterSalesRepository {
       entry['id'] == store && (entry['role'] == 'OWNER' || entry['role'] == 'MANAGER'));
   }
 }
+
+/// Operações financeiras exclusivas do proprietário, autorizadas novamente no servidor.
+/// Nenhuma credencial Mercado Pago é transmitida ao aplicativo.
+class RailwayRefundRepository {
+  final LojaApi _api = LojaApi.instance;
+
+  Future<bool> canRefund() async {
+    final id = await _api.fetchStoreId();
+    final r = await _api.request('GET', '/v1/stores/mine', authenticated: true);
+    return (r['stores'] as List? ?? const []).any((e) =>
+      e is Map && e['id'] == id && e['role'] == 'OWNER');
+  }
+
+  Future<Map<String,dynamic>> list() async {
+    final id = await _api.fetchStoreId();
+    return await _api.request('GET', '/v1/stores/$id/refunds', authenticated: true);
+  }
+
+  Future<Map<String,dynamic>> execute(String caseId) async {
+    final id = await _api.fetchStoreId();
+    return await _api.request('POST',
+      '/v1/stores/$id/after-sales/requests/$caseId/refund',
+      authenticated: true, body: {
+        'confirmation': 'REEMBOLSAR', 'confirmStockHandled': true,
+      });
+  }
+
+  Future<Map<String,dynamic>> reconcile(String caseId) async {
+    final id = await _api.fetchStoreId();
+    return await _api.request('POST',
+      '/v1/stores/$id/after-sales/requests/$caseId/refund/reconcile',
+      authenticated: true, body: const {});
+  }
+}

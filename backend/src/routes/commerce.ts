@@ -74,7 +74,10 @@ async function orderView(id:string, storeId:string) {
       SELECT 1 FROM after_sales_requests a WHERE a.order_id=o.id
         AND a.request_type='CANCEL' AND a.status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')
     ) THEN p.checkout_url ELSE NULL END AS "checkoutUrl",
-    p.status AS "paymentStatus"
+    p.status AS "paymentStatus",
+    (SELECT json_build_object('status',r.status,'amountCents',r.amount_cents::text,
+      'confirmedAt',r.confirmed_at) FROM payment_refund_operations r
+      WHERE r.order_id=o.id LIMIT 1) AS "refundOperation"
     FROM orders o LEFT JOIN payments p ON p.order_id=o.id AND p.provider='mercadopago'
     WHERE o.id=$1 AND o.store_id=$2`,[id,storeId]);
   if (!found.rowCount) throw new ApiError(404,'Pedido não encontrado.');
@@ -286,13 +289,22 @@ async function applyPayment(paymentId:string) {
         await client.query(`INSERT INTO order_events(order_id,store_id,status,notes)
           VALUES($1,$2,'PAYMENT_REVIEW','Pagamento tardio; conferir ressarcimento/estoque')`,[orderId,order.store_id]);
       }
+      // Pagamento aprovado (webhook atrasado) não pode reverter um reembolso confirmado.
+      const confirmedRefund=await client.query(`SELECT 1 FROM payment_refund_operations
+        WHERE order_id=$1 AND status='CONFIRMED'`,[orderId]);
       await client.query(`UPDATE payments SET status=$2,gateway_payment_id=$3,updated_at=now() WHERE order_id=$1`,
-        [orderId,['PAID','PREPARING','SHIPPED','DELIVERED','REFUNDED'].includes(order.status)?'APPROVED':
+        [orderId,confirmedRefund.rowCount?'REFUNDED':
+          ['PAID','PREPARING','SHIPPED','DELIVERED'].includes(order.status)?'APPROVED':
           order.status==='PENDING_PAYMENT' && order.reservation_expires_at && order.reservation_expires_at.getTime()>Date.now()?'APPROVED':'REVIEW',paymentId]);
     } else if (status==='refunded' || status==='charged_back') {
-      // Não repor estoque automaticamente sem validar a devolução física.
-      await client.query("UPDATE orders SET status='PAYMENT_REVIEW',updated_at=now() WHERE id=$1 AND status NOT IN ('PAYMENT_REVIEW')",[orderId]);
-      await client.query("UPDATE payments SET status='REVIEW',gateway_payment_id=$2,updated_at=now() WHERE order_id=$1",[orderId,paymentId]);
+      // Nunca desfazer conciliação já CONFIRMADA. Outros estornos/chargebacks
+      // permanecem em revisão para evitar declarar devolução equivocadamente.
+      const confirmed=await client.query(`SELECT 1 FROM payment_refund_operations
+        WHERE order_id=$1 AND status='CONFIRMED' AND gateway_payment_id=$2`,[orderId,paymentId]);
+      if (!confirmed.rowCount || status==='charged_back') {
+        await client.query("UPDATE orders SET status='PAYMENT_REVIEW',updated_at=now() WHERE id=$1",[orderId]);
+        await client.query("UPDATE payments SET status='REVIEW',gateway_payment_id=$2,updated_at=now() WHERE order_id=$1",[orderId,paymentId]);
+      }
     } else if (['rejected','cancelled'].includes(status) && order.status==='PENDING_PAYMENT') {
       await releaseReserved(client,orderId,order.store_id,'Pagamento não aprovado',null);
       await client.query("UPDATE orders SET status='CANCELED',updated_at=now() WHERE id=$1",[orderId]);
@@ -390,7 +402,7 @@ export async function commerceRoutes(app:FastifyInstance) {
       if(order.store_id!==storeId) throw new ApiError(404,'Pedido não encontrado.');
       // Impede preparação/retirada enquanto houver contestação operacional ativa.
       const outstanding=await client.query(`SELECT 1 FROM after_sales_requests WHERE order_id=$1
-        AND request_type IN ('CANCEL','RETURN')
+        AND request_type IN ('CANCEL','RETURN','REFUND')
         AND status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')`,[orderId]);
       if(outstanding.rowCount) throw new ApiError(409,'Há uma solicitação de pós-venda em análise. Resolva-a antes de avançar o pedido.');
       const next:Record<string,string>={PAID:'PREPARING',PREPARING:'SHIPPED',SHIPPED:'DELIVERED'};

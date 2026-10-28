@@ -107,6 +107,11 @@ export async function afterSalesRoutes(app:FastifyInstance):Promise<void> {
       if(!current.rowCount)throw new ApiError(404,'Solicitação não encontrada.');
       if(!permittedTransition(current.rows[0].status,status))
         throw new ApiError(409,'Transição de solicitação inválida.');
+      // Uma operação financeira iniciada só pode concluir por confirmação no gateway.
+      const refund=await client.query(`SELECT 1 FROM payment_refund_operations
+        WHERE after_sales_id=$1 AND store_id=$2`,[caseId,storeId]);
+      if(refund.rowCount && current.rows[0].status!==status)
+        throw new ApiError(409,'Estorno em andamento ou confirmado. Use a conciliação financeira.');
       if(current.rows[0].status!==status){
         await client.query(`UPDATE after_sales_requests SET status=$3,staff_notes=$4,
           handled_by=$5,updated_at=now(),closed_at=CASE WHEN $3 IN ('REJECTED','CLOSED') THEN now() ELSE NULL END

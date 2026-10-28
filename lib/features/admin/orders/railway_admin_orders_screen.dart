@@ -8,6 +8,7 @@ import '../../support/railway_order_timeline_dialog.dart';
 import '../../../data/repositories/railway_order_repository.dart';
 import '../../../data/repositories/railway_after_sales_repository.dart';
 import '../../support/railway_after_sales_dialogs.dart';
+import '../../support/railway_refund_dialog.dart';
 
 class RailwayAdminOrdersScreen extends ConsumerStatefulWidget {
   const RailwayAdminOrdersScreen({super.key});
@@ -20,6 +21,9 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
   StreamSubscription<int>? _changes;
   String? _busy;
   bool _canReview = false;
+  bool _canRefund = false;
+  bool _refundsEnabled = false;
+  Map<String,Map<String,dynamic>> _refundByCase = {};
   final _money=NumberFormat.currency(locale:'pt_BR',symbol:'R\$');
   @override
   void initState(){
@@ -27,6 +31,10 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
     RailwayAfterSalesRepository().canReview().then((value) {
       if(mounted) setState(() => _canReview = value);
     }).catchError((Object _) { /* backend autoriza cada ação */ });
+    _reloadRefunds();
+    RailwayRefundRepository().canRefund().then((value) {
+      if(mounted)setState(()=>_canRefund=value);
+    }).catchError((Object _) {});
     _changes=LojaApi.instance.orderChanges(admin:true).listen((_) {
       if(mounted)setState(_fetch);
     });
@@ -34,7 +42,26 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
   @override
   void dispose(){_changes?.cancel();super.dispose();}
   void _fetch(){_items=_repo.adminOrders();}
-  Future<void> _refresh()async{setState(_fetch);await _items;}
+  Future<void> _reloadRefunds() async {
+    try {
+      final r=await RailwayRefundRepository().list();
+      final entries=<String,Map<String,dynamic>>{};
+      for(final item in (r['refunds'] as List? ?? const [])) {
+        if(item is Map){
+          final record=Map<String,dynamic>.from(item);
+          entries[record['caseId'].toString()]=record;
+        }
+      }
+      if(mounted)setState((){
+        _refundByCase=entries;
+        _refundsEnabled=r['enabled']==true;
+      });
+    }catch(_){/* O backend também valida permissão de todas as operações. */}
+  }
+  Future<void> _refresh()async{
+    setState(_fetch);
+    await Future.wait([_items, _reloadRefunds()]);
+  }
   Future<void> _advance(String id,String status) async {
     setState(()=>_busy=id);
     try{await _repo.changeStatus(id,status);if(mounted)await _refresh();}
@@ -58,7 +85,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
           final cases=(o['afterSalesRequests'] as List? ?? const [])
               .whereType<Map<String,dynamic>>().toList();
           final pending=cases.any((c)=>activeAfterSalesStatuses.contains(c['status']) &&
-              (c['type']=='CANCEL' || c['type']=='RETURN'));
+              (c['type']=='CANCEL' || c['type']=='RETURN' || c['type']=='REFUND'));
           return Card(margin:const EdgeInsets.all(8),child:Padding(padding:const EdgeInsets.all(12),child:
             Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
               Text('Pedido ${o['id'].toString().substring(0,8)} • ${_money.format(total)}',
@@ -77,15 +104,39 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
               ]),
               if(cases.isNotEmpty) for(final request in cases.take(3))
                 Padding(padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(children: [
-                    Expanded(child: Text('Pós-venda: ${afterSalesTypes[request['type']] ?? request['type']}'
+                  child: Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                    Text('Pós-venda: ${afterSalesTypes[request['type']] ?? request['type']}'
                       ' • ${afterSalesStatusNames[request['status']] ?? request['status']}'
-                      '\nMotivo: ${request['reason']}')),
-                    if(_canReview && activeAfterSalesStatuses.contains(request['status']))
-                      TextButton(onPressed: _busy != null ? null : () async {
-                        final changed=await showReviewAfterSalesRequest(context,request);
-                        if(changed && mounted) await _refresh();
-                      }, child: const Text('Analisar')),
+                      '\nMotivo: ${request['reason']}'),
+                    if(_refundByCase.containsKey(request['id']))
+                      Text('Estorno: ${_refundByCase[request['id']]?['status']}',
+                        style:Theme.of(context).textTheme.bodySmall),
+                    Wrap(spacing:8,children:[
+                      if(_canReview && activeAfterSalesStatuses.contains(request['status']) &&
+                          !_refundByCase.containsKey(request['id']))
+                        TextButton(onPressed:_busy!=null?null:() async {
+                          final changed=await showReviewAfterSalesRequest(context,request);
+                          if(changed && mounted)await _refresh();
+                        },child:const Text('Analisar')),
+                      if(_canRefund && _refundsEnabled && request['status']=='MANUAL_ACTION' &&
+                          !_refundByCase.containsKey(request['id']) &&
+                          ['PAID','PREPARING','SHIPPED','DELIVERED'].contains(status) &&
+                          o['paymentStatus']=='APPROVED')
+                        FilledButton.tonalIcon(onPressed:_busy!=null?null:() async {
+                          final amount=int.tryParse(o['totalCents'].toString())??0;
+                          final changed=await showRailwayRefundDialog(context,
+                            caseId:request['id'].toString(),amountCents:amount);
+                          if(changed && mounted)await _refresh();
+                        },icon:const Icon(Icons.currency_exchange),
+                          label:const Text('Reembolsar integralmente')),
+                      if(_canRefund && _refundByCase.containsKey(request['id']) &&
+                          _refundByCase[request['id']]?['status']!='CONFIRMED')
+                        OutlinedButton.icon(onPressed:_busy!=null?null:() async {
+                          final changed=await showRailwayRefundReconcileDialog(
+                            context,request['id'].toString());
+                          if(changed && mounted)await _refresh();
+                        },icon:const Icon(Icons.sync),label:const Text('Conciliar estorno')),
+                    ]),
                   ])),
               if(pending) const Padding(padding: EdgeInsets.symmetric(vertical: 4),
                   child: Text('Solicitação de cancelamento/devolução pendente. '

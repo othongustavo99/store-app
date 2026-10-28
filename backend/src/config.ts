@@ -14,6 +14,8 @@ const schema = z.object({
   ALLOW_STORE_SELF_SERVICE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   TRUST_PROXY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   ENABLE_REAL_PAYMENTS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  // Habilitação independente para estornos reais. Inicia sempre desativada.
+  ENABLE_REFUNDS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   // Proteção de piloto: um token do Mercado Pago NÃO pode receber por todas as lojas.
   PAYMENT_PILOT_STORE_ID: z.string().uuid().optional(),
   MERCADOPAGO_ACCESS_TOKEN: z.string().min(20).optional(),
