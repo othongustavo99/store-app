@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/config/app_environment.dart';
 import '../data/repositories/order_repository.dart';
 import '../models/order.dart';
 import '../models/product.dart';
@@ -40,6 +41,14 @@ class OrdersActions {
     required String paymentMethod,
     String? notes,
   }) async {
+    // Bloqueia a cobrança fictícia em builds distribuíveis.
+    // Na fase de pagamentos, isto será substituído por chamadas à API Railway.
+    if (!AppEnvironment.simulatedCheckoutEnabled) {
+      throw StateError(
+        'Checkout indisponível: aguardando a integração com pagamentos reais.',
+      );
+    }
+
     final cartItems = _ref.read(cartProvider);
 
     if (cartItems.isEmpty) {

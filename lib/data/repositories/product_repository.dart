@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/config/app_environment.dart';
+
 import '../../models/product.dart';
 import '../mock/mock_products.dart';
 
@@ -163,6 +165,7 @@ class ProductRepository {
   /// Seed inicial: só roda se a collection estiver vazia
 
   Future<void> seedIfEmpty() async {
+    AppEnvironment.requireDemoSeed();
     try {
       final snap = await _col.limit(1).get();
 
@@ -200,6 +203,7 @@ class ProductRepository {
   }
 
   Future<void> resetToMock() async {
+    AppEnvironment.requireDemoReset();
     final snap = await _col.get();
     for (final doc in snap.docs) {
       await doc.reference.delete();

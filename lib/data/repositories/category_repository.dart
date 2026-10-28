@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/config/app_environment.dart';
+
 import '../../models/category.dart';
 import '../mock/mock_categories.dart';
 
@@ -26,6 +28,7 @@ class CategoryRepository {
   }
 
   Future<void> seedIfEmpty() async {
+    AppEnvironment.requireDemoSeed();
     try {
       final snap = await _col.limit(1).get();
       if (snap.docs.isNotEmpty) return;

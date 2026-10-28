@@ -253,7 +253,7 @@ class Order {
         json['status'] as String? ?? 'received',
       ),
       paymentStatus: PaymentStatusExtension.fromString(
-        json['paymentStatus'] as String? ?? 'approved',
+        json['paymentStatus'] as String? ?? 'pending',
       ),
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()

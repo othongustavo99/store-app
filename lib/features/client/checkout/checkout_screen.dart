@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/saved_address.dart';
 import '../../../providers/address_providers.dart';
@@ -175,6 +176,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   // =========================
 
   Future<void> _continueToPayment() async {
+    if (!AppEnvironment.simulatedCheckoutEnabled) {
+      return;
+    }
+
     final isValid = _formKey.currentState?.validate() ?? false;
 
     if (!isValid) {
@@ -341,7 +346,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Seu pagamento foi aprovado e o pedido já foi enviado para a loja.',
+                'Pedido de teste criado. Nenhum pagamento real foi processado.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textSecondary,
@@ -423,9 +428,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Finalizar compra',
-        ),
+        title: const Text('Finalizar compra'),
+        bottom: !AppEnvironment.simulatedCheckoutEnabled
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(42),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(12, 0, 12, 10),
+                  child: Text(
+                    'Checkout temporariamente desativado até integrar pagamentos reais.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              )
+            : null,
       ),
       body: cartItems.isEmpty
           ? const Center(
@@ -982,7 +998,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _continueToPayment,
+                        onPressed: _isLoading ||
+                                !AppEnvironment.simulatedCheckoutEnabled
+                            ? null
+                            : _continueToPayment,
                         child: _isLoading
                             ? const SizedBox(
                                 width: 24,
@@ -993,7 +1012,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 ),
                               )
                             : Text(
-                                'Ir para pagamento • ${currency.format(total)}',
+                                AppEnvironment.simulatedCheckoutEnabled
+                                    ? 'Simular pagamento • ${currency.format(total)}'
+                                    : 'Pagamento indisponível nesta versão',
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,

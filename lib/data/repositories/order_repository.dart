@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:uuid/uuid.dart';
 
+import '../../core/config/app_environment.dart';
+
 import '../../models/cart_item.dart';
 import '../../models/order.dart';
 
@@ -30,6 +32,7 @@ class OrderRepository {
   }
 
   Future<void> clearAll() async {
+    AppEnvironment.requireDemoReset();
     final snap = await _col.get();
     for (final doc in snap.docs) {
       await doc.reference.delete();
@@ -48,7 +51,7 @@ class OrderRepository {
     required String city,
     required String state,
     required String paymentMethod,
-    PaymentStatus paymentStatus = PaymentStatus.approved,
+    PaymentStatus paymentStatus = PaymentStatus.pending,
     double shipping = 15.90,
     double discount = 0,
     String? notes,

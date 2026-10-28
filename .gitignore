@@ -46,3 +46,23 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Ambiente e credenciais locais (não enviar para Git)
+.env
+.env.*
+!.env.example
+!.env.*.example
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
+*.p12
+*.pem
+*.key
+
+# Backend Railway (Fase 1)
+**/node_modules/
+backend/dist/
+backend/coverage/
+backend/.env
+backend/.env.*
+!backend/.env.example

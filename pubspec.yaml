@@ -54,6 +54,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  assets:
-    - assets/images/
-    - assets/icons/
+  # Sem assets locais declarados nesta fase: essas pastas estão vazias.
+  # Registre aqui os caminhos quando imagens/ícones forem adicionados.

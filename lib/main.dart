@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:loja_roupas/providers/category_providers.dart';
+import 'core/config/app_environment.dart';
 import 'app.dart';
 import 'providers/product_providers.dart';
 
@@ -53,12 +54,15 @@ Future<void> main() async {
 
   final container = ProviderContainer();
 
-  // O seed não deve impedir o aplicativo de abrir.
-  try {
-    await container.read(productsActionsProvider).seedIfEmpty();
-    await container.read(categoryRepositoryProvider).seedIfEmpty();
-  } catch (e) {
-    debugPrint('Erro ao carregar produtos iniciais: $e');
+  // Nunca escreve produtos de exemplo automaticamente em produção.
+  // Para testes locais: flutter run --dart-define=ENABLE_DEMO_SEED=true
+  if (AppEnvironment.enableDemoSeed) {
+    try {
+      await container.read(productsActionsProvider).seedIfEmpty();
+      await container.read(categoryRepositoryProvider).seedIfEmpty();
+    } catch (e) {
+      debugPrint('Falha ao carregar dados de demonstração: $e');
+    }
   }
 
   // ============================================================

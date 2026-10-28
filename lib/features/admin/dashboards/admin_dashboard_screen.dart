@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/config/app_environment.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/order_metrics.dart';
 import '../../../models/order.dart';
 import '../../../providers/auth_providers.dart';
-import '../../../providers/cart_providers.dart';
 import '../../../providers/order_providers.dart';
 import '../../../providers/product_providers.dart';
 
@@ -26,9 +27,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         orders.where((o) => o.status == OrderStatus.received).length;
     final preparingOrders =
         orders.where((o) => o.status == OrderStatus.preparing).length;
-    final totalSales = orders
-        .where((o) => o.status != OrderStatus.cancelled)
-        .fold(0.0, (sum, o) => sum + o.total);
+    final totalSales = OrderMetrics.approvedRevenue(orders);
 
     final isLoading = asyncOrders.isLoading || asyncProducts.isLoading;
 
@@ -151,57 +150,53 @@ class AdminDashboardScreen extends ConsumerWidget {
                     onTap: () => context.go('/'),
                   ),
                   const SizedBox(height: 12),
-                  _ActionTile(
-                    icon: Icons.refresh,
-                    title: 'Resetar Demo',
-                    subtitle: 'Limpa pedidos e restaura estoque',
-                    color: AppColors.error,
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: const Text('Resetar Demo?'),
-                          content: const Text(
-                            'Isso vai apagar todos os pedidos e restaurar o estoque original dos produtos.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(dialogContext),
-                              child: const Text('Cancelar'),
+                  if (AppEnvironment.enableDemoReset) ...[
+                    _ActionTile(
+                      icon: Icons.refresh,
+                      title: 'Resetar Demo (somente teste local)',
+                      subtitle: 'Apaga pedidos e restaura produtos fictícios',
+                      color: AppColors.error,
+                      onTap: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Resetar dados de demonstração?'),
+                            content: const Text(
+                              'Atenção: esta ação apaga TODOS os pedidos da base '
+                              'conectada e substitui TODOS os produtos. '
+                              'Use somente um projeto Firebase de TESTE.',
                             ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.error,
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(dialogContext, false),
+                                child: const Text('Cancelar'),
                               ),
-                              onPressed: () async {
-                                await ref
-                                    .read(ordersActionsProvider)
-                                    .clearAll();
-                                await ref.read(productsActionsProvider).reset();
-                                ref.read(cartProvider.notifier).clear();
-
-                                if (dialogContext.mounted) {
-                                  Navigator.pop(dialogContext);
-                                }
-
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content:
-                                          Text('Demo resetada com sucesso!'),
-                                      backgroundColor: AppColors.success,
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                }
-                              },
-                              child: const Text('Resetar'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                              ElevatedButton(
+                                onPressed: () => Navigator.pop(dialogContext, true),
+                                child: const Text('Confirmar reset'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirmed != true) return;
+                        try {
+                          await ref.read(ordersActionsProvider).clearAll();
+                          await ref.read(productsActionsProvider).reset();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Demo resetada.')),
+                            );
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Falha ao resetar a demo.')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
 
                   const SizedBox(height: 32),
 
