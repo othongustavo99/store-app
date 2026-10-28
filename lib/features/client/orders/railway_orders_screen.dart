@@ -53,8 +53,13 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
           return Card(margin:const EdgeInsets.symmetric(horizontal:12,vertical:6),child:Padding(
             padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
               Text('Pedido ${order['id'].toString().substring(0,8)}',style:Theme.of(context).textTheme.titleMedium),
-              Text(_label(status)),
-              Text('Total: ${_money.format(total)}  •  Retirada na loja'),
+              Text(_label(status, delivery: order['fulfillment']=='DELIVERY')),
+              Text('Total: ${_money.format(total)}  •  ${order['fulfillment']=='DELIVERY'?'Entrega':'Retirada na loja'}'),
+              if(order['fulfillment']=='DELIVERY') ...[
+                Text('Transportadora: ${order['shippingCarrier'] ?? 'A definir'}'),
+                if(order['shipment'] is Map && (order['shipment'] as Map)['trackingCode'] != null)
+                  Text('Rastreio: ${(order['shipment'] as Map)['trackingCode']} (informado pela loja)'),
+              ],
               for(final line in (order['items'] as List? ?? const []))
                 Text('${line['quantity']}× ${line['name']}',maxLines:2,overflow:TextOverflow.ellipsis),
               Wrap(spacing: 8, children: [
@@ -109,10 +114,10 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
     }),
   );
 
-  String _label(String v) => switch(v){
+  String _label(String v, {bool delivery=false}) => switch(v){
     'PENDING_PAYMENT'=>'Aguardando pagamento', 'PAID'=>'Pago',
-    'PREPARING'=>'Preparando','SHIPPED'=>'Pronto para retirada',
-    'DELIVERED'=>'Concluído','CANCELED'=>'Cancelado',
+    'PREPARING'=>'Preparando','SHIPPED'=>delivery?'Envio postado':'Pronto para retirada',
+    'DELIVERED'=>delivery?'Entregue':'Concluído','CANCELED'=>'Cancelado',
     'REFUNDED'=>'Reembolsado','PAYMENT_REVIEW'=>'Pagamento em revisão',_=>v,
   };
 }

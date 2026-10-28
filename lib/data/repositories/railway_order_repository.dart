@@ -22,13 +22,20 @@ class RailwayOrderRepository {
     required String customerName,
     required String customerPhone,
     required String idempotencyKey,
+    String fulfillment = 'PICKUP',
+    String? quoteId,
+    String? serviceId,
+    Map<String,String>? address,
   }) async {
     final result = await _api.request(
       'POST', '/v1/shops/${LojaBackend.storeSlug}/checkout/orders',
       authenticated: true,
       body: {
         'idempotencyKey': idempotencyKey,
-        'fulfillment': 'PICKUP',
+        'fulfillment': fulfillment,
+        if(fulfillment == 'DELIVERY') 'shipping': {
+          'quoteId': quoteId, 'serviceId': serviceId, 'address': address,
+        },
         'customer': {'name': customerName.trim(), 'phone': customerPhone.trim()},
         'items': cart.map((c) => {
           'productId': c.product.id,

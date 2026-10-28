@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../data/repositories/railway_order_repository.dart';
 
-String _statusLabel(String code) => switch (code) {
+String _statusLabel(String code, bool delivery) => switch (code) {
   'PENDING_PAYMENT' => 'Pedido criado • aguardando pagamento',
   'PAID' => 'Pagamento confirmado',
   'PREPARING' => 'Separando seu pedido',
-  'SHIPPED' => 'Pedido pronto para retirada',
-  'DELIVERED' => 'Retirada concluída',
+  'SHIPPED' => delivery ? 'Postado para entrega (informado pela loja)' : 'Pedido pronto para retirada',
+  'DELIVERED' => delivery ? 'Entrega concluída (informada pela loja)' : 'Retirada concluída',
   'PAYMENT_REVIEW' => 'Pagamento em análise',
   'CANCELED' => 'Pedido cancelado',
   'REFUNDED' => 'Pedido reembolsado',
@@ -35,12 +35,12 @@ Future<void> showRailwayOrderTimeline(BuildContext context, {
         return ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 500),
           child: ListView(children: [
-            Text('Modalidade: ${order['fulfillment'] == 'PICKUP' ? 'Retirada na loja' : 'Consultar a loja'}'),
+            Text('Modalidade: ${order['fulfillment'] == 'PICKUP' ? 'Retirada na loja' : 'Entrega por transportadora'}'),
             const SizedBox(height: 12),
             for (final event in history)
               ListTile(
                 leading: const Icon(Icons.check_circle_outline),
-                title: Text(_statusLabel(event['status']?.toString() ?? '')),
+                title: Text(_statusLabel(event['status']?.toString() ?? '', order['fulfillment']=='DELIVERY')),
                 subtitle: Text([
                   if ((event['notes']?.toString() ?? '').isNotEmpty)
                     event['notes'].toString(),

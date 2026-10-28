@@ -9,6 +9,7 @@ import '../../../data/repositories/railway_order_repository.dart';
 import '../../../data/repositories/railway_after_sales_repository.dart';
 import '../../support/railway_after_sales_dialogs.dart';
 import '../../support/railway_refund_dialog.dart';
+import '../shipping/railway_shipment_dialog.dart';
 
 class RailwayAdminOrdersScreen extends ConsumerStatefulWidget {
   const RailwayAdminOrdersScreen({super.key});
@@ -80,6 +81,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
       return RefreshIndicator(onRefresh:_refresh,child:ListView.builder(
         physics:const AlwaysScrollableScrollPhysics(),itemCount:orders.length,itemBuilder:(context,i){
           final o=orders[i];final status=o['status']?.toString()??'';
+          final delivery=o['fulfillment']=='DELIVERY';
           final next=switch(status){'PAID'=>'PREPARING','PREPARING'=>'SHIPPED','SHIPPED'=>'DELIVERED',_=>null};
           final total=(int.tryParse(o['totalCents'].toString())??0)/100;
           final cases=(o['afterSalesRequests'] as List? ?? const [])
@@ -91,6 +93,16 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
               Text('Pedido ${o['id'].toString().substring(0,8)} • ${_money.format(total)}',
                   style:Theme.of(context).textTheme.titleMedium),
               Text('Status: $status'),
+              if(delivery) ...[
+                Text('Transportadora: ${o['shippingCarrier'] ?? 'A definir'}'),
+                if(o['customerContact'] is Map) Text('Destino: ${(o['customerContact'] as Map)['street'] ?? ''}, '
+                  '${(o['customerContact'] as Map)['number'] ?? ''} - '
+                  '${(o['customerContact'] as Map)['city'] ?? ''} / '
+                  '${(o['customerContact'] as Map)['state'] ?? ''}, '
+                  'CEP ${(o['customerContact'] as Map)['postalCode'] ?? ''}'),
+                if(o['shipment'] is Map) Text('Rastreio: ${(o['shipment'] as Map)['trackingCode'] ?? ''} '
+                  '(informado pela loja)'),
+              ],
               if(o['customerContact'] is Map)
                 Text('Cliente: ${(o['customerContact'] as Map)['name'] ?? 'Não informado'} • '
                     '${(o['customerContact'] as Map)['phone'] ?? 'Sem telefone'}'),
@@ -142,7 +154,19 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
                   child: Text('Solicitação de cancelamento/devolução pendente. '
                       'Resolva antes de avançar o pedido.')),
               if(status=='PAYMENT_REVIEW')const Text('ALERTA: pagamento precisa de revisão manual.'),
-              if(next!=null && !pending)FilledButton(
+              if(delivery && !pending && status=='PREPARING')
+                OutlinedButton.icon(onPressed:_busy!=null?null:() async {
+                  final changed=await showRailwayShipmentDialog(context,
+                    orderId:o['id'].toString(),alreadyShipped:false);
+                  if(changed && mounted)await _refresh();
+                },icon:const Icon(Icons.local_shipping_outlined),label:const Text('Registrar postagem')),
+              if(delivery && !pending && status=='SHIPPED')
+                OutlinedButton.icon(onPressed:_busy!=null?null:() async {
+                  final changed=await showRailwayShipmentDialog(context,
+                    orderId:o['id'].toString(),alreadyShipped:true);
+                  if(changed && mounted)await _refresh();
+                },icon:const Icon(Icons.task_alt_outlined),label:const Text('Confirmar entrega')),
+              if(next!=null && !pending && (!delivery || next=='PREPARING'))FilledButton(
                 onPressed:_busy==o['id']?null:()=>_advance(o['id'].toString(),next),
                 child:Text(switch(next){'PREPARING'=>'Iniciar preparação','SHIPPED'=>'Pronto para retirada',_=>'Concluir pedido'})),
             ])));

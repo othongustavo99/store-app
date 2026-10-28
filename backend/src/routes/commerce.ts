@@ -9,6 +9,7 @@ import { ApiError } from '../security/errors.js';
 import { uuidParam, validated } from '../security/validation.js';
 import { verifyMercadoPagoSignature } from '../security/payment_signature.js';
 import { orderEvents } from './catalog.js';
+import { cartFingerprint, type ParcelItem, type ShippingService } from '../services/shipping_rules.js';
 
 const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48);
 const shopParams = z.object({ slug });
@@ -22,6 +23,15 @@ const item = z.object({
   size: z.string().min(1).max(50),
   quantity: z.number().int().min(1).max(20),
 }).strict();
+const deliveryAddress = z.object({
+  postalCode: z.string().regex(/^\d{8}$/),
+  street: z.string().trim().min(3).max(150),
+  number: z.string().trim().min(1).max(30),
+  complement: z.string().trim().max(100).default(''),
+  neighborhood: z.string().trim().min(2).max(100),
+  city: z.string().trim().min(2).max(100),
+  state: z.string().trim().regex(/^[A-Z]{2}$/),
+}).strict();
 const orderBody = z.object({
   idempotencyKey: uuidParam,
   items: z.array(item).min(1).max(30),
@@ -30,9 +40,12 @@ const orderBody = z.object({
     phone: z.string().trim().min(8).max(22),
   }).strict(),
   notes: z.string().trim().max(500).default(''),
-  // Nenhum frete fictício. A entrega será liberada com cotação e transportadora.
-  fulfillment: z.literal('PICKUP'),
-}).strict();
+  fulfillment: z.enum(['PICKUP','DELIVERY']),
+  shipping: z.object({quoteId:uuidParam,serviceId:z.string().regex(/^\d{1,10}$/),address:deliveryAddress}).strict().optional(),
+}).strict().superRefine((data,ctx)=>{
+  if ((data.fulfillment==='DELIVERY') !== !!data.shipping)
+    ctx.addIssue({code:z.ZodIssueCode.custom,path:['shipping'],message:'Entrega exige cotação e endereço; retirada não aceita frete.'});
+});
 const transitionBody = z.object({ status: z.enum(['PREPARING','SHIPPED','DELIVERED']), notes: z.string().trim().max(300).optional() }).strict();
 const webhookQuery = z.object({ 'data.id': z.coerce.string().regex(/^\d{1,30}$/) });
 
@@ -70,6 +83,11 @@ async function orderView(id:string, storeId:string) {
     o.total_cents::text AS "totalCents",o.fulfillment_method AS "fulfillment",
     o.reservation_expires_at AS "reservationExpiresAt",o.created_at AS "createdAt",
     o.shipping_address AS "customerContact",
+    o.shipping_service_id AS "shippingServiceId",
+    o.shipping_carrier AS "shippingCarrier",
+    o.shipping_delivery_days AS "shippingDeliveryDays",
+    (SELECT json_build_object('carrier',s.carrier,'trackingCode',s.tracking_code,'status',s.status)
+      FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS "shipment",
     CASE WHEN p.checkout_expires_at>now() AND NOT EXISTS (
       SELECT 1 FROM after_sales_requests a WHERE a.order_id=o.id
         AND a.request_type='CANCEL' AND a.status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')
@@ -147,13 +165,58 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
     }
     const subtotal=variants.reduce((total,{v,quantity})=>total+BigInt(v.price_cents)*BigInt(quantity),0n);
     if(subtotal<=0n || subtotal>100_000_000_00n) throw new ApiError(400,'Valor do pedido inválido.');
+    let shippingCents=0;
+    let selected:ShippingService|null=null;
+    let shippingAddress:Record<string,unknown>={name:body.customer.name,phone:body.customer.phone,notes:body.notes,fulfillment:'PICKUP'};
+    if(body.fulfillment==='DELIVERY'){
+      // Cotações sandbox nunca podem fundamentar uma cobrança real.
+      if(config.SHIPPING_MELHOR_ENVIO_SANDBOX)
+        throw new ApiError(409,'Frete em ambiente de teste: não é permitido cobrar entrega.');
+      const details=body.shipping!;
+      if(!config.SHIPPING_MELHOR_ENVIO_TOKEN || config.SHIPPING_PILOT_STORE_ID!==storeId ||
+          !config.SHIPPING_USER_AGENT) throw new ApiError(503,'Entrega não habilitada nesta loja.');
+      const quote=await client.query<{origin_postal_code:string;destination_postal_code:string;cart_hash:string;
+        services:ShippingService[];expires_at:Date}>(`
+        SELECT origin_postal_code,destination_postal_code,cart_hash,services,expires_at
+        FROM shipping_quotes WHERE id=$1 AND store_id=$2 AND customer_id=$3 FOR UPDATE`,
+        [details.quoteId,storeId,customerId]);
+      if(!quote.rowCount || quote.rows[0].expires_at.getTime()<=Date.now())
+        throw new ApiError(409,'Cotação vencida ou indisponível. Calcule o frete novamente.');
+      const q=quote.rows[0];
+      if(q.destination_postal_code!==details.address.postalCode)throw new ApiError(409,'CEP diferente da cotação.');
+      const origin=await client.query<{origin_postal_code:string}>(
+        'SELECT origin_postal_code FROM store_shipping_settings WHERE store_id=$1',[storeId]);
+      if(origin.rows[0]?.origin_postal_code!==q.origin_postal_code)
+        throw new ApiError(409,'A origem mudou. Calcule o frete novamente.');
+      const parcelItems:ParcelItem[]=[];
+      for(const {v,quantity} of variants){
+        const r=await client.query<{weight_kg:string;width_cm:string;height_cm:string;length_cm:string}>(`
+          SELECT weight_kg::text,width_cm::text,height_cm::text,length_cm::text
+          FROM shipping_variant_parcels WHERE variant_id=$1 AND store_id=$2 FOR SHARE`,[v.id,storeId]);
+        if(!r.rowCount)throw new ApiError(409,'Produto sem medidas para frete.');
+        const x=r.rows[0];
+        parcelItems.push({variantId:v.id,quantity,unitCents:v.price_cents,
+          weightKg:Number(x.weight_kg),widthCm:Number(x.width_cm),heightCm:Number(x.height_cm),lengthCm:Number(x.length_cm)});
+      }
+      if(cartFingerprint(q.origin_postal_code,q.destination_postal_code,parcelItems)!==q.cart_hash)
+        throw new ApiError(409,'Preços, pacotes ou produtos mudaram. Calcule o frete novamente.');
+      selected=q.services.find(o=>o.id===details.serviceId)??null;
+      if(!selected||!Number.isInteger(selected.priceCents)||selected.priceCents<=0)
+        throw new ApiError(409,'Modalidade de frete inválida.');
+      shippingCents=selected.priceCents;
+      shippingAddress={...details.address,name:body.customer.name,phone:body.customer.phone,
+        notes:body.notes,fulfillment:'DELIVERY'};
+    }
+    const total=subtotal+BigInt(shippingCents);
+    if(total>100_000_000_00n)throw new ApiError(400,'Total inválido.');
     const orderId=randomUUID();
     await client.query(`INSERT INTO orders(id,store_id,customer_id,idempotency_key,status,subtotal_cents,
-      total_cents,shipping_address,fulfillment_method,reservation_expires_at)
-      VALUES($1,$2,$3,$4,'PENDING_PAYMENT',$5,$5,$6::jsonb,'PICKUP',now()+interval '48 hours')`,
-      [orderId,storeId,customerId,body.idempotencyKey,subtotal.toString(),JSON.stringify({
-        name:body.customer.name, phone:body.customer.phone, notes:body.notes, fulfillment:'PICKUP'
-      })]);
+      shipping_cents,total_cents,shipping_address,fulfillment_method,reservation_expires_at,
+      shipping_service_id,shipping_carrier,shipping_delivery_days)
+      VALUES($1,$2,$3,$4,'PENDING_PAYMENT',$5,$6,$7,$8::jsonb,$9,now()+interval '48 hours',$10,$11,$12)`,
+      [orderId,storeId,customerId,body.idempotencyKey,subtotal.toString(),shippingCents,total.toString(),
+        JSON.stringify(shippingAddress),body.fulfillment,selected?.id??null,
+        selected?`${selected.carrier} - ${selected.name}`:null,selected?.deliveryDays??null]);
     for(const {v,quantity} of variants) {
       await client.query(`UPDATE product_variants SET reserved=reserved+$3,updated_at=now()
         WHERE id=$1 AND store_id=$2`,[v.id,storeId,quantity]);
@@ -165,7 +228,7 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
         VALUES($1,$2,$3,'RESERVATION',0,$4,$5)`,[storeId,v.id,customerId,orderId,`Reserva de ${quantity} un.`]);
     }
     await client.query(`INSERT INTO payments(order_id,store_id,provider,amount_cents,status)
-      VALUES($1,$2,'mercadopago',$3,'PENDING')`,[orderId,storeId,subtotal.toString()]);
+      VALUES($1,$2,'mercadopago',$3,'PENDING')`,[orderId,storeId,total.toString()]);
     await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
       VALUES($1,$2,$3,'PENDING_PAYMENT','Pedido criado com estoque reservado')`,[orderId,storeId,customerId]);
     await client.query('COMMIT');
@@ -206,10 +269,14 @@ async function checkoutUrl(orderId:string,storeId:string):Promise<string> {
       'SELECT product_name,quantity,unit_price_cents::text FROM order_items WHERE order_id=$1',[orderId]);
     const publicUrl=config.PUBLIC_BASE_URL!.replace(/\/$/,'');
     const checkoutExpiresAt=new Date(Date.now()+30*60_000);
+    const delivery=await client.query<{shipping_cents:string}>(
+      'SELECT shipping_cents::text FROM orders WHERE id=$1 AND store_id=$2',[orderId,storeId]);
+    const fee=Number(delivery.rows[0]?.shipping_cents??0);
     const preference=await mpFetch('/checkout/preferences',{
       method:'POST', body:JSON.stringify({
-        items:items.rows.map(i=>({title:i.product_name,quantity:i.quantity,
+        items:[...items.rows.map(i=>({title:i.product_name,quantity:i.quantity,
           unit_price:Number(i.unit_price_cents)/100,currency_id:'BRL'})),
+          ...(fee>0?[{title:'Frete',quantity:1,unit_price:fee/100,currency_id:'BRL'}]:[])],
         external_reference:orderId,
         notification_url:`${publicUrl}/v1/payments/mercadopago/webhook`,
         back_urls:{success:`${publicUrl}/v1/payments/return`,
@@ -407,6 +474,18 @@ export async function commerceRoutes(app:FastifyInstance) {
       if(outstanding.rowCount) throw new ApiError(409,'Há uma solicitação de pós-venda em análise. Resolva-a antes de avançar o pedido.');
       const next:Record<string,string>={PAID:'PREPARING',PREPARING:'SHIPPED',SHIPPED:'DELIVERED'};
       if(next[order.status]!==status) throw new ApiError(409,'Transição de pedido inválida.');
+      if(status==='SHIPPED'){
+        const method=await client.query<{fulfillment_method:string}>(
+          'SELECT fulfillment_method FROM orders WHERE id=$1',[orderId]);
+        if(method.rows[0]?.fulfillment_method==='DELIVERY')
+          throw new ApiError(409,'Para entregas, registre o código de rastreamento pelo painel de expedição.');
+      }
+      if(status==='DELIVERED'){
+        const method=await client.query<{fulfillment_method:string}>(
+          'SELECT fulfillment_method FROM orders WHERE id=$1',[orderId]);
+        if(method.rows[0]?.fulfillment_method==='DELIVERY')
+          throw new ApiError(409,'Confirme a entrega pela área de expedição.');
+      }
       await client.query('UPDATE orders SET status=$2,updated_at=now() WHERE id=$1',[orderId,status]);
       await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
         VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,identity.userId,status,notes??null]);
@@ -441,6 +520,6 @@ export async function commerceRoutes(app:FastifyInstance) {
     const storeId=await storeBySlug(shop);
     return {enabled:config.ENABLE_REAL_PAYMENTS && config.PAYMENT_PILOT_STORE_ID===storeId &&
       !!config.MERCADOPAGO_ACCESS_TOKEN && !!config.MERCADOPAGO_WEBHOOK_SECRET && !!config.PUBLIC_BASE_URL,
-      fulfillment:['PICKUP']};
+      fulfillment:['PICKUP',...(!!config.SHIPPING_MELHOR_ENVIO_TOKEN && config.SHIPPING_PILOT_STORE_ID===storeId ? ['DELIVERY']:[])]};
   });
 }

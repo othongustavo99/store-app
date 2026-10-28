@@ -21,6 +21,7 @@ import '../features/client/orders/railway_orders_screen.dart';
 import '../features/admin/orders/railway_admin_orders_screen.dart';
 import '../features/admin/inventory/railway_inventory_screen.dart';
 import '../features/admin/team/railway_team_screen.dart';
+import '../features/admin/shipping/railway_shipping_screen.dart';
 import '../features/client/invite/railway_accept_invite_screen.dart';
 import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
@@ -185,6 +186,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/inventory',
         builder: (context, state) => LojaBackend.isRailway ? const RailwayInventoryScreen() : const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/admin/shipping',
+        builder: (context, state) => LojaBackend.isRailway ? const RailwayShippingScreen() : const RemotePendingScreen(),
       ),
       GoRoute(
         path: '/admin/products',

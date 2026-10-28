@@ -24,6 +24,10 @@ const schema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().regex(/^[A-Za-z0-9_-]+$/).optional(),
   CLOUDINARY_API_KEY: z.string().min(5).optional(),
   CLOUDINARY_API_SECRET: z.string().min(8).optional(),
+  SHIPPING_MELHOR_ENVIO_TOKEN: z.string().min(20).optional(),
+  SHIPPING_PILOT_STORE_ID: z.string().uuid().optional(),
+  SHIPPING_MELHOR_ENVIO_SANDBOX: z.enum(['true','false']).default('true').transform(v=>v==='true'),
+  SHIPPING_USER_AGENT: z.string().min(10).max(160).optional(),
 });
 
 const parsed = schema.safeParse(process.env);

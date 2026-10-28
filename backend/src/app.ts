@@ -15,6 +15,8 @@ import { fulfillmentRoutes } from './routes/fulfillment.js';
 import { catalogManagementRoutes } from './routes/catalog_management.js';
 import { afterSalesRoutes } from './routes/after_sales.js';
 import { refundRoutes } from './routes/refunds.js';
+import { shippingRoutes } from './routes/shipping.js';
+import { shipmentManagementRoutes } from './routes/shipment_management.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -68,6 +70,8 @@ export async function buildApp() {
   await app.register(fulfillmentRoutes);
   await app.register(afterSalesRoutes);
   await app.register(refundRoutes);
+  await app.register(shippingRoutes);
+  await app.register(shipmentManagementRoutes);
   await startCatalogListener(app);
   return app;
 }
