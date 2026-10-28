@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/product_repository.dart';
+import 'auth_providers.dart';
+import '../core/network/loja_api.dart';
 import '../models/product.dart';
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
@@ -8,6 +10,7 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 
 /// Lista de produtos em tempo real (Firestore)
 final productsProvider = StreamProvider<List<Product>>((ref) {
+  if (LojaBackend.isRailway) ref.watch(authProvider);
   final repo = ref.watch(productRepositoryProvider);
   return repo.watchAll();
 });

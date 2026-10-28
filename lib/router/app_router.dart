@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../core/network/loja_api.dart';
+import '../features/admin/remote_admin_home.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:loja_roupas/features/admin/dashboards/admin_dashboard_screen.dart';
@@ -56,7 +58,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/chat',
-        builder: (context, state) => const ChatScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const ChatScreen(),
       ),
 
       // ========== ÁREA DO CLIENTE ==========
@@ -93,7 +95,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/orders',
-                builder: (context, state) => const OrdersScreen(),
+                builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const OrdersScreen(),
               ),
             ],
           ),
@@ -120,7 +122,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/checkout',
-        builder: (context, state) => const CheckoutScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const CheckoutScreen(),
       ),
       GoRoute(
         path: '/discounted',
@@ -130,11 +132,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // ========== ÁREA ADMINISTRATIVA ==========
       GoRoute(
         path: '/admin',
-        builder: (context, state) => const AdminDashboardScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RemoteAdminHome() : const AdminDashboardScreen(),
       ),
       GoRoute(
         path: '/admin/orders',
-        builder: (context, state) => const AdminOrdersScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const AdminOrdersScreen(),
       ),
       GoRoute(
         path: '/admin/products',

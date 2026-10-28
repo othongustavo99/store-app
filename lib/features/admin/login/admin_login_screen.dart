@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../core/network/loja_api.dart';
 
 class AdminLoginScreen extends ConsumerStatefulWidget {
   const AdminLoginScreen({super.key});
@@ -398,7 +399,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                   width: double.infinity,
                   height: 50,
                   child: OutlinedButton.icon(
-                    onPressed: busy ? null : _loginWithGoogle,
+                    onPressed: busy || LojaBackend.isRailway ? null : _loginWithGoogle,
                     icon: _isGoogleLoading
                         ? const SizedBox(
                             width: 22,

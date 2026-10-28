@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/services/auth_service.dart';
+import '../core/network/loja_api.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -28,7 +29,26 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._authService) : super(const AuthState());
+  AuthNotifier(this._authService) : super(const AuthState()) {
+    if (LojaBackend.isRailway) _restoreRailway();
+  }
+
+  Future<void> _restoreRailway() async {
+    try {
+      final profile = await LojaApi.instance.restore();
+      if (profile != null) await _applyRailwayUser(profile);
+    } catch (_) { /* exige login manual quando não for possível restaurar */ }
+  }
+
+  Future<void> _applyRailwayUser(Map<String, dynamic> user) async {
+    final isAdmin = await LojaApi.instance.updateStoreRole();
+    state = AuthState(
+      isLoggedIn: true,
+      role: isAdmin ? UserRole.admin : UserRole.client,
+      name: (user['name'] ?? user['display_name'] ?? 'Cliente').toString(),
+      email: user['email'] as String?,
+    );
+  }
 
   final AuthService _authService;
 
@@ -60,6 +80,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Login e-mail/senha (admin ou cliente)
   Future<String?> loginWithEmail(String email, String password) async {
+    if (LojaBackend.isRailway) {
+      try {
+        final result = await LojaApi.instance.login(email, password);
+        await _applyRailwayUser(Map<String, dynamic>.from(result['user'] as Map));
+        return null;
+      } on LojaApiException catch (e) { return e.message; }
+        catch (_) { return 'Não foi possível realizar o login.'; }
+    }
     try {
       final cred = await _authService.signInWithEmail(email, password);
       if (cred.user == null) return 'Falha ao entrar.';
@@ -74,6 +102,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Criar conta (sempre como cliente, a menos que o e-mail seja o do admin)
   Future<String?> registerWithEmail(String email, String password) async {
+    if (LojaBackend.isRailway) {
+      if (password.length < 12) return 'Use uma senha com pelo menos 12 caracteres.';
+      try {
+        final result = await LojaApi.instance.register(email, password);
+        await _applyRailwayUser(Map<String, dynamic>.from(result['user'] as Map));
+        return null;
+      } on LojaApiException catch (e) { return e.message; }
+        catch (_) { return 'Não foi possível criar a conta.'; }
+    }
     try {
       if (password.length < 6) {
         return 'A senha precisa ter pelo menos 6 caracteres.';
@@ -91,6 +128,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Login Google
   Future<String?> loginWithGoogle() async {
+    if (LojaBackend.isRailway) {
+      return 'Login Google ainda não foi migrado. Use email e senha do novo servidor.';
+    }
     try {
       final cred = await _authService.signInWithGoogle();
       if (cred == null || cred.user == null) {
@@ -106,6 +146,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    if (LojaBackend.isRailway) {
+      await LojaApi.instance.logout();
+      state = const AuthState();
+      return;
+    }
     await _authService.signOut();
     state = const AuthState();
   }

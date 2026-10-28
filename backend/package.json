@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22 <25" },
+  "engines": {
+    "node": ">=22 <25"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
@@ -11,7 +13,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:migrate:prod": "node dist/db/migrate.js",
     "test": "npm run build && node --test dist/tests/*.test.js",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test",
+    "catalog:import": "tsx src/scripts/firebase_catalog_import.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.0",
@@ -26,6 +29,7 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "firebase-admin": "^13.5.0"
   }
 }

@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/network/loja_api.dart';
+import 'railway_catalog_repository.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/config/app_environment.dart';
@@ -9,12 +11,15 @@ import '../mock/mock_products.dart';
 class ProductRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final _uuid = const Uuid();
+  final _railway = RailwayCatalogRepository();
+  bool get _remote => LojaBackend.isRailway;
 
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('products');
 
   /// Stream em tempo real de todos os produtos
   Stream<List<Product>> watchAll() {
+    if (_remote) return _railway.watchProducts();
     return _col.orderBy('createdAt', descending: true).snapshots().map(
           (snap) =>
               snap.docs.map((d) => Product.fromJson(d.id, d.data())).toList(),
@@ -22,17 +27,20 @@ class ProductRepository {
   }
 
   Future<List<Product>> getAll() async {
+    if (_remote) return _railway.getProducts();
     final snap = await _col.orderBy('createdAt', descending: true).get();
     return snap.docs.map((d) => Product.fromJson(d.id, d.data())).toList();
   }
 
   Future<Product?> getById(String id) async {
+    if (_remote) return _railway.getProduct(id);
     final doc = await _col.doc(id).get();
     if (!doc.exists || doc.data() == null) return null;
     return Product.fromJson(doc.id, doc.data()!);
   }
 
   Future<Product> addProduct(Product product) async {
+    if (_remote) return _railway.addProduct(product);
     // Usa o id já gerado (ex.: antes do upload de mídia) ou cria um novo
     final id = product.id.isNotEmpty ? product.id : _uuid.v4();
     final newProduct = product.copyWith(
@@ -44,11 +52,13 @@ class ProductRepository {
   }
 
   Future<bool> updateProduct(Product updated) async {
+    if (_remote) return _railway.updateProduct(updated);
     await _col.doc(updated.id).set(updated.toJson(), SetOptions(merge: true));
     return true;
   }
 
   Future<bool> deleteProduct(String id) async {
+    if (_remote) return _railway.deleteProduct(id);
     await _col.doc(id).delete();
     return true;
   }
@@ -59,6 +69,7 @@ class ProductRepository {
     String size,
     int quantity,
   ) async {
+    if (_remote) throw StateError('Desconto por compra desabilitado até a Fase 3: estoque transacional.');
     if (quantity <= 0) {
       return false;
     }
@@ -165,6 +176,7 @@ class ProductRepository {
   /// Seed inicial: só roda se a collection estiver vazia
 
   Future<void> seedIfEmpty() async {
+    if (_remote) return;
     AppEnvironment.requireDemoSeed();
     try {
       final snap = await _col.limit(1).get();
@@ -203,6 +215,7 @@ class ProductRepository {
   }
 
   Future<void> resetToMock() async {
+    if (_remote) throw StateError('Reset de produtos não disponível no Railway.');
     AppEnvironment.requireDemoReset();
     final snap = await _col.get();
     for (final doc in snap.docs) {
