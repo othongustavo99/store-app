@@ -73,6 +73,9 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
         });
       }),
       const SizedBox(height: 20),
+      OutlinedButton.icon(onPressed: () => context.go('/admin/store-settings'),
+        icon: const Icon(Icons.tune_outlined), label: const Text('Identidade e preparação da loja')),
+      const SizedBox(height: 8),
       FilledButton.icon(onPressed: () => context.go('/admin/inventory'),
         icon: const Icon(Icons.inventory_outlined), label: const Text('Inventário e movimentações')),
       const SizedBox(height: 8),

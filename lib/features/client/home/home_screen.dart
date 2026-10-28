@@ -9,6 +9,7 @@ import '../../../core/network/loja_api.dart';
 import '../../../providers/category_providers.dart';
 import '../../../providers/product_providers.dart';
 import '../widgets/product_card.dart';
+import '../widgets/railway_storefront_identity.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -39,13 +40,10 @@ class HomeScreen extends ConsumerWidget {
                 SliverAppBar(
                   floating: true,
                   backgroundColor: AppColors.surface,
-                  title: const Text(
-                    'Loja de Roupas',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
+                  title: LojaBackend.isRailway
+                      ? const RailwayStorefrontIdentity()
+                      : const Text('Loja de Roupas', style: TextStyle(
+                          fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                   actions: [
                     IconButton(
                       icon: const Icon(Icons.search),
@@ -75,7 +73,8 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: 4),
                   ],
                 ),
-                SliverToBoxAdapter(child: _BannerSection()),
+                SliverToBoxAdapter(child: LojaBackend.isRailway
+                    ? const RailwayStorefrontIdentity(banner: true) : _BannerSection()),
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16, 24, 16, 12),

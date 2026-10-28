@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../core/network/loja_api.dart';
+import '../../client/widgets/railway_storefront_identity.dart';
 
 class AdminLoginScreen extends ConsumerStatefulWidget {
   const AdminLoginScreen({super.key});
@@ -149,14 +150,11 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Loja de Roupas',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                LojaBackend.isRailway
+                    ? const RailwayStorefrontIdentity(large: true)
+                    : const Text('Loja de Roupas', style: TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 const Text(
                   'Entre ou crie sua conta para continuar',
