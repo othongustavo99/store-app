@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { pool } from './db/pool.js';
 import { authRoutes } from './routes/auth.js';
 import { customerAccountRoutes } from './routes/customer_account.js';
+import { accountSecurityRoutes } from './routes/account_security.js';
 import { storeRoutes } from './routes/stores.js';
 import { catalogRoutes, startCatalogListener } from './routes/catalog.js';
 import { ApiError } from './security/errors.js';
@@ -63,6 +64,7 @@ export async function buildApp() {
   });
   await app.register(authRoutes);
   await app.register(customerAccountRoutes);
+  await app.register(accountSecurityRoutes);
   await app.register(storeRoutes);
   await app.register(storeProfileRoutes);
   await app.register(catalogRoutes);

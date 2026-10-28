@@ -106,6 +106,38 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
     _goAfterLogin();
   }
 
+  Future<void> _forgotRailwayPassword() async {
+    final formKey = GlobalKey<FormState>();
+    final email = TextEditingController(text: _emailController.text.trim());
+    try {
+      final requested = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(
+        title: const Text('Recuperar senha'),
+        content: SizedBox(width: 360, child: Form(key: formKey,
+          child: TextFormField(controller: email, autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
+            decoration: const InputDecoration(labelText: 'Email cadastrado'),
+            validator: (text) => (text?.contains('@') ?? false) ? null : 'Informe um email válido.'))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          FilledButton(onPressed: () {
+            if (formKey.currentState!.validate()) Navigator.pop(dialogContext, email.text.trim());
+          }, child: const Text('Enviar link')),
+        ],
+      ));
+      if (!mounted || requested == null) return;
+      setState(() { _isLoading = true; _errorMessage = null; });
+      try {
+        await LojaApi.instance.request('POST', '/v1/auth/password/forgot',
+          body: {'email': requested});
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Se o email estiver cadastrado, você receberá um link válido por 30 minutos.')));
+      } on LojaApiException catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+      } finally { if (mounted) setState(() => _isLoading = false); }
+    } finally { email.dispose(); }
+  }
+
   Future<void> _loginWithGoogle() async {
     setState(() {
       _isGoogleLoading = true;
@@ -378,16 +410,15 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                 ],
 
                 if (LojaBackend.isRailway) ...[
-                  const SizedBox(height: 18),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'Sua conta e seus pedidos são protegidos pelo servidor da loja. '
-                      'Recuperação de senha por e-mail será disponibilizada antes da publicação.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                    ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: busy ? null : _forgotRailwayPassword,
+                    icon: const Icon(Icons.lock_reset_outlined),
+                    label: const Text('Esqueci minha senha'),
                   ),
+                  const Text('Você receberá um link seguro por email, se sua conta existir.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 ] else ...[
                 const SizedBox(height: 16),
                 Row(

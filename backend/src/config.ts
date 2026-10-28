@@ -28,6 +28,9 @@ const schema = z.object({
   SHIPPING_PILOT_STORE_ID: z.string().uuid().optional(),
   SHIPPING_MELHOR_ENVIO_SANDBOX: z.enum(['true','false']).default('true').transform(v=>v==='true'),
   SHIPPING_USER_AGENT: z.string().min(10).max(160).optional(),
+  // Email transacional: recuperação de acesso e confirmação da exclusão.
+  RESEND_API_KEY: z.string().min(12).optional(),
+  ACCOUNT_EMAIL_FROM: z.string().min(5).max(200).optional(),
 });
 
 const parsed = schema.safeParse(process.env);

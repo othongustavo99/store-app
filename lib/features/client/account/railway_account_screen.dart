@@ -128,6 +128,52 @@ class _RailwayAccountScreenState extends ConsumerState<RailwayAccountScreen> {
         'Endereço removido.');
   }
 
+  Future<void> _requestDeletion() async {
+    final formKey = GlobalKey<FormState>();
+    final password = TextEditingController();
+    try {
+      final confirmed = await showDialog<bool>(context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Excluir minha conta'),
+          content: SizedBox(width: 390, child: Form(key: formKey,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('A exclusão é irreversível. Seus dados de perfil e endereços serão removidos. '
+                'Registros de pedidos necessários para obrigações legais poderão ser mantidos. '
+                'Se houver pedidos em andamento ou vínculos administrativos, a solicitação ficará pendente.'),
+              const SizedBox(height: 16),
+              TextFormField(controller: password, obscureText: true,
+                autofillHints: const [AutofillHints.password],
+                decoration: const InputDecoration(labelText: 'Confirme sua senha'),
+                validator: (text) => (text?.isNotEmpty ?? false) ? null : 'Informe sua senha.'),
+            ]))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext,false),
+              child: const Text('Manter conta')),
+            FilledButton(onPressed: () {
+              if(formKey.currentState!.validate()) Navigator.pop(dialogContext,true);
+            }, child: const Text('Solicitar exclusão')),
+          ],
+        ));
+      if(confirmed!=true || !mounted) return;
+      setState(() => _busy = true);
+      try {
+        final response = await LojaApi.instance.request('POST','/v1/me/deletion',
+          body: {'password':password.text}, authenticated:true);
+        if(!mounted) return;
+        final complete = response['status']=='COMPLETED';
+        final message = response['message']?.toString() ?? 'Solicitação registrada.';
+        if(complete) {
+          await ref.read(authProvider.notifier).logout();
+          if(mounted) context.go('/login');
+        }
+        if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(message), duration: const Duration(seconds: 8)));
+      } on LojaApiException catch(e) {
+        if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      } finally { if(mounted) setState(() => _busy = false); }
+    } finally { password.dispose(); }
+  }
+
   Future<void> _logout() async {
     final yes = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
       title: const Text('Sair da conta?'),
@@ -225,6 +271,11 @@ class _RailwayAccountScreenState extends ConsumerState<RailwayAccountScreen> {
             const Divider(height: 1),
             ListTile(leading: const Icon(Icons.logout), title: const Text('Sair da conta'),
               onTap: _busy ? null : _logout),
+            const Divider(height: 1),
+            ListTile(leading: const Icon(Icons.person_remove_outlined),
+              title: const Text('Excluir minha conta'),
+              subtitle: const Text('Solicite a remoção dos seus dados pessoais'),
+              onTap: _busy ? null : _requestDeletion),
           ])),
           if (_busy) const Padding(padding: EdgeInsets.all(10),
               child: Center(child: CircularProgressIndicator())),
