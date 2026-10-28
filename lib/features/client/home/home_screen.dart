@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../core/network/loja_api.dart';
 import '../../../providers/category_providers.dart';
 import '../../../providers/product_providers.dart';
 import '../widgets/product_card.dart';
@@ -55,6 +56,12 @@ class HomeScreen extends ConsumerWidget {
                       tooltip: 'Chat com a loja',
                       onPressed: () => context.push('/chat'),
                     ),
+                    if (LojaBackend.isRailway)
+                      IconButton(
+                        icon: const Icon(Icons.person_add_alt_1_outlined),
+                        tooltip: 'Tenho um convite da equipe',
+                        onPressed: () => context.push('/invite'),
+                      ),
                     IconButton(
                       icon: const Icon(Icons.logout),
                       tooltip: 'Sair',

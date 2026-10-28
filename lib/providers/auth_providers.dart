@@ -53,6 +53,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  /// Atualiza a função do usuário depois de aceitar um convite no Railway.
+  Future<void> refreshRailwayRole() async {
+    if (!LojaBackend.isRailway) return;
+    final user = await LojaApi.instance.request('GET', '/v1/me', authenticated: true);
+    await _applyRailwayUser(user);
+  }
+
   // No modo Railway não se deve instanciar AuthService (FirebaseAuth.instance).
   final AuthService? _authService;
 
