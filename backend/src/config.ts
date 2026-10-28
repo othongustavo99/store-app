@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  HOST: z.string().default('0.0.0.0'),
+  // Railway/Fastify: :: permite atender nas redes IPv6 e IPv4 do container.
+  // HOST explícito no ambiente continua tendo prioridade.
+  HOST: z.string().default('::'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DATABASE_URL: z.string().min(10).refine((s) => s.startsWith('postgres://') || s.startsWith('postgresql://'), 'Esperado URL postgres'),
   JWT_SECRET: z.string().min(43).refine((v) => !/COLOQUE|CHANGE[_-]?ME|EXAMPLE|SENHA/i.test(v) && new Set(v).size >= 12, 'Use segredo aleatório gerado com randomBytes(48)'),

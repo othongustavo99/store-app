@@ -38,6 +38,8 @@ export async function buildApp() {
     return reply.code(500).send({ error: 'INTERNAL_ERROR', message: 'Não foi possível concluir a operação.', requestId: request.id });
   });
 
+  // Alias compatível com a URL /health usada nos testes de publicação.
+  app.get('/health', async () => ({ status: 'ok' }));
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async (_request, reply) => {
     try {
