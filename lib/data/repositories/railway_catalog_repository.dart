@@ -7,14 +7,12 @@ import '../../models/product.dart';
 class RailwayCatalogRepository {
   final LojaApi _api = LojaApi.instance;
 
-  Future<String> _productPath() async {
-    if (!_api.userIsStoreStaff) return '${_api.publicCatalog}/products';
-    await _api.fetchStoreId();
-    return '${_api.adminCatalog}/products';
-  }
+  // A vitrine consulta SEMPRE apenas produtos publicados.
+  // Gestão de rascunhos ocorre na rota protegida /catalog/manage.
+  String get _productPath => '${_api.publicCatalog}/products';
 
   Future<List<Product>> getProducts() async {
-    final data = await _api.request('GET', await _productPath(), authenticated: _api.userIsStoreStaff);
+    final data = await _api.request('GET', _productPath);
     return (data['products'] as List)
         .map((v) => Product.fromJson((v as Map)['id'] as String, Map<String, dynamic>.from(v)))
         .toList();

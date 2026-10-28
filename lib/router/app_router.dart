@@ -8,6 +8,7 @@ import 'package:loja_roupas/features/client/categories/categories_tab_screen.dar
 import 'package:loja_roupas/features/client/discounted/discounted_products_screen.dart';
 import '../features/admin/orders/admin_orders_screen.dart';
 import '../features/admin/products/admin_products_screen.dart';
+import '../features/admin/products/railway_catalog_management_screen.dart';
 import '../features/client/home/home_screen.dart';
 import '../features/client/cart/cart_screen.dart';
 import '../features/client/orders/orders_screen.dart';
@@ -187,7 +188,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/products',
-        builder: (context, state) => const AdminProductsScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RailwayCatalogManagementScreen() : const AdminProductsScreen(),
       ),
     ],
   );
