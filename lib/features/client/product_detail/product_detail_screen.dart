@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/network/loja_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/media_upload_service.dart';
 import '../../../data/services/shipping_service.dart';
@@ -986,6 +987,16 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
 
   @override
   Widget build(BuildContext context) {
+    if (LojaBackend.isRailway) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Avaliações', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          SizedBox(height: 12),
+          Text('Avaliações temporariamente indisponíveis durante a migração para Railway.'),
+        ],
+      );
+    }
     final async = ref.watch(productReviewsProvider(widget.productId));
 
     return Column(

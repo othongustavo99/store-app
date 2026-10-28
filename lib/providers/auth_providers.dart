@@ -7,6 +7,9 @@ import '../core/network/loja_api.dart';
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 final authStateProvider = StreamProvider<User?>((ref) {
+  // Este stream existe apenas para compatibilidade com o login Firebase.
+  // O Railway mantém a sessão em authProvider e não cria FirebaseAuth.
+  if (LojaBackend.isRailway) return Stream<User?>.value(null);
   return ref.watch(authServiceProvider).authStateChanges;
 });
 
@@ -50,7 +53,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  final AuthService _authService;
+  // No modo Railway não se deve instanciar AuthService (FirebaseAuth.instance).
+  final AuthService? _authService;
 
   /// E-mails que são administradores (único critério de admin)
   static const adminEmails = {
@@ -89,7 +93,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         catch (_) { return 'Não foi possível realizar o login.'; }
     }
     try {
-      final cred = await _authService.signInWithEmail(email, password);
+      final cred = await _authService!.signInWithEmail(email, password);
       if (cred.user == null) return 'Falha ao entrar.';
       _applyUser(cred.user!);
       return null; // sucesso
@@ -115,7 +119,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (password.length < 6) {
         return 'A senha precisa ter pelo menos 6 caracteres.';
       }
-      final cred = await _authService.registerWithEmail(email, password);
+      final cred = await _authService!.registerWithEmail(email, password);
       if (cred.user == null) return 'Falha ao criar conta.';
       _applyUser(cred.user!);
       return null;
@@ -132,7 +136,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return 'Login Google ainda não foi migrado. Use email e senha do novo servidor.';
     }
     try {
-      final cred = await _authService.signInWithGoogle();
+      final cred = await _authService!.signInWithGoogle();
       if (cred == null || cred.user == null) {
         return 'Login com Google cancelado.';
       }
@@ -151,7 +155,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = const AuthState();
       return;
     }
-    await _authService.signOut();
+    await _authService!.signOut();
     state = const AuthState();
   }
 
@@ -176,5 +180,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.watch(authServiceProvider));
+  // Anteriormente o FirebaseAuth.instance era acessado mesmo com Railway ativo.
+  return AuthNotifier(
+    LojaBackend.isRailway ? null : ref.watch(authServiceProvider),
+  );
 });

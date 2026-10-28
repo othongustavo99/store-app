@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:loja_roupas/providers/category_providers.dart';
 import 'core/config/app_environment.dart';
+import 'core/network/loja_api.dart';
 import 'app.dart';
 import 'providers/product_providers.dart';
 
@@ -42,10 +43,14 @@ Future<void> main() async {
   // FIREBASE
   // ============================================================
 
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint('Erro ao inicializar Firebase: $e');
+  // Railway usa a API própria e não exige Firebase inicializado.
+  // No modo legado, o comportamento de inicialização é mantido.
+  if (!LojaBackend.isRailway) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      debugPrint('Erro ao inicializar Firebase: $e');
+    }
   }
 
   // ============================================================
@@ -56,7 +61,7 @@ Future<void> main() async {
 
   // Nunca escreve produtos de exemplo automaticamente em produção.
   // Para testes locais: flutter run --dart-define=ENABLE_DEMO_SEED=true
-  if (AppEnvironment.enableDemoSeed) {
+  if (!LojaBackend.isRailway && AppEnvironment.enableDemoSeed) {
     try {
       await container.read(productsActionsProvider).seedIfEmpty();
       await container.read(categoryRepositoryProvider).seedIfEmpty();

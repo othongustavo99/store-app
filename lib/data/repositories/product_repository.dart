@@ -9,7 +9,8 @@ import '../../models/product.dart';
 import '../mock/mock_products.dart';
 
 class ProductRepository {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Lazy: jamais buscar FirebaseFirestore.instance ao criar o repositório Railway.
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
   final _uuid = const Uuid();
   final _railway = RailwayCatalogRepository();
   bool get _remote => LojaBackend.isRailway;

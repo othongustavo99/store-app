@@ -8,7 +8,8 @@ import '../../models/category.dart';
 import '../mock/mock_categories.dart';
 
 class CategoryRepository {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Lazy: jamais buscar FirebaseFirestore.instance ao criar o repositório Railway.
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
   final _railway = RailwayCatalogRepository();
 
   CollectionReference<Map<String, dynamic>> get _col =>
