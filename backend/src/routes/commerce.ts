@@ -70,7 +70,10 @@ async function orderView(id:string, storeId:string) {
     o.total_cents::text AS "totalCents",o.fulfillment_method AS "fulfillment",
     o.reservation_expires_at AS "reservationExpiresAt",o.created_at AS "createdAt",
     o.shipping_address AS "customerContact",
-    CASE WHEN p.checkout_expires_at>now() THEN p.checkout_url ELSE NULL END AS "checkoutUrl",
+    CASE WHEN p.checkout_expires_at>now() AND NOT EXISTS (
+      SELECT 1 FROM after_sales_requests a WHERE a.order_id=o.id
+        AND a.request_type='CANCEL' AND a.status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')
+    ) THEN p.checkout_url ELSE NULL END AS "checkoutUrl",
     p.status AS "paymentStatus"
     FROM orders o LEFT JOIN payments p ON p.order_id=o.id AND p.provider='mercadopago'
     WHERE o.id=$1 AND o.store_id=$2`,[id,storeId]);
@@ -185,6 +188,11 @@ async function checkoutUrl(orderId:string,storeId:string):Promise<string> {
     await client.query('BEGIN');
     const o=await queryOrder(client,orderId);
     if(o.store_id!==storeId) throw new ApiError(404,'Pedido não encontrado.');
+    // Solicitação de cancelamento aberta: não emitir novos links de checkout.
+    // Links anteriormente compartilhados ainda podem receber pagamentos; conciliar no gateway.
+    const cancel=await client.query(`SELECT 1 FROM after_sales_requests WHERE order_id=$1
+      AND request_type='CANCEL' AND status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')`,[orderId]);
+    if(cancel.rowCount)throw new ApiError(409,'Há um cancelamento em análise. Aguarde a equipe da loja.');
     if(o.status!=='PENDING_PAYMENT' || (o.reservation_expires_at && o.reservation_expires_at.getTime()<Date.now()))
       throw new ApiError(409,'Pedido não está mais aguardando pagamento.');
     if(o.checkout_url && o.checkout_expires_at && o.checkout_expires_at.getTime()>Date.now()) {
@@ -380,6 +388,11 @@ export async function commerceRoutes(app:FastifyInstance) {
       await client.query('BEGIN');
       const order=await queryOrder(client,orderId);
       if(order.store_id!==storeId) throw new ApiError(404,'Pedido não encontrado.');
+      // Impede preparação/retirada enquanto houver contestação operacional ativa.
+      const outstanding=await client.query(`SELECT 1 FROM after_sales_requests WHERE order_id=$1
+        AND request_type IN ('CANCEL','RETURN')
+        AND status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')`,[orderId]);
+      if(outstanding.rowCount) throw new ApiError(409,'Há uma solicitação de pós-venda em análise. Resolva-a antes de avançar o pedido.');
       const next:Record<string,string>={PAID:'PREPARING',PREPARING:'SHIPPED',SHIPPED:'DELIVERED'};
       if(next[order.status]!==status) throw new ApiError(409,'Transição de pedido inválida.');
       await client.query('UPDATE orders SET status=$2,updated_at=now() WHERE id=$1',[orderId,status]);

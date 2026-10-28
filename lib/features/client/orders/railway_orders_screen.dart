@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import '../../support/railway_order_timeline_dialog.dart';
 import '../../../data/repositories/railway_order_repository.dart';
+import '../../support/railway_after_sales_dialogs.dart';
 
 class RailwayOrdersScreen extends ConsumerStatefulWidget {
   const RailwayOrdersScreen({super.key});
@@ -46,6 +47,9 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
           final status=order['status']?.toString()??'PENDING_PAYMENT';
           final total=(int.tryParse(order['totalCents'].toString())??0)/100;
           final checkoutUrl=order['checkoutUrl']?.toString();
+          final cases=(order['afterSalesRequests'] as List? ?? const [])
+              .whereType<Map<String,dynamic>>().toList();
+          final active=cases.any((c)=>activeAfterSalesStatuses.contains(c['status']));
           return Card(margin:const EdgeInsets.symmetric(horizontal:12,vertical:6),child:Padding(
             padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
               Text('Pedido ${order['id'].toString().substring(0,8)}',style:Theme.of(context).textTheme.titleMedium),
@@ -61,7 +65,23 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                     icon: const Icon(Icons.support_agent_outlined),
                     label: const Text('Preciso de ajuda')),
               ]),
-              if(status=='PENDING_PAYMENT') TextButton.icon(
+              if(cases.isNotEmpty) for (final ticket in cases.take(2))
+                Padding(padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Text('Pós-venda: ${afterSalesStatusNames[ticket['status']] ?? ticket['status']}'
+                    ' • ${afterSalesTypes[ticket['type']] ?? ticket['type']}',
+                    style: Theme.of(context).textTheme.bodySmall)),
+              if(cases.isNotEmpty && cases.first['staffNotes'] != null &&
+                  cases.first['staffNotes'].toString().trim().isNotEmpty)
+                Text('Resposta da loja: ${cases.first['staffNotes']}',
+                    style: Theme.of(context).textTheme.bodySmall),
+              if(!active && availableAfterSalesTypes(status).isNotEmpty)
+                OutlinedButton.icon(onPressed: () async {
+                  final created=await showCreateAfterSalesRequest(context,
+                    orderId: order['id'].toString(), orderStatus: status);
+                  if(created && mounted) await _refresh();
+                }, icon: const Icon(Icons.assignment_outlined),
+                  label: const Text('Cancelamento / pós-venda')),
+              if(status=='PENDING_PAYMENT' && !active) TextButton.icon(
                 onPressed:() async {
                   try {
                     final url=checkoutUrl ?? await _repo.retryCheckout(order['id'].toString());

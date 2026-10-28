@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:uuid/uuid.dart';
 import '../../core/network/loja_api.dart';
 import '../../models/cart_item.dart';
+import 'railway_after_sales_repository.dart';
 
 /// Um checkout é criado apenas pelo servidor; o Flutter nunca define preço,
 /// status pago, frete ou estoque disponível.
 class RailwayOrderRepository {
   final LojaApi _api = LojaApi.instance;
+  final RailwayAfterSalesRepository _afterSales = RailwayAfterSalesRepository();
 
   Future<bool> checkoutEnabled() async {
     final json = await _api.request('GET',
@@ -51,14 +53,23 @@ class RailwayOrderRepository {
   Future<List<Map<String, dynamic>>> myOrders() async {
     final response = await _api.request('GET',
         '/v1/shops/${LojaBackend.storeSlug}/orders', authenticated: true);
-    return _list(response);
+    return _mergeCases(_list(response), await _afterSales.list(admin: false));
   }
 
   Future<List<Map<String, dynamic>>> adminOrders() async {
     await _api.fetchStoreId();
     final response = await _api.request('GET',
         '/v1/stores/${_api.storeId}/orders', authenticated: true);
-    return _list(response);
+    return _mergeCases(_list(response), await _afterSales.list(admin: true));
+  }
+
+  List<Map<String, dynamic>> _mergeCases(List<Map<String, dynamic>> orders,
+      List<Map<String, dynamic>> requests) {
+    for (final order in orders) {
+      order['afterSalesRequests'] = requests
+          .where((item) => item['orderId'] == order['id']).toList();
+    }
+    return orders;
   }
 
   Future<Map<String, dynamic>> changeStatus(String orderId, String status) async {

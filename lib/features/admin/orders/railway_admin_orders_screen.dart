@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../support/railway_order_timeline_dialog.dart';
 import '../../../data/repositories/railway_order_repository.dart';
+import '../../../data/repositories/railway_after_sales_repository.dart';
+import '../../support/railway_after_sales_dialogs.dart';
 
 class RailwayAdminOrdersScreen extends ConsumerStatefulWidget {
   const RailwayAdminOrdersScreen({super.key});
@@ -17,10 +19,14 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
   late Future<List<Map<String,dynamic>>> _items;
   StreamSubscription<int>? _changes;
   String? _busy;
+  bool _canReview = false;
   final _money=NumberFormat.currency(locale:'pt_BR',symbol:'R\$');
   @override
   void initState(){
     super.initState(); _fetch();
+    RailwayAfterSalesRepository().canReview().then((value) {
+      if(mounted) setState(() => _canReview = value);
+    }).catchError((Object _) { /* backend autoriza cada ação */ });
     _changes=LojaApi.instance.orderChanges(admin:true).listen((_) {
       if(mounted)setState(_fetch);
     });
@@ -49,6 +55,10 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
           final o=orders[i];final status=o['status']?.toString()??'';
           final next=switch(status){'PAID'=>'PREPARING','PREPARING'=>'SHIPPED','SHIPPED'=>'DELIVERED',_=>null};
           final total=(int.tryParse(o['totalCents'].toString())??0)/100;
+          final cases=(o['afterSalesRequests'] as List? ?? const [])
+              .whereType<Map<String,dynamic>>().toList();
+          final pending=cases.any((c)=>activeAfterSalesStatuses.contains(c['status']) &&
+              (c['type']=='CANCEL' || c['type']=='RETURN'));
           return Card(margin:const EdgeInsets.all(8),child:Padding(padding:const EdgeInsets.all(12),child:
             Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
               Text('Pedido ${o['id'].toString().substring(0,8)} • ${_money.format(total)}',
@@ -65,8 +75,23 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
                 TextButton.icon(onPressed: () => context.push('/admin/support'),
                     icon: const Icon(Icons.support_agent_outlined),label: const Text('Atendimentos')),
               ]),
+              if(cases.isNotEmpty) for(final request in cases.take(3))
+                Padding(padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(children: [
+                    Expanded(child: Text('Pós-venda: ${afterSalesTypes[request['type']] ?? request['type']}'
+                      ' • ${afterSalesStatusNames[request['status']] ?? request['status']}'
+                      '\nMotivo: ${request['reason']}')),
+                    if(_canReview && activeAfterSalesStatuses.contains(request['status']))
+                      TextButton(onPressed: _busy != null ? null : () async {
+                        final changed=await showReviewAfterSalesRequest(context,request);
+                        if(changed && mounted) await _refresh();
+                      }, child: const Text('Analisar')),
+                  ])),
+              if(pending) const Padding(padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Text('Solicitação de cancelamento/devolução pendente. '
+                      'Resolva antes de avançar o pedido.')),
               if(status=='PAYMENT_REVIEW')const Text('ALERTA: pagamento precisa de revisão manual.'),
-              if(next!=null)FilledButton(
+              if(next!=null && !pending)FilledButton(
                 onPressed:_busy==o['id']?null:()=>_advance(o['id'].toString(),next),
                 child:Text(switch(next){'PREPARING'=>'Iniciar preparação','SHIPPED'=>'Pronto para retirada',_=>'Concluir pedido'})),
             ])));
