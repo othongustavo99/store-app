@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/repositories/address_repository.dart';
 import '../models/saved_address.dart';
+import '../core/network/loja_api.dart';
+import 'auth_providers.dart';
 
 final addressRepositoryProvider = Provider<AddressRepository>((ref) {
   return AddressRepository();
@@ -10,6 +12,10 @@ final addressRepositoryProvider = Provider<AddressRepository>((ref) {
 final addressesProvider =
     StateNotifierProvider<AddressNotifier, AsyncValue<List<SavedAddress>>>(
   (ref) {
+    // Recria o estado ao trocar de conta: não mostra endereços de outra sessão.
+    if (LojaBackend.isRailway) {
+      ref.watch(authProvider.select((state) => state.email));
+    }
     return AddressNotifier(
       ref.watch(addressRepositoryProvider),
     );
@@ -33,14 +39,16 @@ class AddressNotifier extends StateNotifier<AsyncValue<List<SavedAddress>>> {
   }
 
   Future<void> addAddress(SavedAddress address) async {
+    if (LojaBackend.isRailway) { await _repository.addRemote(address); await load(); return; }
     final List<SavedAddress> current =
         List<SavedAddress>.from(state.value ?? <SavedAddress>[]);
 
     // Se for o primeiro ou marcado como principal, limpa os outros
     final shouldBePrimary = current.isEmpty || address.isPrimary;
 
-    final List<SavedAddress> updated =
-        current.map((item) => item.copyWith(isPrimary: false)).toList();
+    final List<SavedAddress> updated = current
+        .map((item) => shouldBePrimary ? item.copyWith(isPrimary: false) : item)
+        .toList();
 
     updated.add(
       address.copyWith(isPrimary: shouldBePrimary),
@@ -51,6 +59,7 @@ class AddressNotifier extends StateNotifier<AsyncValue<List<SavedAddress>>> {
   }
 
   Future<void> updateAddress(SavedAddress address) async {
+    if (LojaBackend.isRailway) { await _repository.updateRemote(address); await load(); return; }
     List<SavedAddress> current =
         List<SavedAddress>.from(state.value ?? <SavedAddress>[]);
 
@@ -68,6 +77,7 @@ class AddressNotifier extends StateNotifier<AsyncValue<List<SavedAddress>>> {
   }
 
   Future<void> removeAddress(String id) async {
+    if (LojaBackend.isRailway) { await _repository.deleteRemote(id); await load(); return; }
     List<SavedAddress> current =
         List<SavedAddress>.from(state.value ?? <SavedAddress>[]);
 
@@ -86,6 +96,7 @@ class AddressNotifier extends StateNotifier<AsyncValue<List<SavedAddress>>> {
   }
 
   Future<void> setPrimary(String id) async {
+    if (LojaBackend.isRailway) { await _repository.primaryRemote(id); await load(); return; }
     List<SavedAddress> current =
         List<SavedAddress>.from(state.value ?? <SavedAddress>[]);
 

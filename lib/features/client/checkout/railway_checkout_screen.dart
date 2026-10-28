@@ -4,178 +4,433 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/railway_order_repository.dart';
 import '../../../data/repositories/railway_shipping_repository.dart';
+import '../../../data/repositories/address_repository.dart';
+import '../../../models/cart_item.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/cart_providers.dart';
-import '../../../models/cart_item.dart';
 
+/// Checkout Railway: UI apenas. Preço final, estoque e frete são validados na API.
 class RailwayCheckoutScreen extends ConsumerStatefulWidget {
   const RailwayCheckoutScreen({super.key});
+
   @override
-  ConsumerState<RailwayCheckoutScreen> createState()=>_RailwayCheckoutScreenState();
+  ConsumerState<RailwayCheckoutScreen> createState() => _RailwayCheckoutScreenState();
 }
 
 class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
-  final form=GlobalKey<FormState>();
-  final name=TextEditingController(),phone=TextEditingController(),cep=TextEditingController();
-  final street=TextEditingController(),number=TextEditingController(),complement=TextEditingController();
-  final neighborhood=TextEditingController(),city=TextEditingController(),state=TextEditingController();
-  final orders=RailwayOrderRepository(),shipping=RailwayShippingRepository();
-  final currency=NumberFormat.currency(locale:'pt_BR',symbol:'R\$');
-  bool busy=false,quoting=false,deliveryEnabled=false,shippingSandbox=true;
-  bool? paymentEnabled;
-  String method='PICKUP', error='',quoteId='',selectedServiceId='',quotedCart='',quotedZip='';
-  List<Map<String,dynamic>> options=[];
-  String key=RailwayOrderRepository.newCheckoutKey();
+  final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _cep = TextEditingController();
+  final _street = TextEditingController();
+  final _number = TextEditingController();
+  final _complement = TextEditingController();
+  final _neighborhood = TextEditingController();
+  final _city = TextEditingController();
+  final _state = TextEditingController();
+  final _orders = RailwayOrderRepository();
+  final _shipping = RailwayShippingRepository();
+  final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+
+  bool _busy = false;
+  bool _quoting = false;
+  bool _deliveryEnabled = false;
+  bool _sandbox = true;
+  bool? _paymentEnabled;
+  String _method = 'PICKUP';
+  String _error = '';
+  String _quoteId = '';
+  String _serviceId = '';
+  String _quotedCart = '';
+  String _quotedZip = '';
+  DateTime? _quotedAt;
+  List<Map<String, dynamic>> _options = [];
+  String _checkoutKey = RailwayOrderRepository.newCheckoutKey();
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      if(mounted)name.text=ref.read(authProvider).name;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _name.text = ref.read(authProvider).name;
     });
-    load();
+    _load();
+    _prefillPrimaryAddress();
   }
-  Future<void> load()async{
-    try{
-      final result=await Future.wait([orders.checkoutEnabled(),shipping.availability()]);
-      if(mounted)setState((){
-        paymentEnabled=result[0] as bool;
-        deliveryEnabled=(result[1] as Map)['delivery']==true;
-        shippingSandbox=(result[1] as Map)['sandbox']!=false;
+
+  Future<void> _prefillPrimaryAddress() async {
+    try {
+      final list = await AddressRepository().getAddresses();
+      if (!mounted || list.isEmpty || _cep.text.isNotEmpty) return;
+      final address = list.firstWhere((a) => a.isPrimary, orElse: () => list.first);
+      setState(() {
+        _cep.text = address.zipCode;
+        _street.text = address.street;
+        _number.text = address.number;
+        _complement.text = address.complement;
+        _neighborhood.text = address.neighborhood;
+        _city.text = address.city;
+        _state.text = address.state;
       });
-    }catch(e){if(mounted)setState((){paymentEnabled=false;error=e.toString();});}
-  }
-  @override
-  void dispose(){for(final c in [name,phone,cep,street,number,complement,neighborhood,city,state])c.dispose();super.dispose();}
-  String postal()=>cep.text.replaceAll(RegExp(r'\D'),'');
-  String cartSignature(List<CartItem> items)=>items.map((i)=>
-    '${i.product.id}:${i.color}:${i.size}:${i.quantity}:${i.total}').join('|');
-  Map<String,String> address()=>{
-    'postalCode':postal(),'street':street.text.trim(),'number':number.text.trim(),
-    'complement':complement.text.trim(),'neighborhood':neighborhood.text.trim(),
-    'city':city.text.trim(),'state':state.text.trim().toUpperCase(),
-  };
-  void changeMethod(String value){setState((){
-    method=value;quoteId='';selectedServiceId='';options=[];
-    key=RailwayOrderRepository.newCheckoutKey();
-  });}
-  Future<void> calculate()async{
-    final cart=ref.read(cartProvider);
-    if(!RegExp(r'^\d{8}$').hasMatch(postal())){
-      setState(()=>error='Digite um CEP válido com 8 números.');return;
+    } catch (_) {
+      // Permite preenchimento manual quando o perfil estiver indisponível.
     }
-    if(cart.isEmpty)return;
-    setState((){quoting=true;error='';options=[];quoteId='';selectedServiceId='';});
-    try{
-      final result=await shipping.quote(cart,postal());
-      if(mounted)setState((){
-        quoteId=result['quoteId'].toString();
-        options=(result['options'] as List? ?? const [])
-          .map((e)=>Map<String,dynamic>.from(e as Map)).toList();
-        quotedCart=cartSignature(cart);
-        quotedZip=postal();
-        key=RailwayOrderRepository.newCheckoutKey();
-        if(result['sandbox']==true)error='Cotação de teste (sandbox): não é uma etiqueta comprada.';
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await Future.wait([
+        _orders.checkoutEnabled(),
+        _shipping.availability(),
+      ]);
+      if (!mounted) return;
+      final availability = data[1] as Map<String, dynamic>;
+      setState(() {
+        _paymentEnabled = data[0] as bool;
+        _deliveryEnabled = availability['delivery'] == true;
+        _sandbox = availability['sandbox'] != false;
       });
-    }catch(e){if(mounted)setState(()=>error='$e');}
-    finally{if(mounted)setState(()=>quoting=false);}
-  }
-  Future<void> pay()async{
-    if(busy||paymentEnabled!=true||!form.currentState!.validate())return;
-    final cart=ref.read(cartProvider);
-    if(cart.isEmpty)return;
-    if(method=='DELIVERY' && (quoteId.isEmpty||selectedServiceId.isEmpty||
-      cartSignature(cart)!=quotedCart||postal()!=quotedZip)){
-      setState(()=>error='Calcule e escolha novamente o frete para este carrinho.');return;
+    } catch (error) {
+      if (mounted) setState(() { _paymentEnabled = false; _error = error.toString(); });
     }
-    setState((){busy=true;error='';});
-    try{
-      final result=await orders.createOrder(cart:cart,customerName:name.text,
-        customerPhone:phone.text,idempotencyKey:key,fulfillment:method,
-        quoteId:method=='DELIVERY'?quoteId:null,
-        serviceId:method=='DELIVERY'?selectedServiceId:null,
-        address:method=='DELIVERY'?address():null);
-      final url=result['checkoutUrl']?.toString();
-      final uri=url==null?null:Uri.tryParse(url);
-      if(uri==null||uri.scheme!='https'||uri.host.isEmpty)throw StateError('Link de pagamento não disponível.');
-      if(!await launchUrl(uri,mode:LaunchMode.externalApplication))
-        throw StateError('Não foi possível abrir o pagamento. O pedido permanece registrado.');
-      ref.read(cartProvider.notifier).clear();
-      if(mounted)context.go('/orders');
-    }catch(e){if(mounted)setState(()=>error='$e');}
-    finally{if(mounted)setState(()=>busy=false);}
   }
-  Widget field(TextEditingController controller,String title,{bool mustFill=true,TextInputType? type})=>
-    Padding(padding:const EdgeInsets.only(bottom:10),child:TextFormField(
-      controller:controller,keyboardType:type,decoration:InputDecoration(labelText:title),
-      validator:(value)=>mustFill&&(value==null||value.trim().isEmpty)?'Campo obrigatório':null));
 
   @override
-  Widget build(BuildContext context){
-    final cart=ref.watch(cartProvider);
-    final subtotal=cart.fold<double>(0,(sum,item)=>sum+item.total);
-    final selected=options.where((o)=>o['id'].toString()==selectedServiceId).toList();
-    final price=selected.isEmpty?0:((selected.first['priceCents'] as num?)?.toInt()??0);
-    final estimate=subtotal+(method=='DELIVERY'?price/100:0);
-    return Scaffold(appBar:AppBar(title:const Text('Finalizar pedido')),
-      body:ListView(padding:const EdgeInsets.all(18),children:[
-        Text('Forma de recebimento',style:Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height:10),
-        SegmentedButton<String>(segments:[const ButtonSegment(value:'PICKUP',label:Text('Retirada'),
-          icon:Icon(Icons.storefront)),if(deliveryEnabled)const ButtonSegment(value:'DELIVERY',
-          label:Text('Entrega'),icon:Icon(Icons.local_shipping_outlined))],
-          selected:{method},onSelectionChanged:(values)=>changeMethod(values.first)),
-        if(!deliveryEnabled)const Padding(padding:EdgeInsets.symmetric(vertical:10),
-          child:Text('Entrega ainda não configurada pela loja. Retirada continua disponível.')),
-        const SizedBox(height:14),
-        Form(key:form,child:Column(children:[
-          field(name,'Nome completo'),field(phone,'Telefone',type:TextInputType.phone),
-          if(method=='DELIVERY')...[
-            Row(children:[Expanded(child:field(cep,'CEP (8 números)',type:TextInputType.number)),
-              const SizedBox(width:8),FilledButton.tonal(onPressed:quoting?null:calculate,
-                child:quoting?const SizedBox(height:16,width:16,child:CircularProgressIndicator(strokeWidth:2)):
-                  const Text('Cotar frete'))]),
-            field(street,'Logradouro'),field(number,'Número'),
-            field(complement,'Complemento',mustFill:false),field(neighborhood,'Bairro'),
-            field(city,'Cidade'),field(state,'UF (ex.: SP)'),
+  void dispose() {
+    for (final controller in [_name, _phone, _cep, _street, _number, _complement,
+      _neighborhood, _city, _state]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  String get _postal => _cep.text.replaceAll(RegExp(r'\D'), '');
+
+  String _signature(List<CartItem> items) => items
+      .map((line) => '${line.product.id}:${line.color}:${line.size}:${line.quantity}:${line.total}')
+      .join('|');
+
+  bool _isQuoteValid(List<CartItem> items) =>
+      _quoteId.isNotEmpty && _serviceId.isNotEmpty &&
+      _signature(items) == _quotedCart && _postal == _quotedZip &&
+      _quotedAt != null && DateTime.now().difference(_quotedAt!) < const Duration(minutes: 15);
+
+  Map<String, String> _address() => {
+    'postalCode': _postal,
+    'street': _street.text.trim(),
+    'number': _number.text.trim(),
+    'complement': _complement.text.trim(),
+    'neighborhood': _neighborhood.text.trim(),
+    'city': _city.text.trim(),
+    'state': _state.text.trim().toUpperCase(),
+  };
+
+  void _selectMethod(String value) {
+    setState(() {
+      _method = value;
+      _quoteId = '';
+      _serviceId = '';
+      _quotedAt = null;
+      _options = [];
+      _checkoutKey = RailwayOrderRepository.newCheckoutKey();
+      _error = '';
+    });
+  }
+
+  Future<void> _quote(List<CartItem> items) async {
+    if (_quoting || !RegExp(r'^\d{8}$').hasMatch(_postal)) {
+      setState(() => _error = 'Informe um CEP válido com oito números.');
+      return;
+    }
+    if (items.isEmpty) return;
+    setState(() {
+      _quoting = true;
+      _error = '';
+      _options = [];
+      _quoteId = '';
+      _serviceId = '';
+      _quotedAt = null;
+    });
+    try {
+      final result = await _shipping.quote(items, _postal);
+      if (!mounted) return;
+      setState(() {
+        _quoteId = result['quoteId']?.toString() ?? '';
+        _options = (result['options'] as List? ?? const [])
+            .map((value) => Map<String, dynamic>.from(value as Map))
+            .toList();
+        _quotedCart = _signature(items);
+        _quotedZip = _postal;
+        _quotedAt = DateTime.now();
+        _checkoutKey = RailwayOrderRepository.newCheckoutKey();
+        if (result['sandbox'] == true) {
+          _sandbox = true;
+          _error = 'Cotação do ambiente de teste: não é possível cobrar este frete.';
+        }
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _quoting = false);
+    }
+  }
+
+  Future<void> _pay(List<CartItem> items) async {
+    if (_busy || _paymentEnabled != true || !_form.currentState!.validate()) return;
+    if (items.isEmpty) return;
+    if (_method == 'DELIVERY' && !_isQuoteValid(items)) {
+      setState(() => _error = 'Atualize a cotação e selecione uma transportadora para continuar.');
+      return;
+    }
+    setState(() { _busy = true; _error = ''; });
+    try {
+      final response = await _orders.createOrder(
+        cart: items,
+        customerName: _name.text,
+        customerPhone: _phone.text,
+        idempotencyKey: _checkoutKey,
+        fulfillment: _method,
+        quoteId: _method == 'DELIVERY' ? _quoteId : null,
+        serviceId: _method == 'DELIVERY' ? _serviceId : null,
+        address: _method == 'DELIVERY' ? _address() : null,
+      );
+      final uri = Uri.tryParse(response['checkoutUrl']?.toString() ?? '');
+      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+        throw StateError('O pedido foi registrado, mas o link de pagamento não está disponível. Consulte seus pedidos.');
+      }
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        throw StateError('O pedido foi registrado, mas não conseguimos abrir o pagamento. Consulte seus pedidos.');
+      }
+      ref.read(cartProvider.notifier).clear();
+      if (mounted) context.go('/orders');
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _field(TextEditingController controller, String title,
+      {bool isRequired = true, TextInputType? type, String? Function(String?)? validator}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: type,
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(labelText: title),
+        validator: validator ?? (text) => isRequired && (text == null || text.trim().isEmpty)
+            ? 'Preencha este campo.' : null,
+      ),
+    );
+  }
+
+  Widget _section(BuildContext context, String title, IconData icon, Widget content) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Icon(icon, size: 20, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
+            ]),
+            const SizedBox(height: 14),
+            content,
           ],
-        ])),
-        if(method=='DELIVERY')...[ 
-          if(options.isNotEmpty)Text('Escolha uma transportadora',style:Theme.of(context).textTheme.titleMedium),
-          for(final rate in options)RadioListTile<String>(
-            value:rate['id'].toString(),groupValue:selectedServiceId,
-            onChanged:(value)=>setState(()=>selectedServiceId=value??''),
-            title:Text('${rate['carrier']} • ${rate['name']}'),
-            subtitle:Text('${rate['deliveryDays']} dia(s) úteis estimados'),
-            secondary:Text(currency.format(((rate['priceCents'] as num?)?.toInt()??0)/100)),
-          ),
-          const Text('O frete é cotado pelo Melhor Envio. O preço só é incluído no pedido após validação do servidor.'),
-        ],
-        const SizedBox(height:16),
-        Text('Resumo do pedido',style:Theme.of(context).textTheme.titleMedium),
-        for(final line in cart)ListTile(title:Text(line.product.name),
-          subtitle:Text('${line.color} / ${line.size} • ${line.quantity} un.'),
-          trailing:Text(currency.format(line.total))),
-        const Divider(),
-        ListTile(title:const Text('Produtos'),trailing:Text(currency.format(subtotal))),
-        ListTile(title:const Text('Frete'),trailing:Text(method=='PICKUP'?'Retirada gratuita':
-          selected.isEmpty?'Calcule o frete':currency.format(price/100))),
-        ListTile(title:const Text('Total estimado'),trailing:Text(currency.format(estimate))),
-        if(paymentEnabled==null)const Center(child:CircularProgressIndicator()),
-        if(paymentEnabled==false)const Card(child:Padding(padding:EdgeInsets.all(14),
-          child:Text('Pagamentos desativados para esta loja. É possível testar a cotação sem gerar cobrança.'))),
-        if(method=='DELIVERY' && shippingSandbox)const Text(
-          'Cotação sandbox: apenas demonstração. Não é possível cobrar esta entrega.'),
-        if(error.isNotEmpty)Padding(padding:const EdgeInsets.symmetric(vertical:12),
-          child:Text(error,style:TextStyle(color:Theme.of(context).colorScheme.error))),
-        const SizedBox(height:12),
-        FilledButton.icon(onPressed:paymentEnabled==true&&!busy&&cart.isNotEmpty&&
-          (method=='PICKUP'||(!shippingSandbox && selectedServiceId.isNotEmpty&&cartSignature(cart)==quotedCart&&postal()==quotedZip))?pay:null,
-          icon:busy?const SizedBox(width:16,height:16,child:CircularProgressIndicator(strokeWidth:2)):
-            const Icon(Icons.lock_outline),label:const Text('Ir para pagamento seguro')),
-      ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = ref.watch(cartProvider);
+    final subtotal = items.fold<double>(0, (sum, line) => sum + line.total);
+    final selected = _options.where((rate) => rate['id'].toString() == _serviceId).toList();
+    final cents = selected.isEmpty ? 0 : (selected.first['priceCents'] as num?)?.toInt() ?? 0;
+    final quoteValid = _isQuoteValid(items);
+    final shippingPrice = _method == 'PICKUP' ? 0.0 : cents / 100;
+    final canPay = _paymentEnabled == true && !_busy && items.isNotEmpty &&
+        (_method == 'PICKUP' || (!_sandbox && quoteValid));
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Finalizar pedido')),
+      body: items.isEmpty
+          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.shopping_cart_outlined, size: 48),
+              const SizedBox(height: 12),
+              const Text('Seu carrinho está vazio.'),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: () => context.go('/cart'), child: const Text('Voltar ao carrinho')),
+            ]))
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1120),
+                child: LayoutBuilder(builder: (context, limits) {
+                  final wide = limits.maxWidth >= 780;
+                  final details = Form(
+                    key: _form,
+                    child: Column(
+                      children: [
+                        _section(context, '1. Recebimento', Icons.local_shipping_outlined,
+                          Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            SegmentedButton<String>(
+                              segments: [
+                                const ButtonSegment(value: 'PICKUP', label: Text('Retirada'), icon: Icon(Icons.storefront)),
+                                if (_deliveryEnabled) const ButtonSegment(value: 'DELIVERY', label: Text('Entrega'), icon: Icon(Icons.local_shipping_outlined)),
+                              ],
+                              selected: {_method},
+                              onSelectionChanged: (values) => _selectMethod(values.first),
+                            ),
+                            if (!_deliveryEnabled) const Padding(
+                              padding: EdgeInsets.only(top: 10),
+                              child: Text('Entrega ainda não configurada. A retirada continua disponível.',
+                                  style: TextStyle(color: AppColors.textSecondary)),
+                            ),
+                          ])),
+                        const SizedBox(height: 12),
+                        _section(context, '2. Seus dados', Icons.person_outline, Column(children: [
+                          _field(_name, 'Nome completo'),
+                          _field(_phone, 'Telefone com DDD', type: TextInputType.phone,
+                            validator: (value) => RegExp(r'^\d{10,11}$').hasMatch((value ?? '').replaceAll(RegExp(r'\D'), ''))
+                                ? null : 'Informe um telefone com DDD.'),
+                          if (_method == 'DELIVERY') ...[
+                            Row(children: [
+                              Expanded(child: _field(_cep, 'CEP (8 números)', type: TextInputType.number,
+                                  validator: (value) => RegExp(r'^\d{8}$').hasMatch((value ?? '').replaceAll(RegExp(r'\D'), ''))
+                                      ? null : 'CEP inválido.')),
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: FilledButton.tonalIcon(
+                                  onPressed: _quoting ? null : () => _quote(items),
+                                  icon: _quoting
+                                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : const Icon(Icons.search),
+                                  label: const Text('Cotar'),
+                                ),
+                              ),
+                            ]),
+                            _field(_street, 'Logradouro'),
+                            _field(_number, 'Número'),
+                            _field(_complement, 'Complemento', isRequired: false),
+                            _field(_neighborhood, 'Bairro'),
+                            _field(_city, 'Cidade'),
+                            _field(_state, 'UF (ex.: SP)',
+                                validator: (value) => RegExp(r'^[a-zA-Z]{2}$').hasMatch((value ?? '').trim())
+                                    ? null : 'Informe a sigla da UF.'),
+                          ],
+                        ])),
+                        if (_method == 'DELIVERY') ...[
+                          const SizedBox(height: 12),
+                          _section(context, '3. Frete', Icons.inventory_2_outlined,
+                            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                              if (_options.isEmpty) const Text('Informe o CEP e solicite uma cotação.'),
+                              for (final rate in _options)
+                                RadioListTile<String>(
+                                  value: rate['id'].toString(),
+                                  groupValue: _serviceId,
+                                  onChanged: (value) => setState(() => _serviceId = value ?? ''),
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text('${rate['carrier']} · ${rate['name']}'),
+                                  subtitle: Text('${rate['deliveryDays']} dia(s) úteis estimados'),
+                                  secondary: Text(_currency.format(((rate['priceCents'] as num?)?.toInt() ?? 0) / 100)),
+                                ),
+                              if (_quoteId.isNotEmpty)
+                                Text(quoteValid ? 'Cotação válida por até 15 minutos.' : 'Cotação vencida ou carrinho alterado. Calcule novamente.',
+                                  style: TextStyle(color: quoteValid ? AppColors.textSecondary : AppColors.error)),
+                              if (_sandbox) const Text('Ambiente de testes: cotações não permitem cobrança real.',
+                                style: TextStyle(color: AppColors.textSecondary)),
+                            ])),
+                        ],
+                      ],
+                    ),
+                  );
+                  final summary = _section(context, 'Resumo e confirmação', Icons.receipt_long_outlined,
+                    Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      for (final line in items)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(children: [
+                            Expanded(child: Text('${line.product.name}\n${line.color} · ${line.size} · ${line.quantity} un.',
+                                maxLines: 3, overflow: TextOverflow.ellipsis)),
+                            const SizedBox(width: 8),
+                            Text(_currency.format(line.total)),
+                          ]),
+                        ),
+                      const Divider(height: 24),
+                      _summaryLine('Produtos', _currency.format(subtotal)),
+                      const SizedBox(height: 10),
+                      _summaryLine('Frete', _method == 'PICKUP' ? 'Retirada sem custo' :
+                          selected.isEmpty || !quoteValid ? 'A calcular' : _currency.format(shippingPrice)),
+                      const Divider(height: 24),
+                      if (_method == 'PICKUP' || (selected.isNotEmpty && quoteValid))
+                        _summaryLine('Total estimado', _currency.format(subtotal + shippingPrice), emphasized: true)
+                      else
+                        const Text('O total será exibido após escolher o frete.'),
+                      const SizedBox(height: 12),
+                      if (_paymentEnabled == null) const Center(child: CircularProgressIndicator()),
+                      if (_paymentEnabled == false)
+                        const Card(
+                          color: AppColors.divider,
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text('Pagamentos ainda não habilitados nesta loja. Você pode conferir o carrinho e testar a cotação, mas não concluir a compra.'),
+                          ),
+                        ),
+                      if (_error.isNotEmpty)
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(_error, style: const TextStyle(color: AppColors.error))),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: canPay ? () => _pay(items) : null,
+                        icon: _busy
+                            ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.lock_outline),
+                        label: Text(_busy ? 'Preparando pedido…' : 'Ir para pagamento seguro'),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text('O preço, o estoque e a entrega são revalidados pelo servidor antes de criar a cobrança.',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    ]));
+                  if (wide) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(flex: 3, child: details),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 2, child: summary),
+                      ]),
+                    );
+                  }
+                  return ListView(padding: const EdgeInsets.all(12), children: [
+                    details,
+                    const SizedBox(height: 12),
+                    summary,
+                    const SizedBox(height: 16),
+                  ]);
+                }),
+              ),
+            ),
+    );
+  }
+
+  Widget _summaryLine(String label, String value, {bool emphasized = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(child: Text(label, style: TextStyle(fontWeight: emphasized ? FontWeight.w800 : FontWeight.w400))),
+        const SizedBox(width: 8),
+        Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: emphasized ? 18 : 14)),
+      ],
     );
   }
 }

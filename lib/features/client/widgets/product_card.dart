@@ -1,182 +1,172 @@
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../models/product.dart';
 
+/// Cartão responsivo, com alvo de toque acessível e preço sem overflow.
+/// A grade que o contém deve usar altura de 306 a 330 pixels.
 class ProductCard extends StatelessWidget {
-  final Product product;
-
   const ProductCard({super.key, required this.product});
+
+  final Product product;
 
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-    final isOutOfStock = !product.isAvailable;
+    final soldOut = !product.isAvailable;
+    final oldPrice = product.oldPrice;
+    final discounted = oldPrice != null &&
+        oldPrice > 0 && oldPrice > product.price && product.price >= 0;
+    final discount = discounted
+        ? ((oldPrice - product.price) / oldPrice * 100).round()
+        : 0;
+    final imageUrl = product.images.isEmpty ? '' : product.images.first.trim();
 
-    return GestureDetector(
-      onTap: () => context.push('/product/${product.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    return Semantics(
+      button: true,
+      label: '${product.name}, ${currency.format(product.price)}${soldOut ? ', esgotado' : ''}',
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/product/${product.id}'),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: ColorFiltered(
-                      colorFilter: isOutOfStock
-                          ? const ColorFilter.mode(
-                              Colors.grey,
-                              BlendMode.saturation,
-                            )
-                          : const ColorFilter.mode(
-                              Colors.transparent,
-                              BlendMode.multiply,
-                            ),
-                      child: CachedNetworkImage(
-                        imageUrl: product.images.isNotEmpty
-                            ? product.images.first
-                            : '',
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                          color: AppColors.divider,
-                          child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                        errorWidget: (_, __, ___) => Container(
-                          color: AppColors.divider,
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (product.isNew && !isOutOfStock)
-                    const Positioned(
-                      top: 8,
-                      left: 8,
-                      child: _Badge(text: 'Novo', color: AppColors.success),
-                    ),
-                  if (product.oldPrice != null && !isOutOfStock)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: _Badge(
-                        text:
-                            '-${(((product.oldPrice! - product.price) / product.oldPrice!) * 100).round()}%',
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                  if (isOutOfStock)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: _Badge(
-                        text: 'Esgotado',
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isOutOfStock
-                          ? AppColors.textLight
-                          : AppColors.textPrimary,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      Text(
-                        currency.format(product.price),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: isOutOfStock
-                              ? AppColors.textLight
-                              : AppColors.primary,
-                        ),
-                      ),
-                      if (product.oldPrice != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          currency.format(product.oldPrice),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textLight,
-                            decoration: TextDecoration.lineThrough,
+                      if (imageUrl.isNotEmpty)
+                        ColorFiltered(
+                          colorFilter: soldOut
+                              ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                              : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 600,
+                            placeholder: (_, __) => const _ImagePlaceholder(),
+                            errorWidget: (_, __, ___) => const _ImagePlaceholder(),
                           ),
-                        ),
+                        )
+                      else
+                        const _ImagePlaceholder(),
+                      if (soldOut)
+                        const Positioned(
+                          left: 10, top: 10,
+                          child: _Pill(text: 'Esgotado', color: AppColors.textSecondary),
+                        )
+                      else ...[
+                        if (product.isNew)
+                          const Positioned(
+                            left: 10, top: 10,
+                            child: _Pill(text: 'Novidade', color: AppColors.primary),
+                          ),
+                        if (discounted && discount > 0)
+                          Positioned(
+                            right: 10, top: 10,
+                            child: _Pill(text: '-$discount%', color: AppColors.secondary),
+                          ),
                       ],
                     ],
                   ),
-                ],
-              ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 13),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.25,
+                          fontWeight: FontWeight.w600,
+                          color: soldOut ? AppColors.textSecondary : AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        currency.format(product.price),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: soldOut ? AppColors.textLight : AppColors.primary,
+                        ),
+                      ),
+                      SizedBox(
+                        height: 18,
+                        child: discounted
+                            ? Text(
+                                currency.format(oldPrice),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _Badge extends StatelessWidget {
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) => const ColoredBox(
+        color: AppColors.divider,
+        child: Center(
+          child: Icon(Icons.photo_outlined, color: AppColors.textLight, size: 32),
+        ),
+      );
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.text, required this.color});
   final String text;
   final Color color;
 
-  const _Badge({required this.text, required this.color});
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(9),
         ),
-      ),
-    );
-  }
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 11,
+            height: 1,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+      );
 }

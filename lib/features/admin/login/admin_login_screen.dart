@@ -157,7 +157,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                         color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 const Text(
-                  'Entre ou crie sua conta para continuar',
+                  'Sua loja, suas compras e seus pedidos em um só lugar',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 15,
@@ -190,7 +190,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                 const SizedBox(height: 20),
 
                 SizedBox(
-                  height: 280,
+                  height: LojaBackend.isRailway ? 330 : 300,
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -292,7 +292,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                               controller: _registerPasswordController,
                               obscureText: _obscureRegister,
                               decoration: InputDecoration(
-                                labelText: 'Senha (mín. 6)',
+                                labelText: LojaBackend.isRailway ? 'Senha (mín. 12)' : 'Senha (mín. 6)',
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   icon: Icon(
@@ -306,8 +306,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                                 ),
                               ),
                               validator: (v) {
-                                if (v == null || v.length < 6) {
-                                  return 'Mínimo 6 caracteres';
+                                if (v == null || v.length < (LojaBackend.isRailway ? 12 : 6)) {
+                                  return LojaBackend.isRailway ? 'Mínimo 12 caracteres' : 'Mínimo 6 caracteres';
                                 }
                                 return null;
                               },
@@ -377,6 +377,18 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                   ),
                 ],
 
+                if (LojaBackend.isRailway) ...[
+                  const SizedBox(height: 18),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      'Sua conta e seus pedidos são protegidos pelo servidor da loja. '
+                      'Recuperação de senha por e-mail será disponibilizada antes da publicação.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ),
+                ] else ...[
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -421,6 +433,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                     ),
                   ),
                 ),
+                ],
               ],
             ),
           ),

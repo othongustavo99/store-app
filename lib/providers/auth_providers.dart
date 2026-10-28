@@ -53,6 +53,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  Future<void> updateRailwayName(String name) async {
+    if (!LojaBackend.isRailway) throw StateError('Perfil disponível no Railway.');
+    final result = await LojaApi.instance.request('PATCH', '/v1/me',
+        body: {'name': name.trim()}, authenticated: true);
+    state = AuthState(
+      isLoggedIn: state.isLoggedIn, role: state.role,
+      name: result['name']?.toString() ?? name.trim(),
+      email: state.email, photoUrl: state.photoUrl,
+    );
+  }
+
+  Future<void> changeRailwayPassword(String currentPassword, String newPassword) async {
+    await LojaApi.instance.request('POST', '/v1/me/password',
+        body: {'currentPassword': currentPassword, 'newPassword': newPassword}, authenticated: true);
+  }
+
   /// Atualiza a função do usuário depois de aceitar um convite no Railway.
   Future<void> refreshRailwayRole() async {
     if (!LojaBackend.isRailway) return;

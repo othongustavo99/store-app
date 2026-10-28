@@ -10,6 +10,7 @@ import '../features/admin/orders/admin_orders_screen.dart';
 import '../features/admin/products/admin_products_screen.dart';
 import '../features/admin/products/railway_catalog_management_screen.dart';
 import '../features/client/home/home_screen.dart';
+import '../features/client/account/railway_account_screen.dart';
 import '../features/client/cart/cart_screen.dart';
 import '../features/client/orders/orders_screen.dart';
 import '../features/client/product_detail/product_detail_screen.dart';
@@ -33,7 +34,10 @@ import '../features/support/railway_support_conversation_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Observa o auth para o redirect reagir ao login/logout
-  final auth = ref.watch(authProvider);
+  // Não recriar o roteador quando apenas nome/foto do perfil mudarem.
+  // A navegação precisa reagir somente a login/logout e permissão.
+  ref.watch(authProvider.select((a) => (a.isLoggedIn, a.role)));
+  final auth = ref.read(authProvider);
 
   return GoRouter(
     initialLocation: '/login',
@@ -65,6 +69,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const AdminLoginScreen(),
+      ),
+
+      GoRoute(
+        path: '/account',
+        builder: (context, state) => LojaBackend.isRailway
+            ? const RailwayAccountScreen() : const RemotePendingScreen(),
       ),
 
       GoRoute(
@@ -210,57 +220,108 @@ class ClientShell extends ConsumerWidget {
 
   const ClientShell({super.key, required this.navigationShell});
 
+  void _navigate(int index) {
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cartCount = ref.watch(cartItemCountProvider);
+    final cartLabel = cartCount > 99 ? '99+' : '$cartCount';
 
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) {
-          navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
+    final cartIcon = Badge(
+      isLabelVisible: cartCount > 0,
+      label: Text(cartLabel, style: const TextStyle(fontSize: 10)),
+      child: const Icon(Icons.shopping_cart_outlined),
+    );
+    final activeCartIcon = Badge(
+      isLabelVisible: cartCount > 0,
+      label: Text(cartLabel, style: const TextStyle(fontSize: 10)),
+      child: const Icon(Icons.shopping_cart),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Navegação lateral apenas em tablets largos e Windows.
+        if (constraints.maxWidth >= 850) {
+          final expanded = constraints.maxWidth >= 1180;
+          return Scaffold(
+            body: Row(
+              children: [
+                NavigationRail(
+                  extended: expanded,
+                  minExtendedWidth: 214,
+                  labelType: expanded
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.selected,
+                  selectedIndex: navigationShell.currentIndex,
+                  onDestinationSelected: _navigate,
+                  leading: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Icon(Icons.storefront_outlined, size: 28),
+                  ),
+                  destinations: [
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home),
+                      label: Text('Início'),
+                    ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.grid_view_outlined),
+                      selectedIcon: Icon(Icons.grid_view),
+                      label: Text('Categorias'),
+                    ),
+                    NavigationRailDestination(
+                      icon: cartIcon,
+                      selectedIcon: activeCartIcon,
+                      label: const Text('Carrinho'),
+                    ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.receipt_long_outlined),
+                      selectedIcon: Icon(Icons.receipt_long),
+                      label: Text('Pedidos'),
+                    ),
+                  ],
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: navigationShell),
+              ],
+            ),
           );
-        },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Início',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.grid_view_outlined),
-            selectedIcon: Icon(Icons.grid_view),
-            label: 'Categorias',
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: cartCount > 0,
-              label: Text(
-                cartCount > 99 ? '99+' : '$cartCount',
-                style: const TextStyle(fontSize: 10),
+        }
+        return Scaffold(
+          body: navigationShell,
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: navigationShell.currentIndex,
+            onDestinationSelected: _navigate,
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Início',
               ),
-              child: const Icon(Icons.shopping_cart_outlined),
-            ),
-            selectedIcon: Badge(
-              isLabelVisible: cartCount > 0,
-              label: Text(
-                cartCount > 99 ? '99+' : '$cartCount',
-                style: const TextStyle(fontSize: 10),
+              const NavigationDestination(
+                icon: Icon(Icons.grid_view_outlined),
+                selectedIcon: Icon(Icons.grid_view),
+                label: 'Categorias',
               ),
-              child: const Icon(Icons.shopping_cart),
-            ),
-            label: 'Carrinho',
+              NavigationDestination(
+                icon: cartIcon,
+                selectedIcon: activeCartIcon,
+                label: 'Carrinho',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long),
+                label: 'Pedidos',
+              ),
+            ],
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Pedidos',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

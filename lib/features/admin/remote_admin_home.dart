@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
+import '../../core/theme/app_colors.dart';
 import '../../data/repositories/railway_inventory_repository.dart';
 import '../../providers/auth_providers.dart';
 
-/// Painel Railway com dados do servidor, sem misturar métricas do Firestore.
+/// Painel operacional. Mantém os mesmos endpoints e autorizações da API.
 class RemoteAdminHome extends ConsumerStatefulWidget {
   const RemoteAdminHome({super.key});
+
   @override
   ConsumerState<RemoteAdminHome> createState() => _RemoteAdminHomeState();
 }
@@ -16,100 +20,300 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
   late Future<Map<String, dynamic>> _summary;
 
   @override
-  void initState() { super.initState(); _load(); }
-  void _load() { _summary = _repository.summary(); }
-  Future<void> _refresh() async {
-    setState(_load);
-    try { await _summary; } catch (_) { /* FutureBuilder exibe o erro. */ }
-  }
-  String _count(dynamic v) => int.tryParse('$v')?.toString() ?? '0';
-  Widget _metric(BuildContext context, String title, String value, IconData icon) {
-    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-      Icon(icon, size: 26), const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: Theme.of(context).textTheme.bodySmall),
-        Text(value, style: Theme.of(context).textTheme.titleLarge),
-      ])),
-    ])));
+  void initState() {
+    super.initState();
+    _load();
   }
 
+  void _load() => _summary = _repository.summary();
+
+  Future<void> _refresh() async {
+    setState(_load);
+    try {
+      await _summary;
+    } catch (_) {
+      // A falha é apresentada pelo FutureBuilder.
+    }
+  }
+
+  String _count(dynamic value) => (int.tryParse('$value') ?? 0).toString();
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Minha loja • Administração'), actions: [
-      IconButton(tooltip: 'Atualizar indicadores', onPressed: _refresh, icon: const Icon(Icons.refresh)),
-      IconButton(tooltip: 'Sair', onPressed: () async {
-        await ref.read(authProvider.notifier).logout();
-        if (context.mounted) context.go('/login');
-      }, icon: const Icon(Icons.logout)),
-    ]),
-    body: RefreshIndicator(onRefresh: _refresh, child: ListView(
-      physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), children: [
-      Text('Visão geral da loja', style: Theme.of(context).textTheme.headlineSmall),
-      const SizedBox(height: 8),
-      const Text('Pedidos e estoque da loja atual, sincronizados pelo Railway.'),
-      const SizedBox(height: 16),
-      FutureBuilder<Map<String, dynamic>>(future: _summary, builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Padding(padding: const EdgeInsets.all(18), child: snapshot.hasError
-              ? Text('Não foi possível carregar indicadores: ${snapshot.error}')
-              : const Center(child: CircularProgressIndicator()));
-        }
-        final stock = Map<String,dynamic>.from(snapshot.data!['stock'] as Map);
-        final orders = Map<String,dynamic>.from(snapshot.data!['orders'] as Map);
-        final paidCents = int.tryParse('${orders['grossPaidCents']}') ?? 0;
-        final paid = (paidCents / 100).toStringAsFixed(2).replaceAll('.', ',');
-        return LayoutBuilder(builder: (context, constraints) {
-          final columns = constraints.maxWidth > 800 ? 3 : constraints.maxWidth > 440 ? 2 : 1;
-          final width = (constraints.maxWidth - (columns - 1) * 8) / columns;
-          return Wrap(spacing: 8, runSpacing: 8, children: [
-            SizedBox(width: width, child: _metric(context, 'Unidades disponíveis', _count(stock['availableUnits']), Icons.inventory_2_outlined)),
-            SizedBox(width: width, child: _metric(context, 'Unidades reservadas', _count(stock['reservedUnits']), Icons.lock_clock_outlined)),
-            SizedBox(width: width, child: _metric(context, 'Variantes com estoque baixo', _count(stock['lowVariants']), Icons.warning_amber_outlined)),
-            SizedBox(width: width, child: _metric(context, 'Variantes esgotadas', _count(stock['outVariants']), Icons.remove_shopping_cart_outlined)),
-            SizedBox(width: width, child: _metric(context, 'Pedidos a preparar', _count(orders['toPrepare']), Icons.receipt_long_outlined)),
-            SizedBox(width: width, child: _metric(context, 'Pedidos em andamento', _count(orders['inProgress']), Icons.local_shipping_outlined)),
-            SizedBox(width: width, child: _metric(context, 'Total bruto dos pedidos pagos', 'R\$ $paid', Icons.payments_outlined)),
-          ]);
-        });
-      }),
-      const SizedBox(height: 20),
-      OutlinedButton.icon(onPressed: () => context.go('/admin/store-settings'),
-        icon: const Icon(Icons.tune_outlined), label: const Text('Identidade e preparação da loja')),
-      const SizedBox(height: 8),
-      FilledButton.icon(onPressed: () => context.go('/admin/inventory'),
-        icon: const Icon(Icons.inventory_outlined), label: const Text('Inventário e movimentações')),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(onPressed: () => context.go('/admin/team'),
-        icon: const Icon(Icons.groups_outlined), label: const Text('Equipe e permissões')),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(onPressed: () => context.go('/admin/products'),
-        icon: const Icon(Icons.add_box_outlined), label: const Text('Produtos e categorias')),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(onPressed: () => context.push('/admin/support'),
-        icon: const Icon(Icons.support_agent_outlined), label: const Text('Atendimento ao cliente')),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(onPressed: () => context.go('/admin/shipping'),
-        icon: const Icon(Icons.local_shipping_outlined), label: const Text('Frete e embalagens')),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(onPressed: () => context.go('/admin/orders'),
-        icon: const Icon(Icons.receipt_long_outlined), label: const Text('Pedidos e expedição')),
-      const SizedBox(height: 8),
-      OutlinedButton.icon(onPressed: () => context.go('/'),
-        icon: const Icon(Icons.storefront_outlined), label: const Text('Visualizar vitrine')),
-      const SizedBox(height: 12),
-      const Text('O total bruto não é lucro nem repasse financeiro. Reembolsos parciais e conciliação são etapas futuras.',
-        style: TextStyle(fontSize: 12)),
-    ])),
-  );
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Administração da loja'),
+        actions: [
+          IconButton(
+            tooltip: 'Atualizar indicadores',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          IconButton(
+            tooltip: 'Sair da conta',
+            icon: const Icon(Icons.logout_rounded),
+            onPressed: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) context.go('/login');
+            },
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1160),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Visão geral', style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 5),
+                    const Text('Pedidos e estoque da loja atual, atualizados pelo Railway.',
+                        style: TextStyle(color: AppColors.textSecondary)),
+                    const SizedBox(height: 22),
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: _summary,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return _AdminNotice(
+                            icon: Icons.wifi_off_outlined,
+                            message: 'Não foi possível carregar os indicadores.',
+                            action: _refresh,
+                          );
+                        }
+                        if (!snapshot.hasData) {
+                          return const Padding(
+                            padding: EdgeInsets.all(28),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final data = snapshot.data!;
+                        final stock = data['stock'] is Map
+                            ? Map<String, dynamic>.from(data['stock'] as Map)
+                            : <String, dynamic>{};
+                        final orders = data['orders'] is Map
+                            ? Map<String, dynamic>.from(data['orders'] as Map)
+                            : <String, dynamic>{};
+                        final cents = int.tryParse('${orders['grossPaidCents']}') ?? 0;
+                        final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+                        final items = <_MetricData>[
+                          _MetricData('Unidades disponíveis', _count(stock['availableUnits']),
+                              Icons.inventory_2_outlined),
+                          _MetricData('Unidades reservadas', _count(stock['reservedUnits']),
+                              Icons.lock_clock_outlined),
+                          _MetricData('Estoque baixo', _count(stock['lowVariants']),
+                              Icons.warning_amber_rounded),
+                          _MetricData('Variantes esgotadas', _count(stock['outVariants']),
+                              Icons.production_quantity_limits_outlined),
+                          _MetricData('Pedidos a preparar', _count(orders['toPrepare']),
+                              Icons.receipt_long_outlined),
+                          _MetricData('Pedidos em andamento', _count(orders['inProgress']),
+                              Icons.local_shipping_outlined),
+                          _MetricData('Total bruto de pedidos pagos', currency.format(cents / 100),
+                              Icons.payments_outlined),
+                        ];
+                        return LayoutBuilder(
+                          builder: (context, constraints) {
+                            final count = constraints.maxWidth >= 900 ? 4 :
+                                constraints.maxWidth >= 580 ? 3 :
+                                constraints.maxWidth >= 350 ? 2 : 1;
+                            final width = (constraints.maxWidth - (count - 1) * 12) / count;
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: items.map((item) => SizedBox(
+                                width: width,
+                                child: _MetricCard(data: item),
+                              )).toList(),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 28),
+                    Text('Operação diária', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 810 ? 3 :
+                            constraints.maxWidth >= 520 ? 2 : 1;
+                        final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+                        final actions = <_AdminAction>[
+                          _AdminAction('Pedidos e expedição', 'Separar e acompanhar vendas',
+                              Icons.receipt_long_outlined, '/admin/orders'),
+                          _AdminAction('Inventário', 'Ajustes e movimentações',
+                              Icons.inventory_outlined, '/admin/inventory'),
+                          _AdminAction('Produtos e categorias', 'Organizar sua vitrine',
+                              Icons.category_outlined, '/admin/products'),
+                          _AdminAction('Atendimento', 'Conversas com os clientes',
+                              Icons.support_agent_outlined, '/admin/support'),
+                          _AdminAction('Frete e embalagens', 'Medidas e expedição',
+                              Icons.local_shipping_outlined, '/admin/shipping'),
+                          _AdminAction('Equipe e permissões', 'Acessos da loja',
+                              Icons.groups_outlined, '/admin/team'),
+                          _AdminAction('Identidade da loja', 'Marca e preparação comercial',
+                              Icons.tune_outlined, '/admin/store-settings'),
+                          _AdminAction('Visualizar vitrine', 'Experiência do comprador',
+                              Icons.storefront_outlined, '/'),
+                        ];
+                        return Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: actions.map((item) => SizedBox(
+                            width: width,
+                            child: _ActionCard(
+                              data: item,
+                              onTap: () => item.route == '/admin/support'
+                                  ? context.push(item.route)
+                                  : context.go(item.route),
+                            ),
+                          )).toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'A receita exibida é bruta e não representa lucro ou valores disponíveis para repasse.',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricData {
+  const _MetricData(this.title, this.value, this.icon);
+  final String title;
+  final String value;
+  final IconData icon;
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({required this.data});
+  final _MetricData data;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(minHeight: 120),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(data.icon, color: AppColors.primary, size: 23),
+            const SizedBox(height: 12),
+            Text(data.value, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(data.title, maxLines: 2,
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          ],
+        ),
+      );
+}
+
+class _AdminAction {
+  const _AdminAction(this.title, this.subtitle, this.icon, this.route);
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final String route;
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({required this.data, required this.onTap});
+  final _AdminAction data;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 96),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(data.icon, size: 26, color: AppColors.primary),
+                const SizedBox(width: 12),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(data.title, maxLines: 2,
+                        style: const TextStyle(fontSize: 14,
+                            fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    const SizedBox(height: 4),
+                    Text(data.subtitle, maxLines: 2,
+                        style: const TextStyle(fontSize: 12,
+                            color: AppColors.textSecondary)),
+                  ],
+                )),
+                const Icon(Icons.chevron_right, color: AppColors.textLight),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _AdminNotice extends StatelessWidget {
+  const _AdminNotice({required this.icon, required this.message, required this.action});
+  final IconData icon;
+  final String message;
+  final VoidCallback action;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(children: [
+          Icon(icon, size: 34, color: AppColors.textSecondary),
+          const SizedBox(height: 8),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(onPressed: action,
+              icon: const Icon(Icons.refresh), label: const Text('Tentar novamente')),
+        ]),
+      );
 }
 
 class RemotePendingScreen extends StatelessWidget {
   const RemotePendingScreen({super.key});
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Funcionalidade pendente')),
-    body: const Center(child: Padding(padding: EdgeInsets.all(24), child:
-      Text('Esse recurso ainda não está integrado ao Railway. Não utilize dados do Firebase no modo Railway.',
-        textAlign: TextAlign.center))),
-  );
+        appBar: AppBar(title: const Text('Funcionalidade pendente')), 
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Esse recurso ainda não está integrado ao Railway. '
+              'Não utilize dados do Firebase no modo Railway.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
 }

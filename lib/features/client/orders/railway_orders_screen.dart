@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../support/railway_order_timeline_dialog.dart';
 import '../../../data/repositories/railway_order_repository.dart';
 import '../../support/railway_after_sales_dialogs.dart';
+import '../widgets/empty_state.dart';
 
 class RailwayOrdersScreen extends ConsumerStatefulWidget {
   const RailwayOrdersScreen({super.key});
@@ -37,10 +38,22 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
     appBar: AppBar(title:const Text('Meus pedidos'),actions:[IconButton(
       tooltip:'Atualizar pedidos',onPressed:() { _refresh(); },icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<List<Map<String,dynamic>>>(future:_orders,builder:(context,snapshot){
-      if(snapshot.connectionState!=ConnectionState.done) return const Center(child:CircularProgressIndicator());
-      if(snapshot.hasError) return Center(child:Text('Não foi possível consultar pedidos: ${snapshot.error}'));
+      if(snapshot.connectionState!=ConnectionState.done) return const Center(child:Column(mainAxisSize: MainAxisSize.min,children:[CircularProgressIndicator(),SizedBox(height:14),Text('Carregando seus pedidos…')]));
+      if(snapshot.hasError) return EmptyState(
+        icon: Icons.wifi_off_outlined,
+        title: 'Pedidos indisponíveis',
+        subtitle: 'Não foi possível consultar os pedidos agora. Verifique sua conexão.',
+        buttonLabel: 'Tentar novamente',
+        onButtonPressed: () { setState(_reload); },
+      );
       final orders=snapshot.data??[];
-      if(orders.isEmpty) return const Center(child:Text('Nenhum pedido registrado ainda.'));
+      if(orders.isEmpty) return EmptyState(
+        icon: Icons.receipt_long_outlined,
+        title: 'Você ainda não fez pedidos',
+        subtitle: 'Quando sua primeira compra for registrada, ela aparecerá aqui.',
+        buttonLabel: 'Explorar produtos',
+        onButtonPressed: () => context.go('/'),
+      );
       return RefreshIndicator(onRefresh:_refresh,child:ListView.builder(
         physics:const AlwaysScrollableScrollPhysics(),itemCount:orders.length,itemBuilder:(context,index){
           final order=orders[index];
@@ -52,8 +65,12 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
           final active=cases.any((c)=>activeAfterSalesStatuses.contains(c['status']));
           return Card(margin:const EdgeInsets.symmetric(horizontal:12,vertical:6),child:Padding(
             padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Text('Pedido ${order['id'].toString().substring(0,8)}',style:Theme.of(context).textTheme.titleMedium),
-              Text(_label(status, delivery: order['fulfillment']=='DELIVERY')),
+              Text('Pedido #${order['id'].toString().length > 8 ? order['id'].toString().substring(0,8) : order['id']}',
+                  style:Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 5),
+              Chip(avatar: Icon(_statusIcon(status), size: 18),
+                label: Text(_label(status, delivery: order['fulfillment']=='DELIVERY')),
+                visualDensity: VisualDensity.compact),
               Text('Total: ${_money.format(total)}  •  ${order['fulfillment']=='DELIVERY'?'Entrega':'Retirada na loja'}'),
               if(order['fulfillment']=='DELIVERY') ...[
                 Text('Transportadora: ${order['shippingCarrier'] ?? 'A definir'}'),
@@ -113,6 +130,18 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
       ));
     }),
   );
+
+  IconData _statusIcon(String status) => switch (status) {
+    'PENDING_PAYMENT' => Icons.schedule,
+    'PAID' => Icons.verified_outlined,
+    'PREPARING' => Icons.inventory_2_outlined,
+    'SHIPPED' => Icons.local_shipping_outlined,
+    'DELIVERED' => Icons.check_circle_outline,
+    'REFUNDED' => Icons.currency_exchange,
+    'CANCELED' => Icons.cancel_outlined,
+    'PAYMENT_REVIEW' => Icons.info_outline,
+    _ => Icons.receipt_long_outlined,
+  };
 
   String _label(String v, {bool delivery=false}) => switch(v){
     'PENDING_PAYMENT'=>'Aguardando pagamento', 'PAID'=>'Pago',

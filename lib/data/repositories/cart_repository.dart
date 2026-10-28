@@ -18,7 +18,12 @@ class CartRepository {
     required String size,
     int quantity = 1,
   }) {
-    // Verifica se já existe o mesmo produto + cor + tamanho
+    // Carrinho local não reserva unidades: a API revalida o estoque no checkout.
+    // Mesmo assim, impedimos aumentos acima do estoque mostrado na vitrine.
+    final variant = product.getVariant(color, size);
+    final available = variant?.stock ?? 0;
+    if (quantity <= 0 || available <= 0) return;
+
     final existingIndex = _items.indexWhere(
       (item) =>
           item.product.id == product.id &&
@@ -28,8 +33,10 @@ class CartRepository {
 
     if (existingIndex >= 0) {
       final existing = _items[existingIndex];
+      final updatedQuantity = (existing.quantity + quantity).clamp(1, available);
       _items[existingIndex] = existing.copyWith(
-        quantity: existing.quantity + quantity,
+        product: product,
+        quantity: updatedQuantity.toInt(),
       );
     } else {
       _items.add(CartItem(
@@ -37,7 +44,7 @@ class CartRepository {
         product: product,
         color: color,
         size: size,
-        quantity: quantity,
+        quantity: quantity.clamp(1, available).toInt(),
       ));
     }
   }
@@ -49,7 +56,13 @@ class CartRepository {
     }
     final index = _items.indexWhere((item) => item.id == itemId);
     if (index >= 0) {
-      _items[index] = _items[index].copyWith(quantity: quantity);
+      final current = _items[index];
+      final stock = current.product.getVariant(current.color, current.size)?.stock ?? 0;
+      if (stock <= 0) {
+        _items.removeAt(index);
+        return;
+      }
+      _items[index] = current.copyWith(quantity: quantity.clamp(1, stock).toInt());
     }
   }
 

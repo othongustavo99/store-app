@@ -165,17 +165,26 @@ Confira na ${AppConstants.storeName}!
         final colors = product.availableColors;
         final sizes = product.availableSizes;
 
-        if (selectedColor == null && colors.isNotEmpty) {
-          selectedColor = colors.first;
+        // Prioriza uma combinação realmente disponível e mantém a quantidade
+        // dentro do estoque apresentado pelo catálogo.
+        final inStock = product.variants.where((variant) => variant.stock > 0).toList();
+        if (selectedColor == null || !colors.contains(selectedColor)) {
+          selectedColor = inStock.isNotEmpty
+              ? inStock.first.color
+              : (colors.isEmpty ? null : colors.first);
         }
-        if (selectedSize == null && sizes.isNotEmpty) {
-          selectedSize = sizes.first;
+        final validSizes = product.variants
+            .where((variant) => variant.color == selectedColor && variant.stock > 0)
+            .map((variant) => variant.size).toList();
+        if (!validSizes.contains(selectedSize)) {
+          selectedSize = validSizes.isEmpty ? null : validSizes.first;
         }
-
         final currentVariant =
             product.getVariant(selectedColor ?? '', selectedSize ?? '');
-        final isAvailable =
-            currentVariant != null && currentVariant.isAvailable;
+        final isAvailable = currentVariant != null && currentVariant.isAvailable;
+        if (currentVariant != null && currentVariant.stock > 0 && quantity > currentVariant.stock) {
+          quantity = currentVariant.stock;
+        }
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -185,7 +194,7 @@ Confira na ${AppConstants.storeName}!
                 child: CustomScrollView(
                   slivers: [
                     SliverAppBar(
-                      expandedHeight: 380,
+                      expandedHeight: MediaQuery.sizeOf(context).width >= 900 ? 470 : 340,
                       pinned: true,
                       backgroundColor: Colors.white,
                       leading: IconButton(
@@ -215,7 +224,7 @@ Confira na ${AppConstants.storeName}!
                                     : '';
                                 return CachedNetworkImage(
                                   imageUrl: url,
-                                  fit: BoxFit.cover,
+                                  fit: BoxFit.contain,
                                   width: double.infinity,
                                   placeholder: (_, __) => Container(
                                     color: AppColors.divider,
@@ -264,7 +273,10 @@ Confira na ${AppConstants.storeName}!
                       ),
                     ),
                     SliverToBoxAdapter(
-                      child: Container(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 920),
+                          child: Container(
                         color: Colors.white,
                         padding: const EdgeInsets.all(20),
                         child: Column(
@@ -292,7 +304,7 @@ Confira na ${AppConstants.storeName}!
                                     color: AppColors.primary,
                                   ),
                                 ),
-                                if (product.oldPrice != null) ...[
+                                if (product.oldPrice != null && product.oldPrice! > product.price) ...[
                                   const SizedBox(width: 12),
                                   Text(
                                     currency.format(product.oldPrice),
@@ -306,53 +318,22 @@ Confira na ${AppConstants.storeName}!
                               ],
                             ),
 
-                            // ========== PARCELAS ATÉ 12x ==========
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 10),
                             Text(
-                              'ou em até 12x de ${currency.format(product.price / 12)} sem juros',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Total: ${currency.format(product.price * quantity)}'
-                              '${quantity > 1 ? ' ($quantity un.)' : ''}',
+                              'Subtotal para $quantity ${quantity == 1 ? 'unidade' : 'unidades'}: '
+                              '${currency.format(product.price * quantity)}',
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
                               ),
                             ),
-                            ExpansionTile(
-                              tilePadding: EdgeInsets.zero,
-                              title: const Text(
-                                'Ver parcelas no cartão',
-                                style: TextStyle(fontSize: 14),
-                              ),
-                              children: List.generate(12, (i) {
-                                final n = i + 1;
-                                final valor = product!.price / n;
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(
-                                    '${n}x de ${currency.format(valor)}',
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                  trailing: const Text(
-                                    'sem juros',
-                                    style: TextStyle(
-                                      color: AppColors.success,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                );
-                              }),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Formas de pagamento e eventuais parcelas são confirmadas na finalização.',
+                              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                             ),
-
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 22),
 
                             // ========== DESCRIÇÃO ==========
                             const Text(
@@ -391,6 +372,7 @@ Confira na ${AppConstants.storeName}!
                                   onTap: () {
                                     setState(() {
                                       selectedColor = color;
+                                      quantity = 1;
                                       final availableSizesForColor = product!
                                           .variants
                                           .where((v) =>
@@ -459,7 +441,10 @@ Confira na ${AppConstants.storeName}!
                                 return GestureDetector(
                                   onTap: hasStock
                                       ? () =>
-                                          setState(() => selectedSize = size)
+                                          setState(() {
+                                            selectedSize = size;
+                                            quantity = 1;
+                                          })
                                       : null,
                                   child: Container(
                                     width: 52,
@@ -551,6 +536,35 @@ Confira na ${AppConstants.storeName}!
                               ],
                             ),
 
+                            // No Railway, a cotação real vem da API no checkout.
+                            // Não exibir a tabela local de frete do modo legado.
+                            if (LojaBackend.isRailway) ...[
+                              const SizedBox(height: 24),
+                              Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.local_shipping_outlined, color: AppColors.primary),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: const [
+                                            Text('Entrega e retirada',
+                                                style: TextStyle(fontWeight: FontWeight.w700)),
+                                            SizedBox(height: 4),
+                                            Text('Escolha a modalidade e consulte valores reais de frete no checkout. A disponibilidade depende da loja.',
+                                                style: TextStyle(color: AppColors.textSecondary)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
                             // ========== CÁLCULO DE FRETE ==========
                             const SizedBox(height: 28),
                             const Text(
@@ -668,6 +682,8 @@ Confira na ${AppConstants.storeName}!
                               }),
                             ],
 
+                            ],
+
                             // ========== AVALIAÇÕES ==========
                             const SizedBox(height: 28),
                             _ReviewsSection(
@@ -711,6 +727,8 @@ Confira na ${AppConstants.storeName}!
                           ],
                         ),
                       ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -730,7 +748,10 @@ Confira na ${AppConstants.storeName}!
                   ],
                 ),
                 child: SafeArea(
-                  child: Row(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 920),
+                      child: Row(
                     children: [
                       // WhatsApp
                       IconButton(
@@ -765,12 +786,23 @@ Confira na ${AppConstants.storeName}!
                           child: OutlinedButton(
                             onPressed: isAvailable
                                 ? () {
+                                    final before = ref.read(cartProvider).fold<int>(
+                                        0, (total, item) => total + item.quantity);
                                     ref.read(cartProvider.notifier).addItem(
                                           product: product!,
                                           color: selectedColor!,
                                           size: selectedSize!,
                                           quantity: quantity,
                                         );
+
+                                    final after = ref.read(cartProvider).fold<int>(
+                                        0, (total, item) => total + item.quantity);
+                                    if (after == before) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Você já adicionou o máximo disponível desta variante.')),
+                                      );
+                                      return;
+                                    }
 
                                     final messenger =
                                         ScaffoldMessenger.of(context);
@@ -802,12 +834,6 @@ Confira na ${AppConstants.storeName}!
                                       ),
                                     );
 
-                                    Future.delayed(
-                                      const Duration(seconds: 2),
-                                      () {
-                                        messenger.hideCurrentSnackBar();
-                                      },
-                                    );
                                   }
                                 : null,
                             child: const Text(
@@ -845,6 +871,8 @@ Confira na ${AppConstants.storeName}!
                         ),
                       ),
                     ],
+                      ),
+                    ),
                   ),
                 ),
               ),
