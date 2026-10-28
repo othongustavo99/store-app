@@ -19,6 +19,9 @@ const schema = z.object({
   MERCADOPAGO_ACCESS_TOKEN: z.string().min(20).optional(),
   MERCADOPAGO_WEBHOOK_SECRET: z.string().min(16).optional(),
   PUBLIC_BASE_URL: z.string().url().startsWith('https://').optional(),
+  CLOUDINARY_CLOUD_NAME: z.string().regex(/^[A-Za-z0-9_-]+$/).optional(),
+  CLOUDINARY_API_KEY: z.string().min(5).optional(),
+  CLOUDINARY_API_SECRET: z.string().min(8).optional(),
 });
 
 const parsed = schema.safeParse(process.env);

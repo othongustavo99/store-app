@@ -238,6 +238,9 @@ export async function catalogRoutes(app: FastifyInstance) {
       }
       const variants = await client.query<{id:string; attributes:{color:string;size:string};on_hand:number;reserved:number}>(
         'SELECT id,attributes,on_hand,reserved FROM product_variants WHERE product_id=$1 AND store_id=$2 FOR UPDATE', [id,storeId]);
+      if (productId && body.variants.length !== variants.rows.length) {
+        throw new ApiError(409, 'Use o novo painel de variantes para criar/desativar SKUs.');
+      }
       const keys = new Set<string>();
       for (const variant of body.variants) {
         const key = JSON.stringify([variant.color.toLowerCase(),variant.size.toLowerCase()]);
@@ -246,14 +249,16 @@ export async function catalogRoutes(app: FastifyInstance) {
         const previous = variants.rows.find((v) => JSON.stringify([
           v.attributes.color.toLowerCase(),v.attributes.size.toLowerCase()]) === key);
         if (previous) {
-          const newOnHand = variant.stock + previous.reserved;
-          const delta = newOnHand - previous.on_hand;
+          // O PUT antigo não pode alterar estoque: somente a central de inventário
+          // registra mudanças com motivo, idempotência e proteção de reservas.
+          if (variant.stock !== previous.on_hand - previous.reserved) {
+            throw new ApiError(409, 'Estoque alterado. Use Inventário e movimentações para ajustar quantidades.');
+          }
           await client.query(`UPDATE product_variants SET attributes=$3::jsonb,
-            on_hand=$4, price_cents=$5, status='ACTIVE', updated_at=now()
-            WHERE id=$1 AND store_id=$2`, [previous.id,storeId,JSON.stringify(variant),newOnHand,cents(body.price)]);
-          if (delta) await client.query(`INSERT INTO inventory_movements(store_id,variant_id,performed_by,kind,quantity_delta,notes)
-            VALUES ($1,$2,$3,'ADJUSTMENT',$4,'Edição de estoque pelo painel')`, [storeId,previous.id,actorId,delta]);
+            price_cents=$4, status='ACTIVE', updated_at=now()
+            WHERE id=$1 AND store_id=$2`, [previous.id,storeId,JSON.stringify({color:variant.color,size:variant.size,imageUrl:variant.imageUrl ?? null}),cents(body.price)]);
         } else {
+          if (productId) throw new ApiError(409, 'Utilize o painel de variantes para cadastrar novos SKUs.');
           const variantId = randomUUID();
           await client.query(`INSERT INTO product_variants(id,store_id,product_id,sku,attributes,price_cents,on_hand)
             VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)`, [variantId,storeId,id,variantId,JSON.stringify(variant),cents(body.price),variant.stock]);
@@ -264,6 +269,7 @@ export async function catalogRoutes(app: FastifyInstance) {
       for (const existing of variants.rows) {
         const key = JSON.stringify([existing.attributes.color.toLowerCase(),existing.attributes.size.toLowerCase()]);
         if (!keys.has(key)) {
+          if (productId) throw new ApiError(409, 'Use o novo painel para desativar variantes.');
           if (existing.reserved > 0) throw new ApiError(409, 'Variante reservada não pode ser removida.');
           await client.query("UPDATE product_variants SET status='INACTIVE',updated_at=now() WHERE id=$1", [existing.id]);
         }

@@ -12,6 +12,7 @@ import { inventoryRoutes } from './routes/inventory.js';
 import { teamRoutes } from './routes/team.js';
 import { supportRoutes } from './routes/support.js';
 import { fulfillmentRoutes } from './routes/fulfillment.js';
+import { catalogManagementRoutes } from './routes/catalog_management.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -57,6 +58,7 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(storeRoutes);
   await app.register(catalogRoutes);
+  await app.register(catalogManagementRoutes);
   await app.register(commerceRoutes);
   await app.register(inventoryRoutes);
   await app.register(teamRoutes);
