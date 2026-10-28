@@ -18,6 +18,7 @@ import '../features/client/checkout/checkout_screen.dart';
 import '../features/client/checkout/railway_checkout_screen.dart';
 import '../features/client/orders/railway_orders_screen.dart';
 import '../features/admin/orders/railway_admin_orders_screen.dart';
+import '../features/admin/inventory/railway_inventory_screen.dart';
 import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/cart_providers.dart';
@@ -140,6 +141,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/orders',
         builder: (context, state) => LojaBackend.isRailway ? const RailwayAdminOrdersScreen() : const AdminOrdersScreen(),
+      ),
+      GoRoute(
+        path: '/admin/inventory',
+        builder: (context, state) => LojaBackend.isRailway ? const RailwayInventoryScreen() : const AdminDashboardScreen(),
       ),
       GoRoute(
         path: '/admin/products',

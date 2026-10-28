@@ -8,6 +8,7 @@ import { storeRoutes } from './routes/stores.js';
 import { catalogRoutes, startCatalogListener } from './routes/catalog.js';
 import { ApiError } from './security/errors.js';
 import { commerceRoutes } from './routes/commerce.js';
+import { inventoryRoutes } from './routes/inventory.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -54,6 +55,7 @@ export async function buildApp() {
   await app.register(storeRoutes);
   await app.register(catalogRoutes);
   await app.register(commerceRoutes);
+  await app.register(inventoryRoutes);
   await startCatalogListener(app);
   return app;
 }
