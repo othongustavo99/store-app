@@ -13,6 +13,12 @@ const schema = z.object({
   PG_POOL_MAX: z.coerce.number().int().min(1).max(30).default(5),
   ALLOW_STORE_SELF_SERVICE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   TRUST_PROXY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  ENABLE_REAL_PAYMENTS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  // Proteção de piloto: um token do Mercado Pago NÃO pode receber por todas as lojas.
+  PAYMENT_PILOT_STORE_ID: z.string().uuid().optional(),
+  MERCADOPAGO_ACCESS_TOKEN: z.string().min(20).optional(),
+  MERCADOPAGO_WEBHOOK_SECRET: z.string().min(16).optional(),
+  PUBLIC_BASE_URL: z.string().url().startsWith('https://').optional(),
 });
 
 const parsed = schema.safeParse(process.env);

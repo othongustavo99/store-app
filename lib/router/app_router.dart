@@ -15,6 +15,9 @@ import '../features/client/product_detail/product_detail_screen.dart';
 import '../features/client/categories/category_screen.dart';
 import '../features/client/search/search_screen.dart';
 import '../features/client/checkout/checkout_screen.dart';
+import '../features/client/checkout/railway_checkout_screen.dart';
+import '../features/client/orders/railway_orders_screen.dart';
+import '../features/admin/orders/railway_admin_orders_screen.dart';
 import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/cart_providers.dart';
@@ -95,7 +98,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/orders',
-                builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const OrdersScreen(),
+                builder: (context, state) => LojaBackend.isRailway ? const RailwayOrdersScreen() : const OrdersScreen(),
               ),
             ],
           ),
@@ -122,7 +125,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/checkout',
-        builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const CheckoutScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RailwayCheckoutScreen() : const CheckoutScreen(),
       ),
       GoRoute(
         path: '/discounted',
@@ -136,7 +139,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/orders',
-        builder: (context, state) => LojaBackend.isRailway ? const RemotePendingScreen() : const AdminOrdersScreen(),
+        builder: (context, state) => LojaBackend.isRailway ? const RailwayAdminOrdersScreen() : const AdminOrdersScreen(),
       ),
       GoRoute(
         path: '/admin/products',

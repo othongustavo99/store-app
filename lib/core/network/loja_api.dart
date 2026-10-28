@@ -183,4 +183,35 @@ class LojaApi {
       await Future<void>.delayed(const Duration(seconds: 4));
     }
   }
+  /// Eventos privados de pedidos. Recebe apenas aviso de mudança; busca os
+  /// registros completos via API autenticada e sempre revalida após reconectar.
+  Stream<int> orderChanges({required bool admin}) async* {
+    while (true) {
+      try {
+        if (_accessToken == null && !await _refresh()) {
+          throw const LojaApiException('Faça login para acompanhar pedidos.', 401);
+        }
+        if (admin) await fetchStoreId();
+        final path = admin
+            ? '/v1/stores/$storeId/orders/events'
+            : '/v1/shops/${LojaBackend.storeSlug}/orders/events';
+        final req = http.Request('GET', _uri(path));
+        req.headers['Authorization'] = 'Bearer $_accessToken';
+        req.headers['Accept'] = 'text/event-stream';
+        final resp = await _http.send(req).timeout(const Duration(seconds: 15));
+        if (resp.statusCode == 401) {
+          if (!await _refresh()) throw const LojaApiException('Sessão encerrada.', 401);
+          continue;
+        }
+        if (resp.statusCode != 200) {
+          throw LojaApiException('Eventos de pedidos indisponíveis (${resp.statusCode}).');
+        }
+        await for (final line in resp.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+          if (line.startsWith('data:')) yield 1;
+        }
+      } catch (_) { /* redes instáveis: reconexão automática */ }
+      await Future<void>.delayed(const Duration(seconds: 4));
+    }
+  }
+
 }

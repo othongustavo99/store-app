@@ -1,0 +1,21 @@
+Fase 3: adicionar/substituir apenas os arquivos contidos neste ZIP.
+
+ADICIONAR  loja_roupas/backend/migrations/003_orders_checkout.sql
+ADICIONAR  loja_roupas/backend/src/routes/commerce.ts
+ADICIONAR  loja_roupas/backend/src/security/payment_signature.ts
+ADICIONAR  loja_roupas/backend/src/tests/payment_signature.test.ts
+ADICIONAR  loja_roupas/backend/src/app.ts
+ADICIONAR  loja_roupas/backend/src/server.ts
+ADICIONAR  loja_roupas/backend/src/config.ts
+ADICIONAR  loja_roupas/backend/src/routes/catalog.ts
+ADICIONAR  loja_roupas/backend/.env.phase3.example
+ADICIONAR  loja_roupas/lib/core/network/loja_api.dart
+ADICIONAR  loja_roupas/lib/data/repositories/railway_order_repository.dart
+ADICIONAR  loja_roupas/lib/features/client/checkout/railway_checkout_screen.dart
+ADICIONAR  loja_roupas/lib/features/client/orders/railway_orders_screen.dart
+ADICIONAR  loja_roupas/lib/features/admin/orders/railway_admin_orders_screen.dart
+SUBSTITUIR  loja_roupas/lib/router/app_router.dart
+ADICIONAR  loja_roupas/lib/features/admin/remote_admin_home.dart
+ADICIONAR  loja_roupas/docs/FASE_3_APLICACAO.md
+
+Leia docs/FASE_3_APLICACAO.md. Não remover arquivos Firebase nesta fase.

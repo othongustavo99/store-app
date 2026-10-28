@@ -10,6 +10,12 @@ set(BINARY_NAME "loja_roupas")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# Allow older native dependencies (such as the Firebase C++ SDK) to
+# configure with CMake 4+, which removed policy compatibility below 3.5.
+# This only affects CMake configuration on desktop builds.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING
+    "Minimum policy version for legacy native dependencies")
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)

@@ -42,6 +42,8 @@ const cents = (value: number) => Math.round((value + Number.EPSILON) * 100);
 const money = (value: string | number | null) => value === null ? null : Number(value) / 100;
 const catalogEvents = new EventEmitter();
 catalogEvents.setMaxListeners(0);
+export const orderEvents = new EventEmitter();
+orderEvents.setMaxListeners(0);
 
 // Uma conexão LISTEN dedicada por instância; PostgreSQL distribui entre réplicas.
 export async function startCatalogListener(app: FastifyInstance): Promise<void> {
@@ -55,6 +57,13 @@ export async function startCatalogListener(app: FastifyInstance): Promise<void> 
       listeningClient = client;
       client.on('notification', (msg) => {
         if (msg.channel === 'loja_catalog_changed' && msg.payload) catalogEvents.emit(msg.payload);
+        if (msg.channel === 'loja_order_changed' && msg.payload) {
+          try {
+            const evt = JSON.parse(msg.payload) as { storeId?: string; customerId?: string };
+            if (evt.storeId) orderEvents.emit(`store:${evt.storeId}`);
+            if (evt.customerId) orderEvents.emit(`user:${evt.storeId}:${evt.customerId}`);
+          } catch { app.log.warn('Evento de pedidos inválido'); }
+        }
       });
       const onError = (err: Error) => {
         app.log.warn({ err: err.message }, 'LISTEN de catálogo desconectado');
@@ -65,6 +74,7 @@ export async function startCatalogListener(app: FastifyInstance): Promise<void> 
       };
       client.on('error', onError);
       await client.query('LISTEN loja_catalog_changed');
+      await client.query('LISTEN loja_order_changed');
     } catch (e) {
       app.log.warn({ err: String(e) }, 'Não foi possível iniciar LISTEN de catálogo');
       if (listeningClient) { listeningClient.release(true); listeningClient = null; }
