@@ -59,7 +59,7 @@ class OrderRepository {
     final orderItems =
         cartItems.map((item) => OrderItem.fromCartItem(item)).toList();
 
-    final subtotal = cartItems.fold<double>(0, (sum, item) => sum + item.total);
+    final subtotal = cartItems.fold<double>(0, (acc, item) => acc + item.total);
     final total = subtotal + shipping - discount;
     final id = 'PED-${_uuid.v4().substring(0, 8).toUpperCase()}';
 

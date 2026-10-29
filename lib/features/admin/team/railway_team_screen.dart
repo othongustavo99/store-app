@@ -59,7 +59,7 @@ class _RailwayTeamScreenState extends State<RailwayTeamScreen> {
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
-                  value: role,
+                  initialValue: role,
                   decoration: const InputDecoration(labelText: 'Permissão'),
                   items: const [
                     DropdownMenuItem(value: 'STAFF', child: Text('Funcionário — consulta')),

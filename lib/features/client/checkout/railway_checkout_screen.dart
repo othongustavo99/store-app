@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/railway_order_repository.dart';
+import '../../../data/repositories/railway_coupon_repository.dart';
 import '../../../data/repositories/railway_shipping_repository.dart';
 import '../../../data/repositories/address_repository.dart';
 import '../../../models/cart_item.dart';
@@ -35,6 +36,13 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
   final _city = TextEditingController();
   final _state = TextEditingController();
   final _orders = RailwayOrderRepository();
+  final _coupon = TextEditingController();
+  final _couponRepository = RailwayCouponRepository();
+  String? _validatedCode;
+  int _discountCents = 0;
+  String? _couponSignature;
+  bool _validatingCoupon = false;
+
   final _cepService = ShippingService();
   Timer? _cepTimer;
   List<SavedAddress> _savedAddresses = [];
@@ -102,7 +110,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
         _shipping.availability(),
       ]);
       if (!mounted) return;
-      final availability = data[1] as Map<String, dynamic>;
+      final availability = data[1];
       setState(() {
         final checkout=Map<String,dynamic>.from(data[0] as Map);
         _paymentEnabled = checkout['enabled'] == true;
@@ -121,6 +129,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
   @override
   void dispose() {
     _cepTimer?.cancel();
+    _coupon.dispose();
     _cep.removeListener(_onCepChanged);
     for (final controller in [_name, _phone, _cep, _street, _number, _complement,
       _neighborhood, _city, _state]) {
@@ -251,8 +260,32 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
     }
   }
 
+  Future<void> _checkCoupon(List<CartItem> items) async {
+    if (_validatingCoupon) return;
+    final code = _coupon.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      setState(() { _validatedCode=null;_discountCents=0;_couponSignature=null;_checkoutKey=RailwayOrderRepository.newCheckoutKey(); });
+      return;
+    }
+    setState(() { _validatingCoupon=true;_validatedCode=null;_discountCents=0;_error=''; });
+    try {
+      final r=await _couponRepository.preview(code,items);
+      if (!mounted) return;
+      setState(() {
+        _validatedCode=code;
+        _discountCents=int.tryParse('${r['discountCents']}')??0;
+        _couponSignature=_signature(items);
+        _checkoutKey=RailwayOrderRepository.newCheckoutKey();
+      });
+    } catch(e) {if(mounted)setState(()=>_error='Cupom: $e');}
+    finally {if(mounted)setState(()=>_validatingCoupon=false);}
+  }
+
   Future<void> _pay(List<CartItem> items) async {
-    if (_busy || _paymentEnabled != true || _step != 2) return;
+    if (_busy || _paymentEnabled != true || _step != 2 || _validatingCoupon) return;
+    if (_coupon.text.trim().isNotEmpty && (_validatedCode != _coupon.text.trim().toUpperCase() || _couponSignature != _signature(items))) {
+      setState(() => _error='Revalide o cupom após qualquer alteração no carrinho.'); return;
+    }
     if (items.isEmpty) return;
     if (_method == 'DELIVERY' && !_isQuoteValid(items)) {
       setState(() => _error = 'Atualize a cotação e selecione uma transportadora para continuar.');
@@ -265,6 +298,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
         customerName: _name.text,
         customerPhone: _phone.text,
         idempotencyKey: _checkoutKey,
+        couponCode: _validatedCode,
         fulfillment: _method,
         quoteId: _method == 'DELIVERY' ? _quoteId : null,
         serviceId: _method == 'DELIVERY' ? _serviceId : null,
@@ -350,7 +384,8 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
     final cents = selected.isEmpty ? 0 : (selected.first['priceCents'] as num?)?.toInt() ?? 0;
     final quoteValid = _isQuoteValid(items);
     final shippingPrice = _method == 'PICKUP' ? 0.0 : cents / 100;
-    final canPay = _paymentEnabled == true && !_busy && items.isNotEmpty &&
+    final couponValid = _coupon.text.trim().isEmpty || (_validatedCode == _coupon.text.trim().toUpperCase() && _couponSignature == _signature(items));
+    final canPay = _paymentEnabled == true && !_busy && !_validatingCoupon && couponValid && items.isNotEmpty &&
         (_method == 'PICKUP' || (!_sandbox && quoteValid)) &&
         (_demo || _paymentChoice != 'GATEWAY' || _realEnabled);
 
@@ -476,11 +511,26 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
                       const Divider(height: 24),
                       _summaryLine('Produtos', _currency.format(subtotal)),
                       const SizedBox(height: 10),
+                      TextField(controller:_coupon,decoration:InputDecoration(
+                        labelText:'Cupom de desconto',hintText:'Ex.: BEMVINDO10',
+                        suffixIcon:IconButton(icon:const Icon(Icons.close),tooltip:'Remover cupom',onPressed:(){
+                          _coupon.clear();_checkCoupon(items);
+                        }),
+                      ),onChanged:(_)=>setState((){ _validatedCode=null;_discountCents=0;_couponSignature=null; })),
+                      const SizedBox(height:8),
+                      OutlinedButton.icon(onPressed:_validatingCoupon?null:()=>_checkCoupon(items),
+                        icon:_validatingCoupon?const SizedBox(height:16,width:16,child:CircularProgressIndicator(strokeWidth:2)):
+                          const Icon(Icons.discount_outlined),label:const Text('Validar cupom')),
+                      if (_validatedCode!=null) Padding(padding:const EdgeInsets.only(top:8),
+                        child:Text('Cupom $_validatedCode aplicado (estimativa; será revalidado no servidor).',
+                          style:const TextStyle(color:Colors.green))),
+                      if (_discountCents>0) _summaryLine('Desconto', '- ${_currency.format(_discountCents/100)}'),
+                      const SizedBox(height: 10),
                       _summaryLine('Frete', _method == 'PICKUP' ? 'Retirada sem custo' :
                           selected.isEmpty || !quoteValid ? 'A calcular' : _currency.format(shippingPrice)),
                       const Divider(height: 24),
                       if (_method == 'PICKUP' || (selected.isNotEmpty && quoteValid))
-                        _summaryLine('Total estimado', _currency.format(subtotal + shippingPrice), emphasized: true)
+                        _summaryLine('Total estimado', _currency.format(subtotal + shippingPrice - (_discountCents / 100)), emphasized: true)
                       else
                         const Text('O total será exibido após escolher o frete.'),
                       const SizedBox(height: 12),

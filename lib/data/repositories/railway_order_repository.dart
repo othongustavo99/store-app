@@ -25,6 +25,7 @@ class RailwayOrderRepository {
     String fulfillment = 'PICKUP',
     String? demoPaymentMethod,
     String? offlineMethod,
+    String? couponCode,
     String? quoteId,
     String? serviceId,
     Map<String,String>? address,
@@ -34,6 +35,7 @@ class RailwayOrderRepository {
       authenticated: true,
       body: {
         'idempotencyKey': idempotencyKey,
+        if (couponCode != null && couponCode.isNotEmpty) 'couponCode': couponCode,
         'fulfillment': fulfillment,
         if (demoPaymentMethod != null) 'demoPaymentMethod': demoPaymentMethod,
         if (offlineMethod != null) 'offlineMethod': offlineMethod,

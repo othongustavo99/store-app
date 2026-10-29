@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/product_repository.dart';
+import '../data/repositories/railway_catalog_repository.dart';
 import 'auth_providers.dart';
 import '../core/network/loja_api.dart';
 import '../models/product.dart';
@@ -80,3 +81,7 @@ class ProductsActions {
         .toList();
   }
 }
+
+/// Detalhes independentes da página inicial (inclusive produtos após a página 500).
+final railwayProductByIdProvider = FutureProvider.family<Product?,String>((ref,id) =>
+  RailwayCatalogRepository().getProduct(id));

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:loja_roupas/providers/category_providers.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/network/loja_api.dart';
+import '../widgets/railway_paged_catalog_screen.dart';
 import '../../../data/mock/mock_categories.dart';
 import '../../../providers/product_providers.dart';
 import '../widgets/empty_state.dart';
@@ -16,17 +18,16 @@ class CategoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (LojaBackend.isRailway) {
+      final categoryName=(ref.watch(categoriesProvider).valueOrNull ?? []).where((e)=>e.id==categoryId).map((e)=>e.name).firstOrNull ?? 'Categoria';
+      return RailwayPagedCatalogScreen(title:categoryName,categoryId:categoryId);
+    }
     final asyncProducts = ref.watch(productsProvider);
 
     final category = mockCategories.firstWhere(
       (c) => c.id == categoryId,
       orElse: () => mockCategories.first,
     );
-    final name = (ref.watch(categoriesProvider).valueOrNull ?? [])
-            .where((c) => c.id == categoryId)
-            .map((c) => c.name)
-            .firstOrNull ??
-        'Categoria';
 
     return Scaffold(
       backgroundColor: AppColors.background,

@@ -37,7 +37,7 @@ Future<bool> showCreateAfterSalesRequest(BuildContext context, {required String 
       content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('A solicitação será analisada pela loja. Nenhum pagamento será reembolsado automaticamente.'),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(value: type,
+        DropdownButtonFormField<String>(initialValue: type,
           decoration: const InputDecoration(labelText: 'Tipo de solicitação'),
           items: types.map((value) => DropdownMenuItem(
               value: value, child: Text(afterSalesTypes[value]!))).toList(),
@@ -97,7 +97,7 @@ Future<bool> showReviewAfterSalesRequest(BuildContext context,
       content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text('Motivo do cliente: ${request['reason'] ?? ''}'),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(value: selected,
+        DropdownButtonFormField<String>(initialValue: selected,
           decoration: const InputDecoration(labelText: 'Nova etapa'),
           items: allowed.map((status) => DropdownMenuItem(value: status,
               child: Text(afterSalesStatusNames[status]!))).toList(),

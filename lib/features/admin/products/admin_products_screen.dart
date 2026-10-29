@@ -6,17 +6,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:loja_roupas/providers/category_providers.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/media_upload_service.dart';
 import '../../../models/category.dart';
 import '../../../models/product.dart';
 import '../../../providers/category_providers.dart';
-import '../../../providers/product_providers.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../data/services/media_upload_service.dart';
-import '../../../models/product.dart';
 import '../../../providers/product_providers.dart';
 
 class AdminProductsScreen extends ConsumerStatefulWidget {
@@ -216,6 +211,7 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                                     );
                                   }
                                 } catch (e) {
+                                  if (!context.mounted) return;
                                   setState(() => isSaving = false);
                                   _showError(
                                       context, 'Erro ao atualizar mídia: $e');
@@ -553,7 +549,7 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
                       // CATEGORIA
                       if (!showNewCategoryField)
                         DropdownButtonFormField<String>(
-                          value: selectedCategory,
+                          initialValue: selectedCategory,
                           decoration: const InputDecoration(
                             labelText: 'Categoria',
                             prefixIcon: Icon(Icons.category_outlined),

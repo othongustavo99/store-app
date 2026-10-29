@@ -48,6 +48,7 @@ class Product {
   final String id;
   final String name;
   final String description;
+  final String sizeGuide;
   final double price;
   final double? oldPrice;
   final String categoryId;
@@ -62,6 +63,7 @@ class Product {
     required this.id,
     required this.name,
     required this.description,
+    this.sizeGuide = '',
     required this.price,
     this.oldPrice,
     required this.categoryId,
@@ -95,6 +97,7 @@ class Product {
     String? id,
     String? name,
     String? description,
+    String? sizeGuide,
     double? price,
     double? oldPrice,
     bool clearOldPrice = false,
@@ -110,6 +113,7 @@ class Product {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      sizeGuide: sizeGuide ?? this.sizeGuide,
       price: price ?? this.price,
       oldPrice: clearOldPrice ? null : (oldPrice ?? this.oldPrice),
       categoryId: categoryId ?? this.categoryId,
@@ -125,6 +129,7 @@ class Product {
   Map<String, dynamic> toJson() => {
         'name': name,
         'description': description,
+        'sizeGuide':sizeGuide,
         'price': price,
         'oldPrice': oldPrice,
         'categoryId': categoryId,
@@ -141,6 +146,7 @@ class Product {
       id: id,
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
+      sizeGuide:json['sizeGuide'] as String? ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0,
       oldPrice: (json['oldPrice'] as num?)?.toDouble(),
       categoryId: json['categoryId'] as String? ?? '',

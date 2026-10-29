@@ -90,13 +90,13 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                                 width: 90,
                                 height: 90,
                                 decoration: BoxDecoration(
-                                  color: AppColors.warning.withOpacity(0.1),
+                                  color: AppColors.warning.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
                                   Icons.receipt_long_outlined,
                                   size: 42,
-                                  color: AppColors.warning.withOpacity(0.7),
+                                  color: AppColors.warning.withValues(alpha: 0.7),
                                 ),
                               ),
                               const SizedBox(height: 20),
@@ -180,7 +180,7 @@ class _FilterChip extends StatelessWidget {
     final activeColor = color ?? AppColors.primary;
 
     return Material(
-      color: selected ? activeColor.withOpacity(0.12) : Colors.white,
+      color: selected ? activeColor.withValues(alpha: 0.12) : Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -209,7 +209,7 @@ class _FilterChip extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: selected
-                      ? activeColor.withOpacity(0.2)
+                      ? activeColor.withValues(alpha: 0.2)
                       : AppColors.background,
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -370,7 +370,7 @@ class _AdminOrderCard extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _statusColor(order.status).withOpacity(0.12),
+                    color: _statusColor(order.status).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(

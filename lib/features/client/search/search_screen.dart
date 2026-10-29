@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/network/loja_api.dart';
+import 'railway_search_screen.dart';
 import '../../../models/product.dart';
 import '../../../providers/product_providers.dart';
 import '../widgets/empty_state.dart';
@@ -49,6 +51,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (LojaBackend.isRailway) return const RailwaySearchScreen();
     final products = ref.watch(productsProvider);
 
     return Scaffold(
@@ -90,7 +93,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<_SortOrder>(
-                          value: _sort,
+                          initialValue: _sort,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Ordenar por',

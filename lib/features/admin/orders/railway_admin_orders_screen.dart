@@ -106,6 +106,8 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
               Text('Pedido ${o['id'].toString().substring(0,8)} • ${_money.format(total)}',
                   style:Theme.of(context).textTheme.titleMedium),
               Text('Status: $status'),
+              if ((int.tryParse('${o['discountCents']}')??0)>0)
+                Text('Cupom ${o['couponCode']??''}: - ${_money.format((int.tryParse('${o['discountCents']}')??0)/100)}'),
               if(o['paymentProvider']=='offline') const Text('PAGAMENTO LOCAL — conferência e eventual devolução são responsabilidade da loja; não usam Mercado Pago.'),
               if(o['isDemo']==true) const Text('PEDIDO FICTÍCIO · sem cobrança real',
                   style: TextStyle(color: Colors.deepOrange,fontWeight: FontWeight.bold)),

@@ -7,8 +7,7 @@ class ReviewRepository {
       FirebaseFirestore.instance.collection('reviews');
 
   Stream<List<Review>> watchByProduct(String productId) {
-    // Avaliações ainda não foram migradas para a API Railway.
-    if (LojaBackend.isRailway) return Stream.value(const <Review>[]);
+    if (LojaBackend.isRailway) return _railwayReviews(productId).asStream();
     return _col
         .where('productId', isEqualTo: productId)
         .orderBy('createdAt', descending: true)
@@ -19,8 +18,23 @@ class ReviewRepository {
 
   Future<void> add(Review review) async {
     if (LojaBackend.isRailway) {
-      throw StateError('Avaliações ainda indisponíveis no modo Railway.');
+      await LojaApi.instance.request('POST',
+        '${LojaApi.instance.publicCatalog}/products/${review.productId}/reviews',
+        authenticated: true,
+        body: {'rating': review.rating.toInt(), 'comment': review.comment.trim()});
+      return;
     }
     await _col.add(review.toJson());
+  }
+}
+
+extension _ReviewRailway on ReviewRepository {
+  Future<List<Review>> _railwayReviews(String productId) async {
+    final result = await LojaApi.instance.request('GET',
+      '${LojaApi.instance.publicCatalog}/products/$productId/reviews');
+    return (result['reviews'] as List? ?? const []).map((raw) {
+      final item = Map<String,dynamic>.from(raw as Map);
+      return Review.fromJson(item['id'].toString(), item);
+    }).toList();
   }
 }

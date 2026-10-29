@@ -224,6 +224,11 @@ class HomeScreen extends ConsumerWidget {
                         _ProductGrid(products: all),
                     ],
                   ),
+                  if (LojaBackend.isRailway) SliverToBoxAdapter(child: Padding(
+                    padding:const EdgeInsets.fromLTRB(16,12,16,18),
+                    child:OutlinedButton.icon(onPressed:()=>context.push('/search'),
+                      icon:const Icon(Icons.grid_view_rounded),
+                      label:const Text('Explorar catálogo completo (mais produtos e filtros)')))),
                   const SliverToBoxAdapter(child: SizedBox(height: 28)),
                 ],
               ),

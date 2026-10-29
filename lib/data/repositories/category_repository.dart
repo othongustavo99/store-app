@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/network/loja_api.dart';
 import 'railway_catalog_repository.dart';
@@ -47,7 +48,7 @@ class CategoryRepository {
       }
       await batch.commit();
     } catch (e) {
-      print('Erro no seed de categorias: $e');
+      debugPrint('Erro no seed de categorias: $e');
     }
   }
 }

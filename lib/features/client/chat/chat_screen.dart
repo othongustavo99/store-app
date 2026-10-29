@@ -147,7 +147,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.primary.withOpacity(0.8),
+                                    color: AppColors.primary.withValues(alpha: 0.8),
                                   ),
                                 ),
                               ),
@@ -176,7 +176,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 8,
                       offset: const Offset(0, -2),
                     ),

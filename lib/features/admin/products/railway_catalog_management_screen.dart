@@ -20,7 +20,7 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
   late Future<Map<String, dynamic>> _data;
   StreamSubscription<int>? _subscription;
   String _filter = 'ALL';
-  bool _busy = false;
+  final bool _busy = false;
 
   @override
   void initState() {
@@ -83,12 +83,29 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
     final creating = product == null;
     final name = TextEditingController(text: product?['name']?.toString() ?? '');
     final description = TextEditingController(text: product?['description']?.toString() ?? '');
+    final sizeGuide = TextEditingController(text: product?['sizeGuide']?.toString() ?? '');
     final price = TextEditingController(text: _moneyInput(product?['priceCents'] ?? 0));
     final oldPrice = TextEditingController(text: product?['oldPriceCents'] == null ? '' : _moneyInput(product?['oldPriceCents']));
     final sku = TextEditingController();
-    final color = TextEditingController(text: 'Preto');
-    final size = TextEditingController(text: 'M');
-    final initialStock = TextEditingController(text: '0');
+    final color = TextEditingController(text: 'Preto, Branco');
+    final size = TextEditingController(text: 'P, M, G, GG');
+    // Grade de variações: cores x tamanhos, cada combinação com estoque inicial.
+    final gradeControllers = <String, TextEditingController>{};
+    var grid = <({String color, String size, String key})>[];
+    String? generateGrid() {
+      final colors = color.text.split(',').map((x)=>x.trim()).where((x)=>x.isNotEmpty).toSet().toList();
+      final sizes = size.text.split(',').map((x)=>x.trim()).where((x)=>x.isNotEmpty).toSet().toList();
+      if(colors.isEmpty || sizes.isEmpty || colors.length*sizes.length>120) {
+        return 'Escolha cores e tamanhos (até 120 combinações).';
+      }
+      if(colors.any((c)=>c.length>60)||sizes.any((v)=>v.length>50)) {
+        return 'Cor ou tamanho excede o limite.';
+      }
+      grid = [for(final c in colors)for(final z in sizes)(color:c,size:z,key:'$c|$z')];
+      for(final cell in grid){gradeControllers.putIfAbsent(cell.key,()=>TextEditingController(text:'0'));}
+      return null;
+    }
+    generateGrid();
     final imageUrl = TextEditingController();
     final videoUrl = TextEditingController();
     String categoryId = product?['categoryId']?.toString() ?? categories.first['id'].toString();
@@ -131,20 +148,24 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
               update(() => error = 'Adicione ao menos uma imagem antes de publicar.'); return;
             }
             final payload = <String, dynamic>{
-              'name': name.text.trim(), 'description': description.text.trim(),
+              'name': name.text.trim(), 'description': description.text.trim(), 'sizeGuide':sizeGuide.text.trim(),
               'categoryId': categoryId, 'priceCents': priceCents, 'oldPriceCents': oldCents,
               'images': images, 'videos': videos,
               'isFeatured': featured, 'isNew': isNew, 'status': status,
             };
             if (creating) {
-              final amount = int.tryParse(initialStock.text.trim());
-              if (sku.text.trim().length < 2 || color.text.trim().isEmpty || size.text.trim().isEmpty ||
-                  amount == null || amount < 0 || amount > 1000000) {
-                update(() => error = 'Cadastre SKU, cor, tamanho e estoque inicial válido.'); return;
+              final check = generateGrid();
+              final prefix = sku.text.trim().toUpperCase();
+              if (check != null || !RegExp(r'^[A-Z0-9][A-Z0-9._-]{1,75}$').hasMatch(prefix)) {
+                update(() => error = check ?? 'Informe um SKU base com letras, números, pontos, hífens ou underline.');return;
               }
-              payload['variants'] = [{
-                'sku': sku.text.trim(), 'color': color.text.trim(),
-                'size': size.text.trim(), 'initialStock': amount,
+              if(grid.any((cell){final qty=int.tryParse(gradeControllers[cell.key]!.text.trim());return qty==null || qty<0 || qty>1000000;})){
+                update(()=>error='Preencha os estoques de cada combinação com valores entre 0 e 1.000.000.');return;
+              }
+              payload['variants'] = [for(var i=0;i<grid.length;i++){
+                'sku':'$prefix-${(i+1).toString().padLeft(3,'0')}',
+                'color':grid[i].color, 'size':grid[i].size,
+                'initialStock':int.parse(gradeControllers[grid[i].key]!.text.trim()),
               }];
             }
             update(() { saving = true; error = null; });
@@ -154,14 +175,25 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
               if (ctx.mounted) Navigator.pop(ctx, true);
             } catch(e) { update(() {saving = false;error = '$e';}); }
           }
-          return AlertDialog(
-            title: Text(creating ? 'Novo produto' : 'Editar produto'),
-            content: SizedBox(width: 560, child: SingleChildScrollView(child: Column(
-              mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          return Scaffold(
+            appBar: AppBar(title:Text(creating ? 'Cadastrar produto' : 'Editar produto'),
+              leading:IconButton(tooltip:'Voltar',onPressed:saving?null:()=>Navigator.pop(ctx,false),
+                icon:const Icon(Icons.arrow_back)),
+              actions:[Padding(padding:const EdgeInsets.only(right:12),child:FilledButton(
+                onPressed:saving?null:save,child:saving?const SizedBox(height:18,width:18,child:CircularProgressIndicator(strokeWidth:2)):
+                  const Text('Salvar produto')))]),
+            body:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:720),
+              child:SingleChildScrollView(padding:const EdgeInsets.all(18),child:Column(
+              crossAxisAlignment: CrossAxisAlignment.start, children: [
                 TextField(controller: name, enabled: !saving, maxLength: 200, decoration: const InputDecoration(labelText: 'Nome *')),
                 TextField(controller: description, enabled: !saving, minLines: 2, maxLines: 4,
                   decoration: const InputDecoration(labelText: 'Descrição')),
-                DropdownButtonFormField<String>(value: categoryId, isExpanded: true,
+                const SizedBox(height:12),
+                TextField(controller:sizeGuide,enabled:!saving,maxLength:3000,minLines:3,maxLines:7,
+                  decoration:const InputDecoration(labelText:'Guia de medidas da peça (cm)',
+                    hintText:'Ex.: M — busto 98 cm; cintura 78 cm; comprimento 65 cm.\nG — ...',
+                    border:OutlineInputBorder())),
+                DropdownButtonFormField<String>(initialValue: categoryId, isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Categoria'),
                   items: categories.map((c) => DropdownMenuItem(value: c['id'].toString(), child: Text(c['name'].toString()))).toList(),
                   onChanged: saving ? null : (v) { if (v != null) update(() => categoryId = v); }),
@@ -173,7 +205,7 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: 'Preço anterior (R\$)')))]),
                 const SizedBox(height: 10),
-                DropdownButtonFormField<String>(value: status,
+                DropdownButtonFormField<String>(initialValue: status,
                   decoration: const InputDecoration(labelText: 'Visibilidade'),
                   items: const [DropdownMenuItem(value:'DRAFT',child:Text('Rascunho')),
                     DropdownMenuItem(value:'PUBLISHED',child:Text('Publicado')),
@@ -215,27 +247,35 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
                   IconButton(tooltip:'Adicionar vídeo', icon:const Icon(Icons.add), onPressed:saving ? null : () => addUrl(video:true))]),
                 if(creating) ...[
                   const Divider(),
-                  Text('Variante inicial',style:Theme.of(ctx).textTheme.titleSmall),
-                  TextField(controller:sku,enabled:!saving,maxLength:90,decoration:const InputDecoration(labelText:'SKU * (único na loja)')),
-                  Row(children:[Expanded(child:TextField(controller:color,enabled:!saving,decoration:const InputDecoration(labelText:'Cor'))),
-                    const SizedBox(width:12),Expanded(child:TextField(controller:size,enabled:!saving,decoration:const InputDecoration(labelText:'Tamanho')))]),
-                  TextField(controller:initialStock,enabled:!saving,keyboardType:TextInputType.number,
-                    decoration:const InputDecoration(labelText:'Estoque inicial')),
+                  Text('Grade de cores e tamanhos', style:Theme.of(ctx).textTheme.titleMedium),
+                  const Text('Informe listas separadas por vírgula. Cada combinação vira um SKU único.'),
+                  TextField(controller:sku,enabled:!saving,maxLength:75,
+                    decoration:const InputDecoration(labelText:'Prefixo do SKU * (ex.: CAMISETA01)')),
+                  TextField(controller:color,enabled:!saving,
+                    decoration:const InputDecoration(labelText:'Cores (ex.: Preto, Branco, Azul)')),
+                  TextField(controller:size,enabled:!saving,
+                    decoration:const InputDecoration(labelText:'Tamanhos (ex.: P, M, G, GG)')),
+                  OutlinedButton.icon(onPressed:saving?null:(){update(()=>error=generateGrid());},
+                    icon:const Icon(Icons.grid_on),label:const Text('Gerar grade')),
+                  Text('${grid.length} combinações • informe o estoque inicial',
+                    style:Theme.of(ctx).textTheme.titleSmall),
+                  for(final cell in grid) Padding(padding:const EdgeInsets.symmetric(vertical:4),
+                    child:Row(children:[Expanded(child:Text('${cell.color} / ${cell.size}')),
+                      SizedBox(width:125,child:TextField(controller:gradeControllers[cell.key],enabled:!saving,
+                        keyboardType:TextInputType.number,
+                        decoration:const InputDecoration(labelText:'Estoque',border:OutlineInputBorder(),isDense:true)))])),
                 ] else const Padding(padding:EdgeInsets.symmetric(vertical:8),child:
-                  Text('Para alterar quantidade, utilize Inventário e movimentações.',style:TextStyle(fontSize:12))),
+                  Text('Para ajustar estoque e SKUs existentes, utilize Inventário e Variantes.',style:TextStyle(fontSize:12))),
                 if(error != null) Padding(padding:const EdgeInsets.only(top:10),child:
                   Text(error!,style:TextStyle(color:Theme.of(ctx).colorScheme.error))),
               ],
-            ))),
-            actions: [TextButton(onPressed:saving ? null : ()=>Navigator.pop(ctx,false),child:const Text('Cancelar')),
-              FilledButton(onPressed:saving ? null : save, child:saving ? const SizedBox(width:18,height:18,
-                child:CircularProgressIndicator(strokeWidth:2)) : const Text('Salvar'))],
+            )))),
           );
         }),
       );
       if(changed == true && mounted) await _refresh();
     } finally {
-      for(final c in [name, description, price, oldPrice, sku, color, size, initialStock, imageUrl, videoUrl]) { c.dispose(); }
+      for(final c in [name, description, sizeGuide, price, oldPrice, sku, color, size, imageUrl, videoUrl, ...gradeControllers.values]) { c.dispose(); }
     }
   }
 
@@ -285,6 +325,41 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
         )));
       if(changed==true && mounted) await _refresh();
     }finally{for(final c in [sku,color,size,image,stock]){c.dispose();}}
+  }
+
+  Future<void> _duplicate(Map<String,dynamic> product) async {
+    try {
+      final variants=List<Map<String,dynamic>>.from(product['variants'] as List? ?? const [])
+        .where((v)=>v['status']=='ACTIVE').toList();
+      if(variants.isEmpty){_error('O produto precisa ter ao menos uma variante ativa.');return;}
+      final suffix=DateTime.now().microsecondsSinceEpoch.toRadixString(36).toUpperCase();
+      await _repo.createProduct({
+        'name':'${product['name']} (cópia)',
+        'description':product['description']??'', 'sizeGuide':product['sizeGuide']??'', 'categoryId':product['categoryId'],
+        'priceCents':_num(product['priceCents']), 'oldPriceCents':product['oldPriceCents']==null?null:_num(product['oldPriceCents']),
+        'images':product['images']??[], 'videos':product['videos']??[],
+        'isFeatured':false,'isNew':false, 'status':'DRAFT',
+        'variants':[for(var i=0;i<variants.length;i++){
+          'sku':'COP-$suffix-${i+1}', 'color':variants[i]['color'],
+          'size':variants[i]['size'], 'initialStock':0,
+        }],
+      });
+      if(mounted){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Rascunho duplicado com estoque zero.')));await _refresh();}
+    }catch(e){_error(e);}
+  }
+
+  Future<void> _togglePublished(Map<String,dynamic> product) async {
+    final next=product['status']=='PUBLISHED'?'HIDDEN':'PUBLISHED';
+    try{
+      await _repo.updateProduct(product['id'].toString(),{
+        'name':product['name'],'description':product['description']??'', 'sizeGuide':product['sizeGuide']??'',
+        'categoryId':product['categoryId'],'priceCents':_num(product['priceCents']),
+        'oldPriceCents':product['oldPriceCents']==null?null:_num(product['oldPriceCents']),
+        'images':product['images']??[], 'videos':product['videos']??[],
+        'isFeatured':product['isFeatured']==true,'isNew':product['isNew']==true,'status':next,
+      });
+      if(mounted)await _refresh();
+    }catch(e){_error(e);}
   }
 
   Future<void> _archive(Map<String,dynamic> product) async {
@@ -363,6 +438,11 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
                   icon:const Icon(Icons.edit_outlined),label:const Text('Editar')),
                 if(canEdit) OutlinedButton.icon(onPressed:()=>_variantDialog(p,null),
                   icon:const Icon(Icons.add_box_outlined),label:const Text('Nova variante')),
+                if(canEdit) OutlinedButton.icon(onPressed:()=>_duplicate(p),icon:const Icon(Icons.copy_outlined),label:const Text('Duplicar')),
+                if(canEdit && (p['status']=='PUBLISHED' || p['status']=='HIDDEN'))
+                  OutlinedButton.icon(onPressed:()=>_togglePublished(p),
+                    icon:Icon(p['status']=='PUBLISHED'?Icons.visibility_off_outlined:Icons.visibility_outlined),
+                    label:Text(p['status']=='PUBLISHED'?'Ocultar':'Publicar')),
                 if(canEdit) TextButton.icon(onPressed:()=>_archive(p),icon:const Icon(Icons.archive_outlined),label:const Text('Arquivar')),
               ]),
               if(variants.isNotEmpty) ExpansionTile(tilePadding:EdgeInsets.zero,title:const Text('SKUs e variantes'),

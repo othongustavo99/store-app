@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/services/auth_service.dart';
 import '../core/network/loja_api.dart';
+import '../data/services/railway_push_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -184,6 +185,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     if (LojaBackend.isRailway) {
+      await RailwayPushService.instance.deactivate();
       await LojaApi.instance.logout();
       state = const AuthState();
       return;

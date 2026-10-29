@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/network/loja_api.dart';
 import 'railway_catalog_repository.dart';
@@ -112,12 +113,12 @@ class ProductRepository {
         return true;
       });
     } on FirebaseException catch (e) {
-      print(
+      debugPrint(
         'Erro ao atualizar estoque: ${e.code} - ${e.message}',
       );
       return false;
     } catch (e) {
-      print('Erro ao atualizar estoque: $e');
+      debugPrint('Erro ao atualizar estoque: $e');
       return false;
     }
   }
@@ -199,18 +200,18 @@ class ProductRepository {
 
       await batch.commit();
 
-      print(
+      debugPrint(
         '${mockProducts.length} produtos iniciais adicionados.',
       );
     } on FirebaseException catch (e) {
-      print(
+      debugPrint(
         'Erro no seed dos produtos: '
         '${e.code} - ${e.message}',
       );
 
       rethrow;
     } catch (e) {
-      print('Erro no seed dos produtos: $e');
+      debugPrint('Erro no seed dos produtos: $e');
       rethrow;
     }
   }

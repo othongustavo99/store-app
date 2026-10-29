@@ -12,7 +12,8 @@ class RailwayCatalogRepository {
   String get _productPath => '${_api.publicCatalog}/products';
 
   Future<List<Product>> getProducts() async {
-    final data = await _api.request('GET', _productPath);
+    // Primeira página da vitrine. Demais produtos são buscados por scroll/pesquisa.
+    final data = await _api.request('GET', '${_api.publicCatalog}/search?limit=50');
     return (data['products'] as List)
         .map((v) => Product.fromJson((v as Map)['id'] as String, Map<String, dynamic>.from(v)))
         .toList();
@@ -26,9 +27,14 @@ class RailwayCatalogRepository {
   }
 
   Future<Product?> getProduct(String id) async {
-    final products = await getProducts();
-    for (final p in products) { if (p.id == id) return p; }
-    return null;
+    try {
+      final data = await _api.request('GET', '$_productPath/$id');
+      final item = Map<String,dynamic>.from(data['product'] as Map);
+      return Product.fromJson(id,item);
+    } on LojaApiException catch(e) {
+      if(e.status==404)return null;
+      rethrow;
+    }
   }
 
   Map<String, dynamic> _productPayload(Product product) => {

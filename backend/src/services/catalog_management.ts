@@ -14,6 +14,7 @@ export const variantInput = z.object({
 export const createProductInput = z.object({
   name: z.string().trim().min(2).max(200),
   description: z.string().trim().max(12000),
+  sizeGuide: z.string().trim().max(3000).default(''),
   categoryId: z.string().uuid(),
   priceCents: z.number().int().min(1).max(100000000),
   oldPriceCents: z.number().int().min(1).max(100000000).nullable().optional(),
@@ -40,6 +41,7 @@ export const createProductInput = z.object({
 export const productMetadataInput = z.object({
   name: z.string().trim().min(2).max(200),
   description: z.string().trim().max(12000),
+  sizeGuide: z.string().trim().max(3000).default(''),
   categoryId: z.string().uuid(),
   priceCents: z.number().int().min(1).max(100000000),
   oldPriceCents: z.number().int().min(1).max(100000000).nullable(),

@@ -10,6 +10,7 @@ import { uuidParam, validated } from '../security/validation.js';
 import { verifyMercadoPagoSignature } from '../security/payment_signature.js';
 import { orderEvents } from './catalog.js';
 import { cartFingerprint, type ParcelItem, type ShippingService } from '../services/shipping_rules.js';
+import { calculateCoupon, type Coupon } from '../services/coupon_rules.js';
 
 const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48);
 const shopParams = z.object({ slug });
@@ -35,6 +36,7 @@ const deliveryAddress = z.object({
 const orderBody = z.object({
   idempotencyKey: uuidParam,
   demoPaymentMethod: z.enum(['PIX','CARD']).optional(),
+  couponCode: z.string().trim().min(3).max(24).regex(/^[a-zA-Z0-9_-]+$/).transform(v=>v.toUpperCase()).optional(),
   offlineMethod: z.enum(['PAY_ON_PICKUP','MANUAL_PIX','WHATSAPP']).optional(),
   items: z.array(item).min(1).max(30),
   customer: z.object({
@@ -82,7 +84,8 @@ async function queryOrder(client:PoolClient, id:string):Promise<OrderRow> {
 async function orderView(id:string, storeId:string) {
   const found=await pool.query(`SELECT o.id,o.store_id AS "storeId",o.customer_id AS "customerId",
     o.status,o.subtotal_cents::text AS "subtotalCents",o.shipping_cents::text AS "shippingCents",
-    o.total_cents::text AS "totalCents",o.fulfillment_method AS "fulfillment",
+    o.total_cents::text AS "totalCents",o.discount_cents::text AS "discountCents",
+    (SELECT c.code FROM order_coupons oc JOIN store_coupons c ON c.id=oc.coupon_id WHERE oc.order_id=o.id) AS "couponCode",o.fulfillment_method AS "fulfillment",
     o.reservation_expires_at AS "reservationExpiresAt",o.created_at AS "createdAt",
     o.is_demo AS "isDemo",
     o.shipping_address AS "customerContact",
@@ -227,20 +230,37 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
       shippingAddress={...details.address,name:body.customer.name,phone:body.customer.phone,
         notes:body.notes,fulfillment:'DELIVERY'};
     }
-    const total=subtotal+BigInt(shippingCents);
+    // Cupom e limite de uso são conferidos sob bloqueio na mesma transação do pedido.
+    // Tentativas idempotentes retornam antes de qualquer contabilização.
+    let discount=0n;
+    let couponId:string|null=null;
+    if(body.couponCode) {
+      const c=await client.query<Coupon>(`SELECT * FROM store_coupons WHERE store_id=$1 AND code=$2 FOR UPDATE`,[storeId,body.couponCode]);
+      if(!c.rowCount)throw new ApiError(404,'Cupom não encontrado.');
+      const used=await client.query<{count:string}>(`SELECT count(*)::text AS count FROM order_coupons
+        WHERE store_id=$1 AND coupon_id=$2 AND customer_id=$3`,[storeId,c.rows[0].id,customerId]);
+      discount=calculateCoupon(c.rows[0],subtotal,Number(used.rows[0].count));
+      couponId=c.rows[0].id;
+    }
+    const total=subtotal-discount+BigInt(shippingCents);
     if(total>100_000_000_00n)throw new ApiError(400,'Total inválido.');
     const orderId=randomUUID();
     await client.query(`INSERT INTO orders(id,store_id,customer_id,idempotency_key,status,subtotal_cents,
       shipping_cents,total_cents,shipping_address,fulfillment_method,reservation_expires_at,
-      shipping_service_id,shipping_carrier,shipping_delivery_days,paid_at,is_demo)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16)`,
+      shipping_service_id,shipping_carrier,shipping_delivery_days,paid_at,is_demo,discount_cents)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [orderId,storeId,customerId,body.idempotencyKey,demo?'PAID':'PENDING_PAYMENT',
         subtotal.toString(),shippingCents,total.toString(),
         JSON.stringify({...shippingAddress,...(demo?{demoPaymentMethod:body.demoPaymentMethod}: {}),
           ...(body.offlineMethod?{offlineMethod:body.offlineMethod}: {})}),
         body.fulfillment,demo?null:new Date(Date.now()+48*60*60*1000),
         selected?.id??null,selected?`${selected.carrier} - ${selected.name}`:null,
-        selected?.deliveryDays??null,demo?new Date():null,demo]);
+        selected?.deliveryDays??null,demo?new Date():null,demo,discount.toString()]);
+    if(couponId){
+      await client.query(`INSERT INTO order_coupons(order_id,store_id,coupon_id,customer_id,discount_cents)
+        VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,couponId,customerId,discount.toString()]);
+      await client.query('UPDATE store_coupons SET used_count=used_count+1,updated_at=now() WHERE id=$1',[couponId]);
+    }
     for(const {v,quantity} of variants) {
       if (demo) {
         // Somente estoque de loja marcada como demo: compra fictícia baixada na hora.

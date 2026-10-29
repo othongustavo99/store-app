@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../core/network/loja_api.dart';
+import '../../../data/services/railway_push_service.dart';
 
 class ProfileTabScreen extends ConsumerWidget {
   const ProfileTabScreen({super.key});
@@ -25,6 +26,26 @@ class ProfileTabScreen extends ConsumerWidget {
         if (loggedIn) ListTile(leading: const Icon(Icons.manage_accounts_outlined),
           title: const Text('Meus dados e endereços'), trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/account')),
+        if (loggedIn && RailwayPushService.instance.supported)
+          ListTile(leading:const Icon(Icons.notifications_active_outlined),
+            title:const Text('Ativar notificações dos meus pedidos'),
+            subtitle:const Text('Opcional. Você pode desativar nas configurações do celular.'),
+            onTap:() async {
+              try {
+                final allowed=await RailwayPushService.instance.activate();
+                if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content:Text(allowed?'Notificações ativadas para esta loja.':'Permissão não concedida ou dispositivo indisponível.')));
+              }catch(e){if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content:Text('Não foi possível ativar as notificações: $e')));}
+            }),
+        if (loggedIn && RailwayPushService.instance.supported)
+          ListTile(leading:const Icon(Icons.notifications_off_outlined),
+            title:const Text('Desativar notificações neste aparelho'),
+            onTap:() async {
+              await RailwayPushService.instance.deactivate();
+              if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content:Text('Token de notificações desativado neste aparelho.')));
+            }),
         if (loggedIn && auth.role == UserRole.admin) ...[
           const Divider(),
           ListTile(leading: const Icon(Icons.dashboard_outlined), title: const Text('Painel da loja'),

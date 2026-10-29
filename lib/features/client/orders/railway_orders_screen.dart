@@ -77,6 +77,8 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                 label: Text(_label(status, delivery: order['fulfillment']=='DELIVERY')),
                 visualDensity: VisualDensity.compact),
               Text('Total: ${_money.format(total)}  •  ${order['fulfillment']=='DELIVERY'?'Entrega':'Retirada na loja'}'),
+              if ((int.tryParse('${order['discountCents']}')??0)>0)
+                Text('Cupom ${order['couponCode']??''}: desconto de ${_money.format((int.tryParse('${order['discountCents']}')??0)/100)}'),
               if(order['fulfillment']=='DELIVERY') ...[
                 Text('Transportadora: ${order['shippingCarrier'] ?? 'A definir'}'),
                 if(order['shipment'] is Map && (order['shipment'] as Map)['trackingCode'] != null)

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/network/loja_api.dart';
+import '../widgets/railway_paged_catalog_screen.dart';
 import '../../../providers/product_providers.dart';
 import '../widgets/product_card.dart';
 
@@ -11,6 +12,7 @@ class DiscountedProductsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if(LojaBackend.isRailway)return const RailwayPagedCatalogScreen(title:'Ofertas com desconto',discounted:true);
     final asyncProducts = ref.watch(productsProvider);
 
     return Scaffold(

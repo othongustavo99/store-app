@@ -326,7 +326,7 @@ class _AddressEditorState extends State<_AddressEditor> {
 
   void _save() {
     if (!_key.currentState!.validate()) return;
-    final value = (String key) => _fields[key]!.text.trim();
+    String value(String key) => _fields[key]!.text.trim();
     final zip = value('zip').replaceAll(RegExp(r'\D'), '');
     if (zip.length != 8) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('CEP deve ter 8 números.')));

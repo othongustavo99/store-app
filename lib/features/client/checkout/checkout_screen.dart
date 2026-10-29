@@ -325,7 +325,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 width: 76,
                 height: 76,
                 decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.12),
+                  color: AppColors.success.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -556,10 +556,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 ),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.05),
+                                  color: AppColors.primary.withValues(alpha: 0.05),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: AppColors.primary.withOpacity(0.15),
+                                    color: AppColors.primary.withValues(alpha: 0.15),
                                   ),
                                 ),
                                 child: Row(
@@ -788,7 +788,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               height: 12,
                             ),
                             DropdownButtonFormField<String>(
-                              value: _addressLabel,
+                              initialValue: _addressLabel,
                               decoration: const InputDecoration(
                                 labelText: 'Identificação do endereço',
                                 prefixIcon: Icon(
@@ -986,7 +986,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
+                        color: Colors.black.withValues(alpha: 0.06),
                         blurRadius: 12,
                         offset: const Offset(0, -4),
                       ),
@@ -1107,7 +1107,7 @@ class _PaymentSimulationSheetState extends State<_PaymentSimulationSheet> {
             width: 70,
             height: 70,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
+              color: AppColors.primary.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -1181,7 +1181,7 @@ class _PaymentSimulationSheetState extends State<_PaymentSimulationSheet> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.08),
+              color: AppColors.warning.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -1276,7 +1276,7 @@ class _SectionHeader extends StatelessWidget {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.08),
+            color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
@@ -1317,7 +1317,7 @@ class _PaymentOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+      color: selected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -1338,7 +1338,7 @@ class _PaymentOption extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: selected
-                      ? AppColors.primary.withOpacity(0.1)
+                      ? AppColors.primary.withValues(alpha: 0.1)
                       : AppColors.background,
                   borderRadius: BorderRadius.circular(12),
                 ),

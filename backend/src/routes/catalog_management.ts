@@ -43,7 +43,7 @@ export async function catalogManagementRoutes(app: FastifyInstance) {
     await requireStoreRole(req,storeId,['OWNER','MANAGER','STAFF']);
     const result=await pool.query(`
       SELECT p.id,p.name,p.description,p.category_id AS "categoryId",p.status,
-             p.images,p.videos,p.old_price_cents::text AS "oldPriceCents",
+             p.images,p.videos,p.size_guide AS "sizeGuide",p.old_price_cents::text AS "oldPriceCents",
              p.is_featured AS "isFeatured",p.is_new AS "isNew",p.created_at AS "createdAt",
              COALESCE((SELECT jsonb_agg(jsonb_build_object(
                'id',v.id,'sku',v.sku,'color',v.attributes->>'color','size',v.attributes->>'size',
@@ -66,9 +66,9 @@ export async function catalogManagementRoutes(app: FastifyInstance) {
       await categoryExists(client,storeId,body.categoryId);
       const productId=randomUUID();
       await client.query(`INSERT INTO products(id,store_id,category_id,name,slug,description,status,
-        images,videos,old_price_cents,is_featured,is_new) VALUES($1,$2,$3,$4,$1,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11)`,
+        images,videos,old_price_cents,is_featured,is_new,size_guide) VALUES($1,$2,$3,$4,$1,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11,$12)`,
         [productId,storeId,body.categoryId,body.name,body.description,body.status,
-          JSON.stringify(body.images),JSON.stringify(body.videos),body.oldPriceCents ?? null,body.isFeatured,body.isNew]);
+          JSON.stringify(body.images),JSON.stringify(body.videos),body.oldPriceCents ?? null,body.isFeatured,body.isNew,body.sizeGuide]);
       for (const v of body.variants) {
         const variantId=randomUUID();
         await client.query(`INSERT INTO product_variants(id,store_id,product_id,sku,attributes,price_cents,on_hand)
@@ -95,9 +95,9 @@ export async function catalogManagementRoutes(app: FastifyInstance) {
       if(body.status==='PUBLISHED' && !hasActive.rowCount) throw new ApiError(409,'Cadastre pelo menos uma variante ativa para publicar.');
       await client.query(`UPDATE products SET name=$3,description=$4,category_id=$5,
         images=$6::jsonb,videos=$7::jsonb,old_price_cents=$8,is_featured=$9,is_new=$10,
-        status=$11,updated_at=now() WHERE id=$1 AND store_id=$2`,
+        status=$11,size_guide=$12,updated_at=now() WHERE id=$1 AND store_id=$2`,
         [productId,storeId,body.name,body.description,body.categoryId,JSON.stringify(body.images),
-          JSON.stringify(body.videos),body.oldPriceCents,body.isFeatured,body.isNew,body.status]);
+          JSON.stringify(body.videos),body.oldPriceCents,body.isFeatured,body.isNew,body.status,body.sizeGuide]);
       // Importante: NÃO tocar em on_hand/reserved. Inventário controla movimentos.
       await client.query("UPDATE product_variants SET price_cents=$3,updated_at=now() WHERE product_id=$1 AND store_id=$2 AND status='ACTIVE'",[productId,storeId,body.priceCents]);
       await audit(client,storeId,identity.userId,'PRODUCT_METADATA_UPDATED','product',productId);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/network/loja_api.dart';
 import '../features/admin/remote_admin_home.dart';
+import '../features/admin/coupons/railway_coupons_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:loja_roupas/features/admin/dashboards/admin_dashboard_screen.dart';
@@ -204,6 +205,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => LojaBackend.isRailway
             ? const RailwayTeamScreen() : const RemotePendingScreen(),
       ),
+      GoRoute(path:'/admin/coupons',builder:(context,state)=>LojaBackend.isRailway?const RailwayCouponsScreen():const RemotePendingScreen()),
       GoRoute(
         path: '/admin/orders',
         builder: (context, state) => LojaBackend.isRailway ? const RailwayAdminOrdersScreen() : const AdminOrdersScreen(),

@@ -116,14 +116,25 @@ async function categories(storeId: string) {
 }
 
 type ProductRow = {
-  id: string; name: string; description: string; category_id: string; status: string;
+  id: string; name: string; description: string; category_id: string; size_guide: string; status: string;
   created_at: Date; images: string[]; videos: string[]; old_price_cents: string | null;
   is_featured: boolean; is_new: boolean;
   variants: Array<{ id: string; color: string; size: string; stock: number; imageUrl: string | null; priceCents: string }>;
 };
-async function products(storeId: string, includeUnpublished: boolean) {
+function toPublicProduct(p: ProductRow) {
+  return {
+    id: p.id, name: p.name, description: p.description, sizeGuide:p.size_guide, categoryId: p.category_id,
+    status: p.status, createdAt: p.created_at.toISOString(),
+    price: p.variants.length ? money(p.variants[0].priceCents) : 0,
+    oldPrice: money(p.old_price_cents), images: p.images, videos: p.videos,
+    isFeatured: p.is_featured, isNew: p.is_new,
+    variants: p.variants.map((v) => ({ id: v.id, color: v.color, size: v.size, stock: v.stock, imageUrl: v.imageUrl })),
+  };
+}
+
+async function products(storeId: string, includeUnpublished: boolean, productId: string | null = null) {
   const result = await pool.query<ProductRow>(`
-    SELECT p.id,p.name,p.description,p.category_id,p.status,p.created_at,
+    SELECT p.id,p.name,p.description,p.category_id,p.size_guide,p.status,p.created_at,
            p.images,p.videos,p.old_price_cents,p.is_featured,p.is_new,
            COALESCE((SELECT jsonb_agg(jsonb_build_object(
              'id',v.id,'color',v.attributes->>'color','size',v.attributes->>'size',
@@ -131,15 +142,9 @@ async function products(storeId: string, includeUnpublished: boolean) {
              'priceCents',v.price_cents::text) ORDER BY v.created_at)
              FROM product_variants v WHERE v.product_id=p.id AND v.status='ACTIVE'), '[]'::jsonb) AS variants
     FROM products p WHERE p.store_id=$1 AND (($2::boolean AND p.status <> 'ARCHIVED') OR p.status='PUBLISHED')
-    ORDER BY p.created_at DESC LIMIT 500`, [storeId, includeUnpublished]);
-  return result.rows.map((p) => ({
-    id: p.id, name: p.name, description: p.description, categoryId: p.category_id,
-    status: p.status, createdAt: p.created_at.toISOString(),
-    price: p.variants.length ? money(p.variants[0].priceCents) : 0,
-    oldPrice: money(p.old_price_cents), images: p.images, videos: p.videos,
-    isFeatured: p.is_featured, isNew: p.is_new,
-    variants: p.variants.map((v) => ({ id: v.id, color: v.color, size: v.size, stock: v.stock, imageUrl: v.imageUrl })),
-  }));
+    AND ($3::uuid IS NULL OR p.id=$3)
+    ORDER BY p.created_at DESC LIMIT 500`, [storeId, includeUnpublished, productId]);
+  return result.rows.map(toPublicProduct);
 }
 
 async function assertCategory(client: PoolClient, storeId: string, categoryId: string) {
@@ -156,9 +161,75 @@ export async function catalogRoutes(app: FastifyInstance) {
     const { slug } = validated(publicParams, req.params);
     return { products: await products(await lookupStore(slug), false) };
   });
+  // Paginação keyset: nenhum catálogo inteiro precisa ser carregado para pesquisar.
+  // Cursor de posição (não é credencial), sempre validado por Zod.
+  const searchQuery = z.object({
+    q: z.string().trim().max(120).optional(),
+    discounted:z.enum(['true']).optional(),featured:z.enum(['true']).optional(),new:z.enum(['true']).optional(),
+    categoryId: uuidParam.optional(), color: z.string().trim().max(60).optional(),
+    size: z.string().trim().max(50).optional(), available: z.enum(['true','false']).optional(),
+    minPrice: z.coerce.number().finite().min(0).max(1000000).optional(),
+    maxPrice: z.coerce.number().finite().min(0).max(1000000).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    cursor: z.string().max(200).optional(),
+  }).strict();
+  app.get('/v1/shops/:slug/catalog/search', async (req) => {
+    const { slug } = validated(publicParams, req.params);
+    const args = validated(searchQuery, req.query);
+    if (args.minPrice !== undefined && args.maxPrice !== undefined && args.minPrice > args.maxPrice) {
+      throw new ApiError(400, 'Faixa de preço inválida.');
+    }
+    let after: { t: string; id: string } | null = null;
+    if (args.cursor) {
+      try {
+        const raw = JSON.parse(Buffer.from(args.cursor, 'base64url').toString('utf8'));
+        after = validated(z.object({ t: z.string().datetime(), id: uuidParam }).strict(), raw);
+      } catch { throw new ApiError(400, 'Cursor inválido.'); }
+    }
+    const storeId = await lookupStore(slug);
+    const params: unknown[] = [storeId];
+    const conditions: string[] = ["p.store_id=$1", "p.status='PUBLISHED'"];
+    const bind = (value: unknown) => { params.push(value); return `$${params.length}`; };
+    if (args.q) conditions.push(`(strpos(lower(p.name), lower(${bind(args.q)}))>0 OR strpos(lower(p.description),lower(${bind(args.q)}))>0)`);
+    if (args.categoryId) conditions.push(`p.category_id=${bind(args.categoryId)}`);
+    if (args.discounted) conditions.push(`p.old_price_cents IS NOT NULL AND EXISTS
+      (SELECT 1 FROM product_variants dv WHERE dv.product_id=p.id AND dv.status='ACTIVE'
+       AND dv.price_cents<p.old_price_cents)`);
+    if (args.featured) conditions.push('p.is_featured=TRUE');
+    if (args.new) conditions.push('p.is_new=TRUE');
+    if (after) {
+      const when = bind(after.t); const id = bind(after.id);
+      conditions.push(`(p.created_at,p.id)<(${when}::timestamptz,${id}::uuid)`);
+    }
+    const variantConditions = ["v.product_id=p.id", "v.status='ACTIVE'"];
+    if (args.color) variantConditions.push(`lower(v.attributes->>'color')=lower(${bind(args.color)})`);
+    if (args.size) variantConditions.push(`lower(v.attributes->>'size')=lower(${bind(args.size)})`);
+    if (args.available === 'true') variantConditions.push('v.on_hand>v.reserved');
+    if (args.minPrice !== undefined) variantConditions.push(`v.price_cents>=${bind(cents(args.minPrice))}`);
+    if (args.maxPrice !== undefined) variantConditions.push(`v.price_cents<=${bind(cents(args.maxPrice))}`);
+    if (variantConditions.length > 2) conditions.push(`EXISTS (SELECT 1 FROM product_variants v WHERE ${variantConditions.join(' AND ')})`);
+    const limitParam = bind(args.limit + 1);
+    const data = await pool.query<ProductRow>(`
+      SELECT p.id,p.name,p.description,p.category_id,p.size_guide,p.status,p.created_at,
+             p.images,p.videos,p.old_price_cents,p.is_featured,p.is_new,
+             COALESCE((SELECT jsonb_agg(jsonb_build_object(
+               'id',v.id,'color',v.attributes->>'color','size',v.attributes->>'size',
+               'stock',v.on_hand-v.reserved,'imageUrl',v.attributes->>'imageUrl',
+               'priceCents',v.price_cents::text) ORDER BY v.created_at)
+               FROM product_variants v WHERE v.product_id=p.id AND v.status='ACTIVE'), '[]'::jsonb) AS variants
+      FROM products p WHERE ${conditions.join(' AND ')}
+      ORDER BY p.created_at DESC,p.id DESC LIMIT ${limitParam}`, params);
+    const hasMore = data.rows.length > args.limit;
+    const rows = data.rows.slice(0, args.limit);
+    const last = rows.at(-1);
+    return { products: rows.map(toPublicProduct), nextCursor: hasMore && last
+      ? Buffer.from(JSON.stringify({ t: last.created_at.toISOString(), id: last.id })).toString('base64url')
+      : null };
+  });
+
   app.get('/v1/shops/:slug/catalog/products/:productId', async (req) => {
     const { slug, productId } = validated(publicProductParams, req.params);
-    const list = await products(await lookupStore(slug), false);
+    const list = await products(await lookupStore(slug), false, productId);
     const product = list.find((p) => p.id === productId);
     if (!product) throw new ApiError(404, 'Produto não encontrado.');
     return { product };

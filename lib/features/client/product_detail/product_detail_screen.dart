@@ -12,7 +12,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/loja_api.dart';
 import '../../../data/repositories/railway_store_profile_repository.dart';
-import '../../../core/network/loja_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/media_upload_service.dart';
 import '../../../data/services/shipping_service.dart';
@@ -88,6 +87,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
+  void _openGallery(List<String> images, int initial) {
+    if (images.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) =>
+      _ProductGallery(images: images, initial: initial)));
+  }
+
   Future<void> _shareProduct(Product product, NumberFormat currency) async {
     final text = '''
 ${product.name}
@@ -97,7 +102,7 @@ ${product.description}
 
 Confira na ${AppConstants.storeName}!
 ''';
-    await Share.share(text, subject: product.name);
+    await SharePlus.instance.share(ShareParams(text: text, subject: product.name));
   }
 
   Future<void> _openWhatsApp(Product product) async {
@@ -129,6 +134,8 @@ Confira na ${AppConstants.storeName}!
   @override
   Widget build(BuildContext context) {
     final asyncProducts = ref.watch(productsProvider);
+    final remoteProduct = LojaBackend.isRailway
+      ? ref.watch(railwayProductByIdProvider(widget.productId)) : null;
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return asyncProducts.when(
@@ -155,6 +162,15 @@ Confira na ${AppConstants.storeName}!
           product = null;
         }
 
+        if (LojaBackend.isRailway) {
+          if (remoteProduct?.isLoading == true) {
+            return const Scaffold(body:Center(child:CircularProgressIndicator()));
+          }
+          if (remoteProduct?.hasError == true) {
+            return Scaffold(appBar:AppBar(),body:Center(child:Text('Erro ao abrir produto: ${remoteProduct!.error}')));
+          }
+          product = remoteProduct?.valueOrNull ?? product;
+        }
         if (product == null) {
           return Scaffold(
             appBar: AppBar(
@@ -198,6 +214,8 @@ Confira na ${AppConstants.storeName}!
           quantity = currentVariant.stock;
         }
 
+        final galleryImages = product.images;
+
         return Scaffold(
           backgroundColor: AppColors.background,
           body: Column(
@@ -234,7 +252,9 @@ Confira na ${AppConstants.storeName}!
                                 final url = product!.images.isNotEmpty
                                     ? product.images[index]
                                     : '';
-                                return CachedNetworkImage(
+                                return GestureDetector(
+                                  onTap: () => _openGallery(galleryImages, index),
+                                  child: CachedNetworkImage(
                                   imageUrl: url,
                                   fit: BoxFit.contain,
                                   width: double.infinity,
@@ -252,7 +272,7 @@ Confira na ${AppConstants.storeName}!
                                       color: AppColors.textLight,
                                     ),
                                   ),
-                                );
+                                ));
                               },
                             ),
                             if (product.images.length > 1)
@@ -274,7 +294,7 @@ Confira na ${AppConstants.storeName}!
                                         shape: BoxShape.circle,
                                         color: currentImageIndex == index
                                             ? Theme.of(context).colorScheme.primary
-                                            : Colors.white.withOpacity(0.6),
+                                            : Colors.white.withValues(alpha: 0.6),
                                       ),
                                     ),
                                   ),
@@ -698,6 +718,7 @@ Confira na ${AppConstants.storeName}!
 
                             // ========== AVALIAÇÕES ==========
                             const SizedBox(height: 28),
+                            _SizeGuide(guide:product.sizeGuide),
                             _ReviewsSection(
                               productId: product.id,
                               productName: product.name,
@@ -753,7 +774,7 @@ Confira na ${AppConstants.storeName}!
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 10,
                       offset: const Offset(0, -4),
                     ),
@@ -769,7 +790,7 @@ Confira na ${AppConstants.storeName}!
                       IconButton(
                         style: IconButton.styleFrom(
                           backgroundColor:
-                              const Color(0xFF25D366).withOpacity(0.15),
+                              const Color(0xFF25D366).withValues(alpha: 0.15),
                         ),
                         icon: const Icon(
                           Icons.chat,
@@ -982,7 +1003,7 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
     try {
       final upload = MediaUploadService();
       final urls = <String>[];
-      for (final f in _pickedFiles) {
+      if (!LojaBackend.isRailway) for (final f in _pickedFiles) {
         final lower = f.path.toLowerCase();
         final isVideo = lower.endsWith('.mp4') ||
             lower.endsWith('.mov') ||
@@ -1005,6 +1026,7 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
         createdAt: DateTime.now(),
       );
       await ref.read(reviewRepositoryProvider).add(review);
+      ref.invalidate(productReviewsProvider(widget.productId));
 
       _commentCtrl.clear();
       _pickedFiles.clear();
@@ -1027,16 +1049,6 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (LojaBackend.isRailway) {
-      return const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Avaliações', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          SizedBox(height: 12),
-          Text('Avaliações temporariamente indisponíveis durante a migração para Railway.'),
-        ],
-      );
-    }
     final async = ref.watch(productReviewsProvider(widget.productId));
 
     return Column(
@@ -1076,7 +1088,7 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
         const SizedBox(height: 8),
         Row(
           children: [
-            TextButton.icon(
+            if (!LojaBackend.isRailway) TextButton.icon(
               onPressed: _pickMedia,
               icon: const Icon(Icons.photo_library_outlined),
               label: Text(
@@ -1212,4 +1224,48 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
       ],
     );
   }
+}
+
+
+/// Medidas indicativas: não apresenta números inventados para a peça da loja.
+class _SizeGuide extends StatelessWidget {
+  const _SizeGuide({required this.guide});
+  final String guide;
+  @override
+  Widget build(BuildContext context) => ExpansionTile(
+    leading: Icon(Icons.straighten_outlined),
+    title: Text('Guia de tamanhos e medidas'),
+    children: [Padding(padding:const EdgeInsets.fromLTRB(16,4,16,16),child:Text(
+      guide.trim().isEmpty
+      ? 'A loja ainda não cadastrou as medidas desta peça. Pergunte pelo WhatsApp antes de comprar.'
+      : guide))],
+  );
+}
+
+class _ProductGallery extends StatefulWidget {
+  const _ProductGallery({required this.images,required this.initial});
+  final List<String> images;
+  final int initial;
+  @override
+  State<_ProductGallery> createState()=>_ProductGalleryState();
+}
+class _ProductGalleryState extends State<_ProductGallery>{
+  late final PageController _controller;
+  late int _current;
+  @override
+  void initState(){super.initState();_current=widget.initial;_controller=PageController(initialPage:widget.initial);}
+  @override
+  void dispose(){_controller.dispose();super.dispose();}
+  @override
+  Widget build(BuildContext context)=>Scaffold(
+    backgroundColor:Colors.black,
+    appBar:AppBar(backgroundColor:Colors.black,foregroundColor:Colors.white,
+      title:Text('${_current+1} de ${widget.images.length}')),
+    body:PageView.builder(controller:_controller,itemCount:widget.images.length,
+      onPageChanged:(i)=>setState(()=>_current=i),itemBuilder:(ctx,i)=>
+        InteractiveViewer(minScale:1,maxScale:5,child:Center(child:
+          CachedNetworkImage(imageUrl:widget.images[i],fit:BoxFit.contain,
+            placeholder:(_,__)=>const CircularProgressIndicator(),
+            errorWidget:(_,__,___)=>const Icon(Icons.broken_image,color:Colors.white))))),
+  );
 }

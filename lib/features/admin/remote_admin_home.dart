@@ -160,6 +160,7 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                               Icons.inventory_outlined, '/admin/inventory'),
                           _AdminAction('Produtos e categorias', 'Organizar sua vitrine',
                               Icons.category_outlined, '/admin/products'),
+                          _AdminAction('Cupons de desconto', 'Criar e ativar promoções', Icons.discount_outlined, '/admin/coupons'),
                           _AdminAction('Atendimento', 'Conversas com os clientes',
                               Icons.support_agent_outlined, '/admin/support'),
                           _AdminAction('Frete e embalagens', 'Medidas e expedição',
@@ -190,7 +191,7 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                     Text(
                       isDemo ? 'DADOS FICTÍCIOS: os valores acima não são receita nem correspondem a dinheiro recebido.' :
                       'A receita exibida é bruta e não representa lucro ou valores disponíveis para repasse.',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
