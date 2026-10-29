@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/network/loja_api.dart';
@@ -35,7 +36,7 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title:const Text('Meus pedidos'),actions:[IconButton(
+    appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/profile'), title:const Text('Meus pedidos'),actions:[IconButton(
       tooltip:'Atualizar pedidos',onPressed:() { _refresh(); },icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<List<Map<String,dynamic>>>(future:_orders,builder:(context,snapshot){
       if(snapshot.connectionState!=ConnectionState.done) return const Center(child:Column(mainAxisSize: MainAxisSize.min,children:[CircularProgressIndicator(),SizedBox(height:14),Text('Carregando seus pedidos…')]));

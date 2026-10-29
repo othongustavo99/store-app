@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -428,6 +429,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: const AppBackButton(fallbackLocation: '/cart'),
         title: const Text('Finalizar compra'),
         bottom: !AppEnvironment.simulatedCheckoutEnabled
             ? const PreferredSize(

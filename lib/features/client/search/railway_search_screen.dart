@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/network/loja_api.dart';
@@ -84,7 +85,7 @@ class _RailwaySearchScreenState extends State<RailwaySearchScreen> {
   }
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar:AppBar(title:const Text('Buscar produtos')),
+    appBar:AppBar(leading: const AppBackButton(), title:const Text('Buscar produtos')),
     body:Column(children:[
       Padding(padding:const EdgeInsets.all(12),child:TextField(controller:_text,onChanged:_onText,
         decoration:InputDecoration(prefixIcon:const Icon(Icons.search),hintText:'Buscar por nome ou descrição',

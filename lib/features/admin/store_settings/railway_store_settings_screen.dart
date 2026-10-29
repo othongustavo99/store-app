@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import '../../../data/repositories/railway_store_profile_repository.dart';
 
@@ -150,7 +151,7 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Identidade e preparação da loja'), actions: [
+    appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title: const Text('Identidade e preparação da loja'), actions: [
       IconButton(tooltip: 'Atualizar', onPressed: busy ? null : refresh,
         icon: const Icon(Icons.refresh)),
     ]),

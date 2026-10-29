@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -139,11 +140,12 @@ Confira na ${AppConstants.storeName}!
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
     return asyncProducts.when(
-      loading: () => const Scaffold(
+      loading: () => Scaffold(
+        appBar: AppBar(leading: const AppBackButton()),
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(leading: const AppBackButton()),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -164,20 +166,17 @@ Confira na ${AppConstants.storeName}!
 
         if (LojaBackend.isRailway) {
           if (remoteProduct?.isLoading == true) {
-            return const Scaffold(body:Center(child:CircularProgressIndicator()));
+            return Scaffold(appBar:AppBar(leading: const AppBackButton()),body:const Center(child:CircularProgressIndicator()));
           }
           if (remoteProduct?.hasError == true) {
-            return Scaffold(appBar:AppBar(),body:Center(child:Text('Erro ao abrir produto: ${remoteProduct!.error}')));
+            return Scaffold(appBar:AppBar(leading: const AppBackButton()),body:Center(child:Text('Erro ao abrir produto: ${remoteProduct!.error}')));
           }
           product = remoteProduct?.valueOrNull ?? product;
         }
         if (product == null) {
           return Scaffold(
             appBar: AppBar(
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => context.pop(),
-              ),
+              leading: const AppBackButton(fallbackLocation: '/'),
             ),
             body: const Center(child: Text('Produto não encontrado')),
           );
@@ -227,10 +226,7 @@ Confira na ${AppConstants.storeName}!
                       expandedHeight: MediaQuery.sizeOf(context).width >= 900 ? 470 : 340,
                       pinned: true,
                       backgroundColor: Colors.white,
-                      leading: IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => context.pop(),
-                      ),
+                      leading: const AppBackButton(fallbackLocation: '/'),
                       actions: [
                         IconButton(
                           icon: const Icon(Icons.share_outlined),

@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../data/repositories/railway_coupon_repository.dart';
@@ -10,8 +11,19 @@ class _RailwayCouponsScreenState extends State<RailwayCouponsScreen> {
   final repo=RailwayCouponRepository();
   late Future<List<Map<String,dynamic>>> _future;
   final money=NumberFormat.currency(locale:'pt_BR',symbol:'R\$');
-  @override void initState(){super.initState();_reload();}
-  void _reload(){setState(()=>_future=repo.list());}
+  @override
+  void initState() {
+    super.initState();
+    _future = repo.list();
+  }
+
+  void _reload() {
+    if (!mounted) return;
+    final next = repo.list();
+    setState(() {
+      _future = next;
+    });
+  }
   Future<void> _create() async {
     final code=TextEditingController(),amount=TextEditingController(),min=TextEditingController(text:'0'),uses=TextEditingController(text:'50');
     var type='PERCENT'; var maxPer=1; DateTime? expiry;
@@ -49,7 +61,7 @@ class _RailwayCouponsScreenState extends State<RailwayCouponsScreen> {
     catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
     finally{code.dispose();amount.dispose();min.dispose();uses.dispose();}
   }
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Cupons da loja')),
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title:const Text('Cupons da loja')),
     floatingActionButton:FloatingActionButton.extended(onPressed:_create,icon:const Icon(Icons.add),label:const Text('Novo cupom')),
     body:FutureBuilder<List<Map<String,dynamic>>>(future:_future,builder:(ctx,s){
       if(s.hasError)return Center(child:Text('Não foi possível carregar: ${s.error}'));

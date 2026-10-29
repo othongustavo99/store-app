@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -48,6 +49,7 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
     final isDemo = ref.watch(isDemoStoreProvider).valueOrNull == true;
     return Scaffold(
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Administração da loja'),
         actions: [
           IconButton(
@@ -179,9 +181,9 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                             width: width,
                             child: _ActionCard(
                               data: item,
-                              onTap: () => item.route == '/admin/support'
-                                  ? context.push(item.route)
-                                  : context.go(item.route),
+                              onTap: () => item.route == '/'
+                                  ? context.go('/')
+                                  : context.push(item.route),
                             ),
                           )).toList(),
                         );
@@ -317,7 +319,7 @@ class RemotePendingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Funcionalidade pendente')), 
+        appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title: const Text('Funcionalidade pendente')), 
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(24),

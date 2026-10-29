@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -194,7 +195,7 @@ class _RailwayAccountScreenState extends ConsumerState<RailwayAccountScreen> {
     final addresses = ref.watch(addressesProvider);
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Minha conta')),
+      appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/profile'), title: const Text('Minha conta')),
       body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760),
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 32), children: [
           Card(child: Padding(padding: const EdgeInsets.all(18), child: Row(children: [

@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -375,7 +376,7 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar:AppBar(title:const Text('Produtos e categorias'),actions:[
+    appBar:AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title:const Text('Produtos e categorias'),actions:[
       IconButton(tooltip:'Atualizar catálogo',onPressed:_refresh,icon:const Icon(Icons.refresh)),
     ]),
     body:FutureBuilder<Map<String,dynamic>>(future:_data,builder:(context,snapshot){
@@ -399,7 +400,7 @@ class _RailwayCatalogManagementScreenState extends State<RailwayCatalogManagemen
           Wrap(spacing:8,runSpacing:8,children:[
             if(canEdit) FilledButton.icon(onPressed:()=>_editProduct(null,categories),icon:const Icon(Icons.add),label:const Text('Novo produto')),
             if(canEdit) OutlinedButton.icon(onPressed:_createCategory,icon:const Icon(Icons.category_outlined),label:const Text('Nova categoria')),
-            OutlinedButton.icon(onPressed:()=>context.go('/admin/inventory'),icon:const Icon(Icons.inventory_2_outlined),label:const Text('Abrir inventário')),
+            OutlinedButton.icon(onPressed:()=>context.push('/admin/inventory'),icon:const Icon(Icons.inventory_2_outlined),label:const Text('Abrir inventário')),
           ]),
           const SizedBox(height:12),
           TextField(controller:_search,onChanged:(_)=>setState((){}),decoration:const InputDecoration(

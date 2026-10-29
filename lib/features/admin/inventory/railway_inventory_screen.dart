@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -143,7 +144,7 @@ class _RailwayInventoryScreenState extends State<RailwayInventoryScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Inventário • Railway'), actions: [
+    appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title: const Text('Inventário • Railway'), actions: [
       IconButton(tooltip: 'Histórico geral', onPressed: () => _history(null), icon: const Icon(Icons.history)),
       IconButton(tooltip: 'Atualizar', onPressed: _reload, icon: const Icon(Icons.refresh)),
     ]),

@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,7 +12,7 @@ class ProfileTabScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final loggedIn = auth.isLoggedIn;
-    return Scaffold(appBar: AppBar(title: const Text('Perfil')),
+    return Scaffold(appBar: AppBar(leading: const AppBackButton(tabRoot: true), title: const Text('Perfil')),
       body: ListView(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20), children: [
         Card(child: ListTile(leading: const CircleAvatar(child: Icon(Icons.person_outline)),
           title: Text(loggedIn ? (auth.name.isEmpty ? 'Minha conta' : auth.name) : 'Olá, visitante!'),

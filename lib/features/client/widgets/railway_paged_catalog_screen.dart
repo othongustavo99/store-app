@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/loja_api.dart';
 import '../../../models/product.dart';
@@ -42,7 +43,7 @@ class _RailwayPagedCatalogScreenState extends State<RailwayPagedCatalogScreen> {
   finally{if(mounted&&v==_revision)setState(()=>_loading=false);}
  }
  @override Widget build(BuildContext context)=>Scaffold(
-  appBar:AppBar(title:Text(widget.title)),
+  appBar:AppBar(leading: const AppBackButton(), title:Text(widget.title)),
   body:RefreshIndicator(onRefresh:()async=>_reset(),child:CustomScrollView(controller:_scroll,slivers:[
     if(_items.isEmpty&&!_loading&&_loaded)SliverFillRemaining(child:Center(child:Text(widget.discounted?'Nenhuma promoção disponível.':'Nenhum produto nesta categoria.')))
     else SliverPadding(padding:const EdgeInsets.all(12),sliver:SliverLayoutBuilder(builder:(context,constraints){

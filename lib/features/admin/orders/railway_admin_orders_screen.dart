@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/network/loja_api.dart';
@@ -84,7 +85,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
   }
   @override
   Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:const Text('Pedidos da loja'),actions:[IconButton(
+    appBar:AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title:const Text('Pedidos da loja'),actions:[IconButton(
       onPressed:() { _refresh(); },icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<List<Map<String,dynamic>>>(future:_items,builder:(context,s){
       if(s.connectionState!=ConnectionState.done)return const Center(child:CircularProgressIndicator());

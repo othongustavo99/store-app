@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/network/loja_api.dart';
@@ -74,7 +75,7 @@ class _RailwaySupportConversationScreenState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Conversa de atendimento'), actions: [
+    appBar: AppBar(leading: AppBackButton(fallbackLocation: widget.admin ? '/admin/support' : '/support'), title: const Text('Conversa de atendimento'), actions: [
       IconButton(tooltip: 'Atualizar', onPressed: _refresh,
           icon: const Icon(Icons.refresh)),
     ]),

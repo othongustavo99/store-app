@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'app_back_button.dart';
+import 'client_tab_history.dart';
 import '../core/network/loja_api.dart';
 import '../features/admin/remote_admin_home.dart';
 import '../features/admin/coupons/railway_coupons_screen.dart';
@@ -53,15 +56,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Catálogo, busca, produtos, categorias e carrinho são públicos.
       // Checkout, pedidos, suporte, perfil e painel exigem sessão.
-      final requiresLogin = location == '/checkout' || location == '/orders' ||
-          location == '/account' || location == '/chat' || location == '/support' ||
-          location.startsWith('/support/') || location == '/invite' || isAdminRoute;
+      final requiresLogin = location == '/checkout' ||
+          location == '/orders' ||
+          location == '/account' ||
+          location == '/chat' ||
+          location == '/support' ||
+          location.startsWith('/support/') ||
+          location == '/invite' ||
+          isAdminRoute;
       if (!loggedIn && requiresLogin) {
         return '/login?from=${Uri.encodeComponent(state.uri.toString())}';
       }
       if (loggedIn && isLogin) {
         final from = state.uri.queryParameters['from'];
-        if (from != null && from.startsWith('/') && !from.startsWith('//') &&
+        if (from != null &&
+            from.startsWith('/') &&
+            !from.startsWith('//') &&
             !from.startsWith('/login')) return from;
         return auth.role == UserRole.admin ? '/admin' : '/';
       }
@@ -74,46 +84,68 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      // ========== LOGIN (primeira tela) ==========
+      // Telas completas mantêm a pilha. Quando abertas diretamente,
+      // o botão físico volta a um destino previsível em vez de fechar o app.
       GoRoute(
         path: '/login',
-        builder: (context, state) => const AdminLoginScreen(),
+        builder: (context, state) =>
+            const AppRouteBackGuard(child: AdminLoginScreen()),
       ),
-
       GoRoute(
         path: '/account',
-        builder: (context, state) => LojaBackend.isRailway
-            ? const RailwayAccountScreen() : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/profile',
+          child: LojaBackend.isRailway
+              ? const RailwayAccountScreen()
+              : const RemotePendingScreen(),
+        ),
       ),
-
       GoRoute(
         path: '/chat',
-        builder: (context, state) => LojaBackend.isRailway ? const RailwaySupportScreen(admin: false) : const ChatScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/profile',
+          child: LojaBackend.isRailway
+              ? const RailwaySupportScreen(admin: false)
+              : const ChatScreen(),
+        ),
       ),
-
       GoRoute(
         path: '/support',
-        builder: (context, state) => LojaBackend.isRailway
-            ? const RailwaySupportScreen(admin: false) : const ChatScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/profile',
+          child: LojaBackend.isRailway
+              ? const RailwaySupportScreen(admin: false)
+              : const ChatScreen(),
+        ),
       ),
       GoRoute(
         path: '/support/ticket/:id',
-        builder: (context, state) => LojaBackend.isRailway
-            ? RailwaySupportConversationScreen(
-                ticketId: state.pathParameters['id']!, admin: false)
-            : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/support',
+          child: LojaBackend.isRailway
+              ? RailwaySupportConversationScreen(
+                  ticketId: state.pathParameters['id']!, admin: false)
+              : const RemotePendingScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/support',
-        builder: (context, state) => LojaBackend.isRailway
-            ? const RailwaySupportScreen(admin: true) : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwaySupportScreen(admin: true)
+              : const RemotePendingScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/support/ticket/:id',
-        builder: (context, state) => LojaBackend.isRailway
-            ? RailwaySupportConversationScreen(
-                ticketId: state.pathParameters['id']!, admin: true)
-            : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin/support',
+          child: LojaBackend.isRailway
+              ? RailwaySupportConversationScreen(
+                  ticketId: state.pathParameters['id']!, admin: true)
+              : const RemotePendingScreen(),
+        ),
       ),
 
       // ========== ÁREA DO CLIENTE ==========
@@ -141,6 +173,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                  path: '/favorites',
+                  builder: (context, state) => const FavoritesScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: '/cart',
                 builder: (context, state) => const CartScreen(),
               ),
@@ -148,12 +187,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/favorites', builder: (context, state) => const FavoritesScreen()),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/profile', builder: (context, state) => const ProfileTabScreen()),
+              GoRoute(
+                  path: '/profile',
+                  builder: (context, state) => const ProfileTabScreen()),
             ],
           ),
         ],
@@ -161,90 +197,207 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/orders',
-        builder: (context, state) => LojaBackend.isRailway ? const RailwayOrdersScreen() : const OrdersScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/profile',
+          child: LojaBackend.isRailway
+              ? const RailwayOrdersScreen()
+              : const OrdersScreen(),
+        ),
       ),
       GoRoute(
         path: '/product/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return ProductDetailScreen(productId: id);
-        },
+        builder: (context, state) => AppRouteBackGuard(
+          child: ProductDetailScreen(productId: state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/category/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id']!;
-          return CategoryScreen(categoryId: id);
-        },
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/categories',
+          child: CategoryScreen(categoryId: state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/search',
-        builder: (context, state) => const SearchScreen(),
+        builder: (context, state) =>
+            const AppRouteBackGuard(child: SearchScreen()),
       ),
       GoRoute(
         path: '/checkout',
-        builder: (context, state) => LojaBackend.isRailway ? const RailwayCheckoutScreen() : const CheckoutScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/cart',
+          child: LojaBackend.isRailway
+              ? const RailwayCheckoutScreen()
+              : const CheckoutScreen(),
+        ),
       ),
       GoRoute(
         path: '/discounted',
-        builder: (context, state) => const DiscountedProductsScreen(),
+        builder: (context, state) =>
+            const AppRouteBackGuard(child: DiscountedProductsScreen()),
       ),
-
-      // ========== ÁREA ADMINISTRATIVA ==========
       GoRoute(
         path: '/admin',
-        builder: (context, state) => LojaBackend.isRailway ? const RemoteAdminHome() : const AdminDashboardScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          child: LojaBackend.isRailway
+              ? const RemoteAdminHome()
+              : const AdminDashboardScreen(),
+        ),
       ),
       GoRoute(
         path: '/invite',
-        builder: (context, state) => LojaBackend.isRailway
-            ? const RailwayAcceptInviteScreen() : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/profile',
+          child: LojaBackend.isRailway
+              ? const RailwayAcceptInviteScreen()
+              : const RemotePendingScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/team',
-        builder: (context, state) => LojaBackend.isRailway
-            ? const RailwayTeamScreen() : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayTeamScreen()
+              : const RemotePendingScreen(),
+        ),
       ),
-      GoRoute(path:'/admin/coupons',builder:(context,state)=>LojaBackend.isRailway?const RailwayCouponsScreen():const RemotePendingScreen()),
+      GoRoute(
+        path: '/admin/coupons',
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayCouponsScreen()
+              : const RemotePendingScreen(),
+        ),
+      ),
       GoRoute(
         path: '/admin/orders',
-        builder: (context, state) => LojaBackend.isRailway ? const RailwayAdminOrdersScreen() : const AdminOrdersScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayAdminOrdersScreen()
+              : const AdminOrdersScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/inventory',
-        builder: (context, state) => LojaBackend.isRailway ? const RailwayInventoryScreen() : const AdminDashboardScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayInventoryScreen()
+              : const AdminDashboardScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/store-settings',
-        builder: (context, state) => LojaBackend.isRailway
-            ? const RailwayStoreSettingsScreen() : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayStoreSettingsScreen()
+              : const RemotePendingScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/shipping',
-        builder: (context, state) => LojaBackend.isRailway ? const RailwayShippingScreen() : const RemotePendingScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayShippingScreen()
+              : const RemotePendingScreen(),
+        ),
       ),
       GoRoute(
         path: '/admin/products',
-        builder: (context, state) => LojaBackend.isRailway ? const RailwayCatalogManagementScreen() : const AdminProductsScreen(),
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayCatalogManagementScreen()
+              : const AdminProductsScreen(),
+        ),
       ),
     ],
   );
 });
 
-class ClientShell extends ConsumerWidget {
+class ClientShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const ClientShell({super.key, required this.navigationShell});
 
-  void _navigate(int index) {
-    navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
-    );
+  @override
+  ConsumerState<ClientShell> createState() => _ClientShellState();
+}
+
+class _ClientShellState extends ConsumerState<ClientShell> {
+  late final ClientTabHistory _history;
+  final DoubleBackExitGuard _exitGuard = DoubleBackExitGuard();
+
+  @override
+  void initState() {
+    super.initState();
+    _history =
+        ClientTabHistory(initialIndex: widget.navigationShell.currentIndex);
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void didUpdateWidget(covariant ClientShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Também registra trocas de aba vindas de context.go('/cart'),
+    // links externos e outras ações, além dos botões da NavigationBar.
+    final index = widget.navigationShell.currentIndex;
+    if (index != _history.current) {
+      _history.visit(index);
+      _exitGuard.reset();
+    }
+  }
+
+  void _navigate(int index) {
+    if (index == widget.navigationShell.currentIndex) {
+      widget.navigationShell.goBranch(index, initialLocation: true);
+      return;
+    }
+    _history.visit(index);
+    _exitGuard.reset();
+    widget.navigationShell.goBranch(index);
+  }
+
+  void _backFromTabOrExit() {
+    if (_history.canGoBack) {
+      _exitGuard.reset();
+      final previous = _history.back();
+      widget.navigationShell.goBranch(previous);
+      return;
+    }
+    // Se a Home foi aberta diretamente como outra aba, retorna à Home.
+    if (widget.navigationShell.currentIndex != 0) {
+      _exitGuard.reset();
+      widget.navigationShell.goBranch(0);
+      return;
+    }
+
+    // Somente na Home, após esgotar o histórico de abas, pede dois toques.
+    if (_exitGuard.register(DateTime.now())) {
+      if (Theme.of(context).platform == TargetPlatform.android) {
+        SystemNavigator.pop();
+      } else {
+        // iOS e desktop não devem ser fechados por SystemNavigator.pop.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você está na página inicial.')),
+        );
+      }
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('Pressione voltar novamente para sair'),
+        duration: Duration(seconds: 2),
+      ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cartCount = ref.watch(cartItemCountProvider);
     final cartLabel = cartCount > 99 ? '99+' : '$cartCount';
 
@@ -264,87 +417,116 @@ class ClientShell extends ConsumerWidget {
         // Navegação lateral apenas em tablets largos e Windows.
         if (constraints.maxWidth >= 850) {
           final expanded = constraints.maxWidth >= 1180;
-          return Scaffold(
-            body: Row(
-              children: [
-                NavigationRail(
-                  extended: expanded,
-                  minExtendedWidth: 214,
-                  labelType: expanded
-                      ? NavigationRailLabelType.none
-                      : NavigationRailLabelType.selected,
-                  selectedIndex: navigationShell.currentIndex,
-                  onDestinationSelected: _navigate,
-                  leading: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Icon(Icons.storefront_outlined, size: 28),
-                  ),
-                  destinations: [
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.home_outlined),
-                      selectedIcon: Icon(Icons.home),
-                      label: Text('Início'),
+          return ClientTabBackScope(
+            goBack: _backFromTabOrExit,
+            child: PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) _backFromTabOrExit();
+              },
+              child: Scaffold(
+                body: Row(
+                  children: [
+                    NavigationRail(
+                      extended: expanded,
+                      minExtendedWidth: 214,
+                      labelType: expanded
+                          ? NavigationRailLabelType.none
+                          : NavigationRailLabelType.selected,
+                      selectedIndex: widget.navigationShell.currentIndex,
+                      onDestinationSelected: _navigate,
+                      leading: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Icon(Icons.storefront_outlined, size: 28),
+                      ),
+                      destinations: [
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.home_outlined),
+                          selectedIcon: Icon(Icons.home),
+                          label: Text('Início'),
+                        ),
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.grid_view_outlined),
+                          selectedIcon: Icon(Icons.grid_view),
+                          label: Text('Categorias'),
+                        ),
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.favorite_border),
+                          selectedIcon: Icon(Icons.favorite),
+                          label: Text('Favoritos'),
+                        ),
+                        NavigationRailDestination(
+                          icon: cartIcon,
+                          selectedIcon: activeCartIcon,
+                          label: const Text('Carrinho'),
+                        ),
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.person_outline),
+                          selectedIcon: Icon(Icons.person),
+                          label: Text('Perfil'),
+                        ),
+                      ],
                     ),
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.grid_view_outlined),
-                      selectedIcon: Icon(Icons.grid_view),
-                      label: Text('Categorias'),
-                    ),
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite),
-                      label: Text('Favoritos'),
-                    ),
-                    NavigationRailDestination(
-                      icon: cartIcon,
-                      selectedIcon: activeCartIcon,
-                      label: const Text('Carrinho'),
-                    ),
-                    const NavigationRailDestination(
-                      icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person),
-                      label: Text('Perfil'),
-                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(
+                        child: SafeArea(
+                            bottom: false,
+                            child: Column(children: [
+                              const DemoStoreBanner(),
+                              Expanded(child: widget.navigationShell),
+                            ]))),
                   ],
                 ),
-                const VerticalDivider(width: 1),
-                Expanded(child: SafeArea(bottom: false, child: Column(children: [
-                  const DemoStoreBanner(), Expanded(child: navigationShell),
-                ]))),
-              ],
+              ),
             ),
           );
         }
-        return Scaffold(
-          body: SafeArea(bottom: false, child: Column(children: [
-            const DemoStoreBanner(), Expanded(child: navigationShell),
-          ])),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: navigationShell.currentIndex,
-            onDestinationSelected: _navigate,
-            destinations: [
-              const NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: 'Início',
+        return ClientTabBackScope(
+          goBack: _backFromTabOrExit,
+          child: PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) _backFromTabOrExit();
+            },
+            child: Scaffold(
+              body: SafeArea(
+                  bottom: false,
+                  child: Column(children: [
+                    const DemoStoreBanner(),
+                    Expanded(child: widget.navigationShell),
+                  ])),
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: widget.navigationShell.currentIndex,
+                onDestinationSelected: _navigate,
+                destinations: [
+                  const NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: 'Início',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.grid_view_outlined),
+                    selectedIcon: Icon(Icons.grid_view),
+                    label: 'Categorias',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.favorite_border),
+                    selectedIcon: Icon(Icons.favorite),
+                    label: 'Favoritos',
+                  ),
+                  NavigationDestination(
+                    icon: cartIcon,
+                    selectedIcon: activeCartIcon,
+                    label: 'Carrinho',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.person_outline),
+                    selectedIcon: Icon(Icons.person),
+                    label: 'Perfil',
+                  ),
+                ],
               ),
-              const NavigationDestination(
-                icon: Icon(Icons.grid_view_outlined),
-                selectedIcon: Icon(Icons.grid_view),
-                label: 'Categorias',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite),
-                label: 'Favoritos',
-              ),
-              NavigationDestination(
-                icon: cartIcon,
-                selectedIcon: activeCartIcon,
-                label: 'Carrinho',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person),
-                label: 'Perfil',
-              ),
-            ],
+            ),
           ),
         );
       },

@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../client/widgets/product_card.dart';
@@ -11,7 +12,7 @@ class FavoritesScreen extends ConsumerWidget {
     final saved = ref.watch(favoriteIdsProvider);
     final products = ref.watch(productsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Favoritos')),
+      appBar: AppBar(leading: const AppBackButton(tabRoot: true), title: const Text('Favoritos')),
       body: products.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(child: OutlinedButton(

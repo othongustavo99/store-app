@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import '../../../data/repositories/railway_shipping_repository.dart';
 
@@ -13,8 +14,18 @@ class _RailwayShippingScreenState extends State<RailwayShippingScreen> {
   late Future<Map<String, dynamic>> setup;
   bool busy = false;
   @override
-  void initState() { super.initState(); reload(); }
-  void reload() { setState(() => setup = repo.setup()); }
+  void initState() {
+    super.initState();
+    setup = repo.setup();
+  }
+
+  void reload() {
+    if (!mounted) return;
+    final next = repo.setup();
+    setState(() {
+      setup = next;
+    });
+  }
   @override
   void dispose() { origin.dispose(); super.dispose(); }
   void message(Object e) { if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e'))); }
@@ -62,7 +73,7 @@ class _RailwayShippingScreenState extends State<RailwayShippingScreen> {
 
   @override
   Widget build(BuildContext context)=>Scaffold(
-    appBar:AppBar(title:const Text('Frete e embalagens'),
+    appBar:AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title:const Text('Frete e embalagens'),
       actions:[IconButton(onPressed:reload,icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<Map<String,dynamic>>(future:setup,builder:(context,snapshot){
       if(!snapshot.hasData)return Center(child:snapshot.hasError?

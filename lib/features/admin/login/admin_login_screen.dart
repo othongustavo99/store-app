@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -182,6 +183,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
     final busy = _isLoading || _isGoogleLoading;
 
     return Scaffold(
+      appBar: AppBar(leading: const AppBackButton(), title: const Text('Acesso à loja')),
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(

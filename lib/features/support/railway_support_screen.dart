@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -101,6 +102,7 @@ class _RailwaySupportScreenState extends State<RailwaySupportScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
+      leading: AppBackButton(fallbackLocation: widget.admin ? '/admin' : '/profile'),
       title: Text(widget.admin ? 'Atendimento da loja' : 'Fale com a loja'),
       actions: [
         IconButton(onPressed: _refresh, tooltip: 'Atualizar',

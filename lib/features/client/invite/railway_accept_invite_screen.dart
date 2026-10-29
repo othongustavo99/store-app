@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,7 +47,7 @@ class _RailwayAcceptInviteScreenState extends ConsumerState<RailwayAcceptInviteS
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Convite da equipe')),
+        appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/profile'), title: const Text('Convite da equipe')),
         body: Center(child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
           child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(24), children: [

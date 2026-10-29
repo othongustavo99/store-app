@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -266,10 +267,7 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Produtos'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
+        leading: const AppBackButton(fallbackLocation: '/admin'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),

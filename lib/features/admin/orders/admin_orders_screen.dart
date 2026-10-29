@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -28,10 +29,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Pedidos'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
+        leading: const AppBackButton(fallbackLocation: '/admin'),
       ),
       body: asyncOrders.when(
         loading: () => const Center(child: CircularProgressIndicator()),

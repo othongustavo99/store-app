@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../data/repositories/railway_team_repository.dart';
@@ -207,7 +208,7 @@ class _RailwayTeamScreenState extends State<RailwayTeamScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Equipe da loja'), actions: [
+        appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title: const Text('Equipe da loja'), actions: [
           IconButton(onPressed: _working ? null : _refresh,
               tooltip: 'Atualizar', icon: const Icon(Icons.refresh)),
         ]),

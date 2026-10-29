@@ -1,3 +1,4 @@
+import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../../data/services/shipping_service.dart';
@@ -391,7 +392,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Finalizar pedido')),
+      appBar: AppBar(leading: const AppBackButton(fallbackLocation: '/cart'), title: const Text('Finalizar pedido')),
       body: items.isEmpty
           ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.shopping_cart_outlined, size: 48),
