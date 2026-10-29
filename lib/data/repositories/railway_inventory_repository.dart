@@ -10,6 +10,9 @@ class RailwayInventoryRepository {
     return '/v1/stores/${_api.storeId}';
   }
 
+  Future<Map<String, dynamic>> analytics() async =>
+      _api.request('GET', '${await _root()}/operations/analytics', authenticated: true);
+
   Future<Map<String, dynamic>> summary() async =>
       _api.request('GET', '${await _root()}/operations/summary', authenticated: true);
 

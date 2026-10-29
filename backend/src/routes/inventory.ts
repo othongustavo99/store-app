@@ -51,6 +51,37 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
       note: 'Valor bruto de pedidos pagos, não é lucro nem repasse; reembolsos parciais não são suportados.' };
   });
 
+  app.get('/v1/stores/:storeId/operations/analytics', async req => {
+    const {storeId} = validated(storeParams, req.params);
+    await requireStoreRole(req, storeId, ['OWNER','MANAGER','STAFF']);
+    const statuses = ['PAID','PREPARING','SHIPPED','DELIVERED'];
+    const [totals, days, top, recent, low] = await Promise.all([
+      pool.query(`SELECT
+        COALESCE(SUM(total_cents) FILTER (WHERE created_at >= CURRENT_DATE),0)::text AS "todayCents",
+        COALESCE(SUM(total_cents) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'),0)::text AS "weekCents",
+        COALESCE(SUM(total_cents) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '29 days'),0)::text AS "monthCents",
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '29 days')::int AS "monthOrders"
+        FROM orders WHERE store_id=$1 AND status=ANY($2::text[])`,[storeId,statuses]),
+      pool.query(`SELECT TO_CHAR(day::date,'DD/MM') AS label,COALESCE(SUM(o.total_cents),0)::text AS "cents"
+        FROM GENERATE_SERIES(CURRENT_DATE - INTERVAL '6 days',CURRENT_DATE,INTERVAL '1 day') day
+        LEFT JOIN orders o ON o.store_id=$1 AND o.status=ANY($2::text[])
+          AND o.created_at >= day AND o.created_at < day + INTERVAL '1 day'
+        GROUP BY day ORDER BY day`,[storeId,statuses]),
+      pool.query(`SELECT oi.product_name AS name,COALESCE(SUM(oi.quantity),0)::int AS quantity
+        FROM order_items oi JOIN orders o ON o.id=oi.order_id AND o.store_id=oi.store_id
+        WHERE oi.store_id=$1 AND o.status=ANY($2::text[])
+        GROUP BY oi.product_name ORDER BY quantity DESC, name ASC LIMIT 5`,[storeId,statuses]),
+      pool.query(`SELECT id::text AS id,status,total_cents::text AS "totalCents",created_at AS "createdAt",is_demo AS "isDemo"
+        FROM orders WHERE store_id=$1 ORDER BY created_at DESC LIMIT 5`,[storeId]),
+      pool.query(`SELECT p.name AS product, v.sku, (v.on_hand-v.reserved)::int AS available
+        FROM product_variants v JOIN products p ON p.id=v.product_id AND p.store_id=v.store_id
+        WHERE v.store_id=$1 AND v.status='ACTIVE' AND p.status='PUBLISHED'
+          AND v.on_hand-v.reserved <= 5 ORDER BY available ASC, p.name ASC LIMIT 5`,[storeId]),
+    ]);
+    return {totals:totals.rows[0],days:days.rows,topProducts:top.rows,
+      recentOrders:recent.rows,lowStock:low.rows,note:'Receita bruta por data UTC do pedido; não é lucro e não deduz estornos.'};
+  });
+
   app.get('/v1/stores/:storeId/inventory', async (req) => {
     const { storeId } = validated(storeParams, req.params);
     const { role } = await requireStoreRole(req, storeId, ['OWNER','MANAGER','STAFF']);

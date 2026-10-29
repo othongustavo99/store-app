@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/loja_api.dart';
+import '../../../data/repositories/railway_store_profile_repository.dart';
+import '../../../core/network/loja_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/media_upload_service.dart';
 import '../../../data/services/shipping_service.dart';
@@ -102,9 +104,19 @@ Confira na ${AppConstants.storeName}!
     final msg = Uri.encodeComponent(
       'Olá! Tenho interesse no produto: ${product.name}',
     );
-    final uri = Uri.parse(
-      'https://wa.me/${AppConstants.whatsappNumber}?text=$msg',
-    );
+    var phone = AppConstants.whatsappNumber;
+    if (LojaBackend.isRailway) {
+      try {
+        final data = await RailwayStoreProfileRepository().publicProfile();
+        phone = (data['profile'] as Map?)?['supportPhone']?.toString() ?? '';
+      } catch (_) { phone = ''; }
+    }
+    if (phone.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('WhatsApp ainda não configurado pela loja.')));
+      return;
+    }
+    final normalizedPhone = phone.startsWith('55') ? phone : '55$phone';
+    final uri = Uri.parse('https://wa.me/$normalizedPhone?text=$msg');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else if (mounted) {
@@ -261,7 +273,7 @@ Confira na ${AppConstants.storeName}!
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: currentImageIndex == index
-                                            ? AppColors.primary
+                                            ? Theme.of(context).colorScheme.primary
                                             : Colors.white.withOpacity(0.6),
                                       ),
                                     ),
@@ -298,10 +310,10 @@ Confira na ${AppConstants.storeName}!
                               children: [
                                 Text(
                                   currency.format(product.price),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.primary,
+                                    color: Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
                                 if (product.oldPrice != null && product.oldPrice! > product.price) ...[
@@ -395,12 +407,12 @@ Confira na ${AppConstants.storeName}!
                                     ),
                                     decoration: BoxDecoration(
                                       color: isSelected
-                                          ? AppColors.primary
+                                          ? Theme.of(context).colorScheme.primary
                                           : Colors.white,
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
                                         color: isSelected
-                                            ? AppColors.primary
+                                            ? Theme.of(context).colorScheme.primary
                                             : AppColors.border,
                                       ),
                                     ),
@@ -452,14 +464,14 @@ Confira na ${AppConstants.storeName}!
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       color: isSelected
-                                          ? AppColors.primary
+                                          ? Theme.of(context).colorScheme.primary
                                           : hasStock
                                               ? Colors.white
                                               : AppColors.divider,
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
                                         color: isSelected
-                                            ? AppColors.primary
+                                            ? Theme.of(context).colorScheme.primary
                                             : hasStock
                                                 ? AppColors.border
                                                 : Colors.transparent,
@@ -546,7 +558,7 @@ Confira na ${AppConstants.storeName}!
                                   child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Icon(Icons.local_shipping_outlined, color: AppColors.primary),
+                                      Icon(Icons.local_shipping_outlined, color: Theme.of(context).colorScheme.primary),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
@@ -604,7 +616,7 @@ Confira na ${AppConstants.storeName}!
                                               product!.price * quantity,
                                             ),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
+                                      backgroundColor: Theme.of(context).colorScheme.primary,
                                     ),
                                     child: _loadingShipping
                                         ? const SizedBox(
@@ -673,7 +685,7 @@ Confira na ${AppConstants.storeName}!
                                           fontWeight: FontWeight.bold,
                                           color: o.price == 0
                                               ? AppColors.success
-                                              : AppColors.primary,
+                                              : Theme.of(context).colorScheme.primary,
                                         ),
                                       ),
                                     ],
@@ -769,11 +781,11 @@ Confira na ${AppConstants.storeName}!
                       // Chat no app
                       IconButton(
                         style: IconButton.styleFrom(
-                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         ),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.support_agent,
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         tooltip: 'Chat com a loja',
                         onPressed: () => context.push('/chat'),
@@ -861,7 +873,7 @@ Confira na ${AppConstants.storeName}!
                                   }
                                 : null,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
+                              backgroundColor: Theme.of(context).colorScheme.primary,
                             ),
                             child: Text(
                               isAvailable ? 'Comprar agora' : 'Indisponível',
@@ -898,7 +910,7 @@ class _QuantityButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: onTap != null
-          ? AppColors.primary.withOpacity(0.1)
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
           : AppColors.divider,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
@@ -909,7 +921,7 @@ class _QuantityButton extends StatelessWidget {
           height: 42,
           child: Icon(
             icon,
-            color: onTap != null ? AppColors.primary : AppColors.textLight,
+            color: onTap != null ? Theme.of(context).colorScheme.primary : AppColors.textLight,
             size: 20,
           ),
         ),
@@ -1077,7 +1089,7 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
             ElevatedButton(
               onPressed: _sending ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
               ),
               child: _sending
                   ? const SizedBox(

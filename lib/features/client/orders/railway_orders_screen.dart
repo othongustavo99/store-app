@@ -71,6 +71,8 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
               const SizedBox(height: 5),
               if(isDemo) const Text('PEDIDO FICTÍCIO · sem cobrança real',
                 style: TextStyle(color: Colors.deepOrange,fontWeight: FontWeight.w700)),
+              if(order['paymentProvider']=='offline') const Text('Pagamento combinado com a loja — aguardando conferência manual.',
+                style: TextStyle(fontWeight: FontWeight.w600)),
               Chip(avatar: Icon(_statusIcon(status), size: 18),
                 label: Text(_label(status, delivery: order['fulfillment']=='DELIVERY')),
                 visualDensity: VisualDensity.compact),
@@ -106,7 +108,7 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                   if(created && mounted) await _refresh();
                 }, icon: const Icon(Icons.assignment_outlined),
                   label: const Text('Cancelamento / pós-venda')),
-              if(!isDemo && status=='PENDING_PAYMENT' && !active) TextButton.icon(
+              if(!isDemo && order['paymentProvider'] != 'offline' && status=='PENDING_PAYMENT' && !active) TextButton.icon(
                 onPressed:() async {
                   try {
                     final url=checkoutUrl ?? await _repo.retryCheckout(order['id'].toString());

@@ -19,6 +19,7 @@ class RemoteAdminHome extends ConsumerStatefulWidget {
 class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
   final _repository = RailwayInventoryRepository();
   late Future<Map<String, dynamic>> _summary;
+  late Future<Map<String, dynamic>> _analytics;
 
   @override
   void initState() {
@@ -26,7 +27,10 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
     _load();
   }
 
-  void _load() => _summary = _repository.summary();
+  void _load() {
+    _summary = _repository.summary();
+    _analytics = _repository.analytics();
+  }
 
   Future<void> _refresh() async {
     setState(_load);
@@ -139,6 +143,8 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                         );
                       },
                     ),
+                    const SizedBox(height: 22),
+                    _AnalyticsOverview(future: _analytics, isDemo: isDemo),
                     const SizedBox(height: 28),
                     Text('Operação diária', style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 12),
@@ -221,7 +227,7 @@ class _MetricCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(data.icon, color: AppColors.primary, size: 23),
+            Icon(data.icon, color: Theme.of(context).colorScheme.primary, size: 23),
             const SizedBox(height: 12),
             Text(data.value, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleLarge),
@@ -322,4 +328,100 @@ class RemotePendingScreen extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Exibe somente dados agregados da loja autenticada, calculados pelo backend.
+class _AnalyticsOverview extends StatelessWidget {
+  const _AnalyticsOverview({required this.future, required this.isDemo});
+  final Future<Map<String, dynamic>> future;
+  final bool isDemo;
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+    future: future, builder: (context, snapshot) {
+      if (snapshot.hasError) return const Text('Indicadores de vendas indisponíveis.');
+      if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+      final data = snapshot.data!;
+      final totals = Map<String, dynamic>.from(data['totals'] as Map? ?? {});
+      final days = (data['days'] as List? ?? []).whereType<Map>().toList();
+      final top = (data['topProducts'] as List? ?? []).whereType<Map>().toList();
+      final low = (data['lowStock'] as List? ?? []).whereType<Map>().toList();
+      final recent = (data['recentOrders'] as List? ?? []).whereType<Map>().toList();
+      final currency = NumberFormat.currency(locale: 'pt_BR',symbol: 'R\$');
+      String money(dynamic value) => currency.format((int.tryParse('$value') ?? 0)/100);
+      final max = days.fold<int>(1, (v, r) {
+        final cents = int.tryParse('${r['cents']}') ?? 0;
+        return cents > v ? cents : v;
+      });
+      final cs = Theme.of(context).colorScheme;
+      return Column(crossAxisAlignment: CrossAxisAlignment.start,children: [
+        Text(isDemo ? 'Vendas fictícias (demonstração)' : 'Indicadores de vendas',
+          style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final entry in [
+            ('Hoje', totals['todayCents']),
+            ('Últimos 7 dias', totals['weekCents']),
+            ('Últimos 30 dias', totals['monthCents']),
+          ]) Container(width: 180, padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outlineVariant)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start,children: [
+              Text(entry.$1, style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 6),
+              Text(money(entry.$2),style: Theme.of(context).textTheme.titleMedium),
+            ])),
+        ]),
+        const SizedBox(height: 12),
+        Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('Pedidos pagos por dia (últimos 7 dias)'),
+          const SizedBox(height: 16),
+          _WeeklySalesBars(days: days, money: money, max: max),
+        ]))),
+        const SizedBox(height: 12),
+        LayoutBuilder(builder: (context, size) => Wrap(spacing: 12, runSpacing: 12,children: [
+          for (final block in [
+            ('Mais vendidos', top.map((e) => '${e['name']} • ${e['quantity']} un.').toList()),
+            ('Estoque baixo', low.map((e) => '${e['product']} • ${e['sku']} (${e['available']})').toList()),
+            ('Últimos pedidos', recent.map((e) => '${e['status']} • ${money(e['totalCents'])}').toList()),
+          ]) SizedBox(width: size.maxWidth >= 860 ? (size.maxWidth-24)/3 : size.maxWidth,
+            child: Card(child: Padding(padding: const EdgeInsets.all(14),child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,children: [
+              Text(block.$1,style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 6),
+              if (block.$2.isEmpty) const Text('Nenhum registro ainda.'),
+              for (final item in block.$2.take(5)) Padding(padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Text(item,maxLines: 2,overflow: TextOverflow.ellipsis)),
+            ])))),
+          ])),
+        const SizedBox(height: 6),
+        Text(isDemo ? 'Valores fictícios, sem movimentação financeira.' :
+          'Receita bruta por data UTC, sem dedução de estornos. Não é lucro.',
+          style: Theme.of(context).textTheme.bodySmall),
+      ]);
+    });
+}
+
+class _WeeklySalesBars extends StatelessWidget {
+  const _WeeklySalesBars({required this.days, required this.money, required this.max});
+  final List<Map> days;
+  final String Function(dynamic) money;
+  final int max;
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return SizedBox(height: 140, child: Row(crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (final day in days)
+          Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Tooltip(message: money(day['cents']), child: Container(
+                height: 95 * ((int.tryParse('${day['cents']}') ?? 0) / max),
+                decoration: BoxDecoration(color: color,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(5))))),
+              const SizedBox(height: 6),
+              Text('${day['label']}', style: const TextStyle(fontSize: 10)),
+            ]))),
+      ]));
+  }
 }

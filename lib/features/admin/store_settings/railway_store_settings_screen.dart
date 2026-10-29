@@ -12,13 +12,14 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
   final repo = RailwayStoreProfileRepository();
   final controllers = <String, TextEditingController>{
     for (final key in <String>[
-      'displayName', 'tagline', 'description', 'logoUrl', 'bannerUrl', 'primaryColor',
+      'displayName', 'tagline', 'description', 'logoUrl', 'bannerUrl', 'primaryColor', 'secondaryColor',
       'supportEmail', 'supportPhone', 'instagramUrl', 'privacyUrl',
       'termsUrl', 'returnsUrl',
     ]) key: TextEditingController(),
   };
   late Future<Map<String, dynamic>> _profile;
   late Future<Map<String, dynamic>> _readiness;
+  final Set<String> offlineMethods = {};
   int version = 1;
   bool canEdit = false;
   bool busy = false;
@@ -34,6 +35,7 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
       for (final entry in controllers.entries) {
         entry.value.text = profile[entry.key]?.toString() ?? '';
       }
+      offlineMethods..clear()..addAll((profile['offlineMethods'] as List? ?? []).map((e) => '$e'));
       version = int.tryParse('${profile['version']}') ?? 1;
       setState(() => canEdit = data['myRole'] == 'OWNER' || data['myRole'] == 'MANAGER');
     }).catchError((Object _) {});
@@ -53,6 +55,9 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
     if (!RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(color)) {
       message('A cor deve estar no formato #1C1B2F.'); return;
     }
+    if (!RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(controllers['secondaryColor']!.text.trim())) {
+      message('A cor secundária deve estar no formato #E94560.'); return;
+    }
     final urls = ['logoUrl','bannerUrl','instagramUrl','privacyUrl','termsUrl','returnsUrl'];
     for (final key in urls) {
       final value = controllers[key]!.text.trim();
@@ -69,6 +74,7 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
     try {
       await repo.saveProfile({
         'expectedVersion': version,
+        'offlineMethods': offlineMethods.toList(),
         for (final entry in controllers.entries) entry.key: entry.value.text.trim(),
       });
       message('Perfil da loja atualizado.');
@@ -81,6 +87,7 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
     'displayName': 'Nome exibido da loja', 'tagline': 'Slogan', 'description': 'Descrição da loja',
     'logoUrl': 'URL HTTPS do logotipo', 'bannerUrl': 'URL HTTPS do banner',
     'primaryColor': 'Cor principal (#RRGGBB)',
+    'secondaryColor': 'Cor secundária (#RRGGBB)',
     'supportEmail': 'Email público de atendimento',
     'supportPhone': 'WhatsApp (apenas dígitos, com DDD)',
     'instagramUrl': 'URL HTTPS do Instagram',
@@ -167,7 +174,18 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _input('displayName'), _input('tagline'), _input('description', lines: 3),
-                _input('logoUrl'), _input('bannerUrl'), _input('primaryColor'),
+                _input('logoUrl'), _input('bannerUrl'), _input('primaryColor'), _input('secondaryColor'),
+                const SizedBox(height: 12),
+                const Text('Pedidos locais (sem gateway): precisam de conferência manual pelo responsável. Não são pagamentos confirmados.'),
+                for (final method in const {
+                  'PAY_ON_PICKUP': 'Pagar na retirada',
+                  'MANUAL_PIX': 'Pix manual (confirmar fora do aplicativo)',
+                  'WHATSAPP': 'Combinar pelo WhatsApp',
+                }.entries) SwitchListTile.adaptive(
+                  title: Text(method.value), value: offlineMethods.contains(method.key),
+                  onChanged: canEdit && !busy ? (on) => setState(() {
+                    if (on) { offlineMethods.add(method.key); } else { offlineMethods.remove(method.key); }
+                  }) : null),
                 _input('supportEmail'), _input('supportPhone'), _input('instagramUrl'),
                 _input('privacyUrl'), _input('termsUrl'), _input('returnsUrl'),
                 FilledButton.icon(onPressed: busy || !canEdit ? null : save,

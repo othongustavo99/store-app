@@ -24,6 +24,7 @@ class RailwayOrderRepository {
     required String idempotencyKey,
     String fulfillment = 'PICKUP',
     String? demoPaymentMethod,
+    String? offlineMethod,
     String? quoteId,
     String? serviceId,
     Map<String,String>? address,
@@ -35,6 +36,7 @@ class RailwayOrderRepository {
         'idempotencyKey': idempotencyKey,
         'fulfillment': fulfillment,
         if (demoPaymentMethod != null) 'demoPaymentMethod': demoPaymentMethod,
+        if (offlineMethod != null) 'offlineMethod': offlineMethod,
         if(fulfillment == 'DELIVERY') 'shipping': {
           'quoteId': quoteId, 'serviceId': serviceId, 'address': address,
         },
@@ -79,6 +81,13 @@ class RailwayOrderRepository {
           .where((item) => item['orderId'] == order['id']).toList();
     }
     return orders;
+  }
+
+  Future<Map<String, dynamic>> confirmOffline(String orderId) async {
+    await _api.fetchStoreId();
+    final response = await _api.request('POST',
+      '/v1/stores/${_api.storeId}/orders/$orderId/confirm-offline', authenticated: true);
+    return Map<String, dynamic>.from(response['order'] as Map);
   }
 
   Future<Map<String, dynamic>> changeStatus(String orderId, String status) async {

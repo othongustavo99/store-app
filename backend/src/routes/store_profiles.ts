@@ -52,13 +52,13 @@ export async function storeProfileRoutes(app: FastifyInstance): Promise<void> {
       if (!locked.rowCount) throw new ApiError(404, 'Loja não encontrada.');
       await client.query('INSERT INTO store_profiles(store_id) VALUES($1) ON CONFLICT DO NOTHING', [storeId]);
       const changed = await client.query(`UPDATE store_profiles SET
-        display_name=$3, tagline=$4, description=$5, logo_url=$6, banner_url=$7, primary_color=$8,
+        display_name=$3, tagline=$4, description=$5, logo_url=$6, banner_url=$7, primary_color=$8, secondary_color=$16, offline_methods=$17,
         support_email=$9, support_phone=$10, instagram_url=$11, privacy_url=$12,
         terms_url=$13, returns_url=$14, version=version+1, updated_by=$15, updated_at=now()
         WHERE store_id=$1 AND version=$2 RETURNING version`,
         [storeId, data.expectedVersion, data.displayName, data.tagline, data.description, data.logoUrl,
           data.bannerUrl, data.primaryColor, data.supportEmail, data.supportPhone,
-          data.instagramUrl, data.privacyUrl, data.termsUrl, data.returnsUrl, identity.userId]);
+          data.instagramUrl, data.privacyUrl, data.termsUrl, data.returnsUrl, identity.userId, data.secondaryColor, data.offlineMethods]);
       if (!changed.rowCount) throw new ApiError(409, 'A vitrine foi alterada em outro dispositivo. Atualize antes de salvar.');
       await client.query(`INSERT INTO audit_logs(store_id,actor_id,event,entity_type,entity_id,metadata)
         VALUES($1,$2,'STORE_PROFILE_UPDATED','store',$1,$3::jsonb)`,

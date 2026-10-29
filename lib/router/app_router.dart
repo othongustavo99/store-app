@@ -10,6 +10,8 @@ import '../features/admin/orders/admin_orders_screen.dart';
 import '../features/admin/products/admin_products_screen.dart';
 import '../features/admin/products/railway_catalog_management_screen.dart';
 import '../features/client/home/home_screen.dart';
+import '../features/client/favorites/favorites_screen.dart';
+import '../features/client/profile/profile_tab_screen.dart';
 import '../features/client/account/railway_account_screen.dart';
 import '../features/client/cart/cart_screen.dart';
 import '../features/client/orders/orders_screen.dart';
@@ -145,15 +147,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(
-                path: '/orders',
-                builder: (context, state) => LojaBackend.isRailway ? const RailwayOrdersScreen() : const OrdersScreen(),
-              ),
+              GoRoute(path: '/favorites', builder: (context, state) => const FavoritesScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/profile', builder: (context, state) => const ProfileTabScreen()),
             ],
           ),
         ],
       ),
 
+      GoRoute(
+        path: '/orders',
+        builder: (context, state) => LojaBackend.isRailway ? const RailwayOrdersScreen() : const OrdersScreen(),
+      ),
       GoRoute(
         path: '/product/:id',
         builder: (context, state) {
@@ -280,15 +288,18 @@ class ClientShell extends ConsumerWidget {
                       selectedIcon: Icon(Icons.grid_view),
                       label: Text('Categorias'),
                     ),
+                    const NavigationRailDestination(
+                      icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite),
+                      label: Text('Favoritos'),
+                    ),
                     NavigationRailDestination(
                       icon: cartIcon,
                       selectedIcon: activeCartIcon,
                       label: const Text('Carrinho'),
                     ),
                     const NavigationRailDestination(
-                      icon: Icon(Icons.receipt_long_outlined),
-                      selectedIcon: Icon(Icons.receipt_long),
-                      label: Text('Pedidos'),
+                      icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person),
+                      label: Text('Perfil'),
                     ),
                   ],
                 ),
@@ -318,15 +329,18 @@ class ClientShell extends ConsumerWidget {
                 selectedIcon: Icon(Icons.grid_view),
                 label: 'Categorias',
               ),
+              const NavigationDestination(
+                icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite),
+                label: 'Favoritos',
+              ),
               NavigationDestination(
                 icon: cartIcon,
                 selectedIcon: activeCartIcon,
                 label: 'Carrinho',
               ),
               const NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                selectedIcon: Icon(Icons.receipt_long),
-                label: 'Pedidos',
+                icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person),
+                label: 'Perfil',
               ),
             ],
           ),

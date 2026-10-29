@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/favorites_providers.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -8,13 +10,13 @@ import '../../../models/product.dart';
 
 /// Cartão responsivo, com alvo de toque acessível e preço sem overflow.
 /// A grade que o contém deve usar altura de 306 a 330 pixels.
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   const ProductCard({super.key, required this.product});
 
   final Product product;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final soldOut = !product.isAvailable;
     final oldPrice = product.oldPrice;
@@ -23,6 +25,7 @@ class ProductCard extends StatelessWidget {
     final discount = discounted
         ? ((oldPrice - product.price) / oldPrice * 100).round()
         : 0;
+    final isFavorite = ref.watch(favoriteIdsProvider.select((ids) => ids.contains(product.id)));
     final imageUrl = product.images.isEmpty ? '' : product.images.first.trim();
 
     return Semantics(
@@ -61,6 +64,16 @@ class ProductCard extends StatelessWidget {
                         )
                       else
                         const _ImagePlaceholder(),
+                      Positioned(right: 6, bottom: 6, child: Material(
+                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                        shape: const CircleBorder(),
+                        child: IconButton(
+                          tooltip: isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos',
+                          onPressed: () => ref.read(favoriteIdsProvider.notifier).toggle(product.id),
+                          icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? Colors.redAccent : Theme.of(context).colorScheme.primary),
+                        ),
+                      )),
                       if (soldOut)
                         const Positioned(
                           left: 10, top: 10,
@@ -68,14 +81,14 @@ class ProductCard extends StatelessWidget {
                         )
                       else ...[
                         if (product.isNew)
-                          const Positioned(
+                          Positioned(
                             left: 10, top: 10,
-                            child: _Pill(text: 'Novidade', color: AppColors.primary),
+                            child: _Pill(text: 'Novidade', color: Theme.of(context).colorScheme.primary),
                           ),
                         if (discounted && discount > 0)
                           Positioned(
                             right: 10, top: 10,
-                            child: _Pill(text: '-$discount%', color: AppColors.secondary),
+                            child: _Pill(text: '-$discount%', color: Theme.of(context).colorScheme.secondary),
                           ),
                       ],
                     ],
@@ -105,7 +118,7 @@ class ProductCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
-                          color: soldOut ? AppColors.textLight : AppColors.primary,
+                          color: soldOut ? AppColors.textLight : Theme.of(context).colorScheme.primary,
                         ),
                       ),
                       SizedBox(

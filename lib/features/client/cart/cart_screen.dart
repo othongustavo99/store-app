@@ -194,7 +194,7 @@ class _CartLine extends StatelessWidget {
                       style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                   const SizedBox(height: 8),
                   Text(money.format(item.total),
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 16)),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800, fontSize: 16)),
                   const SizedBox(height: 10),
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,

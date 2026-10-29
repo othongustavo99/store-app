@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import '../../../data/services/shipping_service.dart';
+import '../../../models/saved_address.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -32,6 +35,14 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
   final _city = TextEditingController();
   final _state = TextEditingController();
   final _orders = RailwayOrderRepository();
+  final _cepService = ShippingService();
+  Timer? _cepTimer;
+  List<SavedAddress> _savedAddresses = [];
+  bool _findingCep = false;
+  int _step = 0;
+  List<String> _offlineMethods = [];
+  bool _realEnabled = false;
+  String _paymentChoice = 'DEMO';
   final _shipping = RailwayShippingRepository();
   final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
@@ -60,12 +71,14 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
     });
     _load();
     _prefillPrimaryAddress();
+    _cep.addListener(_onCepChanged);
   }
 
   Future<void> _prefillPrimaryAddress() async {
     try {
       final list = await AddressRepository().getAddresses();
       if (!mounted || list.isEmpty || _cep.text.isNotEmpty) return;
+      _savedAddresses = list;
       final address = list.firstWhere((a) => a.isPrimary, orElse: () => list.first);
       setState(() {
         _cep.text = address.zipCode;
@@ -76,6 +89,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
         _city.text = address.city;
         _state.text = address.state;
       });
+      _onCepChanged();
     } catch (_) {
       // Permite preenchimento manual quando o perfil estiver indisponível.
     }
@@ -93,7 +107,10 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
         final checkout=Map<String,dynamic>.from(data[0] as Map);
         _paymentEnabled = checkout['enabled'] == true;
         _demo = checkout['demo'] == true;
-        _deliveryEnabled = !_demo && availability['delivery'] == true;
+        _realEnabled = checkout['realEnabled'] == true;
+        _offlineMethods = (checkout['offlineMethods'] as List? ?? []).map((e) => '$e').toList();
+        _paymentChoice = _demo ? 'DEMO' : _offlineMethods.isNotEmpty ? _offlineMethods.first : 'GATEWAY';
+        _deliveryEnabled = !_demo && checkout['realEnabled'] == true && availability['delivery'] == true;
         _sandbox = availability['sandbox'] != false;
       });
     } catch (error) {
@@ -103,11 +120,64 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
 
   @override
   void dispose() {
+    _cepTimer?.cancel();
+    _cep.removeListener(_onCepChanged);
     for (final controller in [_name, _phone, _cep, _street, _number, _complement,
       _neighborhood, _city, _state]) {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _onCepChanged() {
+    _cepTimer?.cancel();
+    if (_postal.length != 8) return;
+    final zip = _postal;
+    _cepTimer = Timer(const Duration(milliseconds: 450), () async {
+      if (!mounted || _postal != zip) return;
+      setState(() => _findingCep = true);
+      try {
+        final address = await _cepService.fetchCep(zip).timeout(const Duration(seconds: 8));
+        if (!mounted || _postal != zip) return;
+        if (address != null) {
+          setState(() {
+            final street = address['logradouro']?.toString() ?? '';
+            final neighborhood = address['bairro']?.toString() ?? '';
+            if (street.isNotEmpty) _street.text = street;
+            if (neighborhood.isNotEmpty) _neighborhood.text = neighborhood;
+            _city.text = address['localidade']?.toString() ?? _city.text;
+            _state.text = address['uf']?.toString() ?? _state.text;
+          });
+          if (_method == 'DELIVERY' && _deliveryEnabled) {
+            await _quote(ref.read(cartProvider));
+          }
+        }
+      } catch (_) { /* Busca auxiliar; campos continuam editáveis. */ }
+      finally { if (mounted) setState(() => _findingCep = false); }
+    });
+  }
+
+  void _applySaved(SavedAddress address) {
+    _cepTimer?.cancel();
+    setState(() {
+      _cep.text = address.zipCode;
+      _street.text = address.street;
+      _number.text = address.number;
+      _complement.text = address.complement;
+      _neighborhood.text = address.neighborhood;
+      _city.text = address.city;
+      _state.text = address.state;
+    });
+    if (_method == 'DELIVERY' && _deliveryEnabled) _quote(ref.read(cartProvider));
+  }
+
+  void _nextStep() {
+    if (_step == 0 && (_form.currentState?.validate() != true)) return;
+    if (_step == 0 && _method == 'DELIVERY' && !_isQuoteValid(ref.read(cartProvider))) {
+      setState(() => _error = 'Selecione uma cotação de frete válida antes de continuar.');
+      return;
+    }
+    setState(() { _error = ''; _step = _step < 2 ? _step + 1 : 2; });
   }
 
   String get _postal => _cep.text.replaceAll(RegExp(r'\D'), '');
@@ -182,7 +252,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
   }
 
   Future<void> _pay(List<CartItem> items) async {
-    if (_busy || _paymentEnabled != true || !_form.currentState!.validate()) return;
+    if (_busy || _paymentEnabled != true || _step != 2) return;
     if (items.isEmpty) return;
     if (_method == 'DELIVERY' && !_isQuoteValid(items)) {
       setState(() => _error = 'Atualize a cotação e selecione uma transportadora para continuar.');
@@ -200,6 +270,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
         serviceId: _method == 'DELIVERY' ? _serviceId : null,
         address: _method == 'DELIVERY' ? _address() : null,
         demoPaymentMethod: _demo ? _demoMethod : null,
+        offlineMethod: !_demo && _paymentChoice != 'GATEWAY' ? _paymentChoice : null,
       );
       if (response['simulated'] == true && response['order'] is Map &&
           (response['order'] as Map)['isDemo'] == true) {
@@ -207,6 +278,14 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Pedido de demonstração criado! Nenhum valor foi cobrado.')));
+        context.go('/orders');
+        return;
+      }
+      if (response['offlinePending'] == true) {
+        ref.read(cartProvider.notifier).clear();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+          'Pedido registrado! Pagamento NÃO confirmado. Combine e confirme diretamente com a loja.')));
         context.go('/orders');
         return;
       }
@@ -272,7 +351,8 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
     final quoteValid = _isQuoteValid(items);
     final shippingPrice = _method == 'PICKUP' ? 0.0 : cents / 100;
     final canPay = _paymentEnabled == true && !_busy && items.isNotEmpty &&
-        (_method == 'PICKUP' || (!_sandbox && quoteValid));
+        (_method == 'PICKUP' || (!_sandbox && quoteValid)) &&
+        (_demo || _paymentChoice != 'GATEWAY' || _realEnabled);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -333,6 +413,19 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
                                 ),
                               ),
                             ]),
+                            if (_findingCep) const Padding(padding: EdgeInsets.only(bottom: 10),
+                              child: Text('Buscando endereço pelo CEP...')),
+                            if (_savedAddresses.isNotEmpty) ...[
+                              const Align(alignment: Alignment.centerLeft,
+                                child: Text('Usar endereço salvo:', style: TextStyle(fontWeight: FontWeight.w700))),
+                              SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+                                for (final saved in _savedAddresses) Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: ActionChip(label: Text(saved.label),
+                                    onPressed: () => _applySaved(saved))),
+                              ])),
+                              const SizedBox(height: 8),
+                            ],
                             _field(_street, 'Logradouro'),
                             _field(_number, 'Número'),
                             _field(_complement, 'Complemento', isRequired: false),
@@ -391,22 +484,9 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
                       else
                         const Text('O total será exibido após escolher o frete.'),
                       const SizedBox(height: 12),
-                      if (_demo) ...[
-                        const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text(
-                          'MODO DEMONSTRAÇÃO — Nenhuma cobrança real será feita. Pedidos são fictícios.',
-                          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.deepOrange))),
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(value:'PIX',label:Text('Pix simulado'),icon:Icon(Icons.qr_code)),
-                            ButtonSegment(value:'CARD',label:Text('Cartão simulado'),icon:Icon(Icons.credit_card)),
-                          ], selected:{_demoMethod},
-                          onSelectionChanged: (methods) => setState(() {
-                            _demoMethod=methods.first;
-                            _checkoutKey=RailwayOrderRepository.newCheckoutKey();
-                          }),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                      if (_demo) const Text('MODO DEMONSTRAÇÃO — nenhum valor é cobrado.'),
+                      if (!_demo && _paymentChoice != 'GATEWAY')
+                        const Text('PAGAMENTO PENDENTE: a loja só marcará como pago depois de conferir o recebimento.'),
                       if (_paymentEnabled == null) const Center(child: CircularProgressIndicator()),
                       if (_paymentEnabled == false)
                         const Card(
@@ -425,7 +505,7 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
                         icon: _busy
                             ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.lock_outline),
-                        label: Text(_busy ? 'Preparando pedido…' : (_demo ? 'Concluir pedido simulado' : 'Ir para pagamento seguro')),
+                        label: Text(_busy ? 'Preparando pedido…' : (_demo ? 'Concluir pedido simulado' : _paymentChoice == 'GATEWAY' ? 'Ir para pagamento seguro' : 'Registrar pedido (pagamento pendente)')),
                       ),
                       const SizedBox(height: 10),
                       Text(_demo
@@ -433,22 +513,60 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
                           : 'O preço, o estoque e a entrega são revalidados pelo servidor antes de criar a cobrança.',
                         style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                     ]));
-                  if (wide) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Expanded(flex: 3, child: details),
-                        const SizedBox(width: 16),
-                        Expanded(flex: 2, child: summary),
-                      ]),
-                    );
-                  }
-                  return ListView(padding: const EdgeInsets.all(12), children: [
-                    details,
-                    const SizedBox(height: 12),
-                    summary,
-                    const SizedBox(height: 16),
-                  ]);
+                  final payment = _section(context, 'Como deseja pagar?', Icons.payments_outlined,
+                    Column(crossAxisAlignment: CrossAxisAlignment.start,children: [
+                      if (_demo) ...[
+                        const Text('Apenas simulação; dinheiro não é movimentado.'),
+                        RadioListTile<String>(title: const Text('Pix simulado'),
+                          value: 'PIX', groupValue: _demoMethod,
+                          onChanged: (v) => setState(() => _demoMethod = v!)),
+                        RadioListTile<String>(title: const Text('Cartão simulado'),
+                          value: 'CARD', groupValue: _demoMethod,
+                          onChanged: (v) => setState(() => _demoMethod = v!)),
+                      ] else ...[
+                        if (_realEnabled) RadioListTile<String>(
+                          title: const Text('Pagamento online'), value: 'GATEWAY',
+                          groupValue: _paymentChoice, onChanged: (v) => setState(() {
+                            _paymentChoice = v!; _checkoutKey = RailwayOrderRepository.newCheckoutKey();
+                          })),
+                        for (final method in _offlineMethods) RadioListTile<String>(
+                          title: Text(switch(method) {
+                            'PAY_ON_PICKUP' => 'Pagar na retirada',
+                            'MANUAL_PIX' => 'Pix combinado diretamente com a loja',
+                            _ => 'Combinar pelo WhatsApp',
+                          }), value: method, groupValue: _paymentChoice,
+                          onChanged: (v) => setState(() {
+                            _paymentChoice = v!; _checkoutKey = RailwayOrderRepository.newCheckoutKey();
+                          })),
+                        if (_offlineMethods.isNotEmpty) const Padding(
+                          padding: EdgeInsets.all(12),child: Text(
+                            'O pedido fica aguardando pagamento. Não envie dinheiro sem confirmar os dados oficiais da loja. '
+                            'Comprovantes e mensagens não confirmam recebimento automaticamente.')),
+                      ],
+                    ]));
+                  final stageContent = _step == 0 ? details : _step == 1 ? payment : summary;
+                  return ListView(padding: EdgeInsets.symmetric(horizontal: wide ? 24 : 12, vertical: 12),
+                    children: [
+                      Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 700),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch,children: [
+                          Text('Etapa ${_step+1} de 3: ${['Entrega e contato','Pagamento','Revisão'][_step]}',
+                            style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(height: 12),
+                          LinearProgressIndicator(value: (_step+1)/3),
+                          const SizedBox(height: 18),
+                          stageContent,
+                          if (_step < 2) ...[
+                            const SizedBox(height: 16),
+                            FilledButton(onPressed: _paymentEnabled == false ? null : _nextStep,
+                              child: const Text('Continuar')),
+                          ],
+                          if (_step > 0) Align(alignment: Alignment.centerLeft,
+                            child: TextButton.icon(onPressed: () => setState(() { _error=''; _step--; }),
+                              icon: const Icon(Icons.arrow_back),label: const Text('Voltar'))),
+                          if (_error.isNotEmpty) Padding(padding: const EdgeInsets.all(10),
+                            child: Text(_error,style: const TextStyle(color: Colors.red))),
+                        ]))),
+                    ]);
                 }),
               ),
             ),

@@ -28,3 +28,13 @@ test('prepara apenas metadados públicos da loja, sem versão ou credenciais', (
   assert.equal((profile as Record<string, unknown>)['provider_secret'], undefined);
   assert.equal((profile as Record<string, unknown>)['version'], undefined);
 });
+
+test('P1: cores secundárias e meios locais são estritamente validados', () => {
+  const prepared = storeProfileInput.parse({ ...valid,
+    secondaryColor: '#aa33bb', offlineMethods: ['PAY_ON_PICKUP', 'MANUAL_PIX'] });
+  assert.equal(prepared.secondaryColor, '#AA33BB');
+  assert.deepEqual(prepared.offlineMethods, ['PAY_ON_PICKUP', 'MANUAL_PIX']);
+  assert.equal(storeProfileInput.safeParse({...valid, offlineMethods: ['INVALID']}).success, false);
+  assert.equal(storeProfileInput.safeParse({...valid, secondaryColor: 'red'}).success, false);
+  assert.equal(storeProfileInput.safeParse({...valid, offlineMethods: ['PAY_ON_PICKUP','MANUAL_PIX','WHATSAPP','PAY_ON_PICKUP']}).success, false);
+});

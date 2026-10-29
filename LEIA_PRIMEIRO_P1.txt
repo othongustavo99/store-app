@@ -1,0 +1,19 @@
+P1 - LOJA DE ROUPAS - CORRECOES 29/10/2026
+
+IMPORTANTE: APLICAR SOBRE O PROJETO COM P0 JA INSTALADO.
+
+- Este ZIP contem 28 arquivos completos, novos ou substitutos, nos caminhos originais.
+- Copie/extrai na raiz do projeto Flutter, preservando a estrutura de diretorios.
+- Nao apague outros arquivos. Nenhum arquivo precisa ser removido.
+- Faca backup antes de aplicar.
+- LEIA docs/P1_APLICACAO.md para instrucoes no Flutter, Railway, PostgreSQL,
+  build Android por cliente, seguranca de pedidos locais e verificacao.
+- Migration NOVA: backend/migrations/014_p1_brand_checkout.sql.
+- Nao habilite pagamentos ou reembolsos reais. Confirmacao local requer OWNER/MANAGER.
+
+VALIDACAO:
+- Backend TypeScript compilou.
+- Testes automatizados do backend: 43 passaram.
+- Compilacao Flutter e integracao PostgreSQL/Railway: nao executadas neste ambiente.
+- O script PowerShell de build por loja foi escrito mas nao executado (Windows indisponivel).
+- Perfil de build por loja nao equivale a flavors Gradle/iOS independentes.

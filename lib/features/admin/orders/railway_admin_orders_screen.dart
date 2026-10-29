@@ -69,6 +69,19 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
     catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
     finally{if(mounted)setState(()=>_busy=null);}
   }
+  Future<void> _confirmOffline(String orderId) async {
+    final accepted=await showDialog<bool>(context:context,builder:(dialogContext)=>AlertDialog(
+      title:const Text('Confirmar pagamento local?'),
+      content:const Text('Só confirme depois de conferir o recebimento fora do aplicativo. '
+        'WhatsApp e comprovantes enviados por clientes não garantem que o dinheiro entrou na conta.'),
+      actions:[TextButton(onPressed:()=>Navigator.pop(dialogContext,false),child:const Text('Voltar')),
+        FilledButton(onPressed:()=>Navigator.pop(dialogContext,true),child:const Text('Conferi o recebimento'))]));
+    if(accepted!=true) return;
+    setState(()=>_busy=orderId);
+    try {await _repo.confirmOffline(orderId); if(mounted)await _refresh();}
+    catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('$e')));}
+    finally{if(mounted)setState(()=>_busy=null);}
+  }
   @override
   Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:const Text('Pedidos da loja'),actions:[IconButton(
@@ -93,6 +106,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
               Text('Pedido ${o['id'].toString().substring(0,8)} • ${_money.format(total)}',
                   style:Theme.of(context).textTheme.titleMedium),
               Text('Status: $status'),
+              if(o['paymentProvider']=='offline') const Text('PAGAMENTO LOCAL — conferência e eventual devolução são responsabilidade da loja; não usam Mercado Pago.'),
               if(o['isDemo']==true) const Text('PEDIDO FICTÍCIO · sem cobrança real',
                   style: TextStyle(color: Colors.deepOrange,fontWeight: FontWeight.bold)),
               if(delivery) ...[
@@ -132,7 +146,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
                           final changed=await showReviewAfterSalesRequest(context,request);
                           if(changed && mounted)await _refresh();
                         },child:const Text('Analisar')),
-                      if(o['isDemo'] != true && _canRefund && _refundsEnabled && request['status']=='MANUAL_ACTION' &&
+                      if(o['paymentProvider']=='mercadopago' && _canRefund && _refundsEnabled && request['status']=='MANUAL_ACTION' &&
                           !_refundByCase.containsKey(request['id']) &&
                           ['PAID','PREPARING','SHIPPED','DELIVERED'].contains(status) &&
                           o['paymentStatus']=='APPROVED')
@@ -143,7 +157,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
                           if(changed && mounted)await _refresh();
                         },icon:const Icon(Icons.currency_exchange),
                           label:const Text('Reembolsar integralmente')),
-                      if(o['isDemo'] != true && _canRefund && _refundByCase.containsKey(request['id']) &&
+                      if(o['paymentProvider']=='mercadopago' && _canRefund && _refundByCase.containsKey(request['id']) &&
                           _refundByCase[request['id']]?['status']!='CONFIRMED')
                         OutlinedButton.icon(onPressed:_busy!=null?null:() async {
                           final changed=await showRailwayRefundReconcileDialog(
@@ -155,6 +169,9 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
               if(pending) const Padding(padding: EdgeInsets.symmetric(vertical: 4),
                   child: Text('Solicitação de cancelamento/devolução pendente. '
                       'Resolva antes de avançar o pedido.')),
+              if(status=='PENDING_PAYMENT' && o['paymentProvider']=='offline' && !pending)
+                FilledButton.tonalIcon(onPressed:_busy!=null?null:()=>_confirmOffline(o['id'].toString()),
+                  icon:const Icon(Icons.verified_outlined),label:const Text('Confirmar recebimento manual')),
               if(status=='PAYMENT_REVIEW')const Text('ALERTA: pagamento precisa de revisão manual.'),
               if(delivery && !pending && status=='PREPARING')
                 OutlinedButton.icon(onPressed:_busy!=null?null:() async {

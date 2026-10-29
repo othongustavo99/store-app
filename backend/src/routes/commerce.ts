@@ -35,6 +35,7 @@ const deliveryAddress = z.object({
 const orderBody = z.object({
   idempotencyKey: uuidParam,
   demoPaymentMethod: z.enum(['PIX','CARD']).optional(),
+  offlineMethod: z.enum(['PAY_ON_PICKUP','MANUAL_PIX','WHATSAPP']).optional(),
   items: z.array(item).min(1).max(30),
   customer: z.object({
     name: z.string().trim().min(2).max(100),
@@ -73,7 +74,7 @@ async function storeBySlug(value:string):Promise<string> {
 async function queryOrder(client:PoolClient, id:string):Promise<OrderRow> {
   const r=await client.query<OrderRow>(`
     SELECT o.*,p.checkout_url,p.checkout_reference,p.checkout_expires_at FROM orders o
-    LEFT JOIN payments p ON p.order_id=o.id AND p.provider IN ('mercadopago','demo')
+    LEFT JOIN payments p ON p.order_id=o.id AND p.provider IN ('mercadopago','demo','offline')
     WHERE o.id=$1 FOR UPDATE OF o`,[id]);
   if (!r.rowCount) throw new ApiError(404, 'Pedido não encontrado.');
   return r.rows[0];
@@ -98,7 +99,7 @@ async function orderView(id:string, storeId:string) {
     (SELECT json_build_object('status',r.status,'amountCents',r.amount_cents::text,
       'confirmedAt',r.confirmed_at) FROM payment_refund_operations r
       WHERE r.order_id=o.id LIMIT 1) AS "refundOperation"
-    FROM orders o LEFT JOIN payments p ON p.order_id=o.id AND p.provider IN ('mercadopago','demo')
+    FROM orders o LEFT JOIN payments p ON p.order_id=o.id AND p.provider IN ('mercadopago','demo','offline')
     WHERE o.id=$1 AND o.store_id=$2`,[id,storeId]);
   if (!found.rowCount) throw new ApiError(404,'Pedido não encontrado.');
   const details=await pool.query(`SELECT product_name AS "name",sku_snapshot AS sku,
@@ -133,6 +134,15 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
       'SELECT is_demo FROM stores WHERE id=$1 AND status=$2 FOR SHARE',[storeId,'ACTIVE']);
     if (demoFlag.rows[0]?.is_demo !== demo)
       throw new ApiError(409,'Configuração da loja alterada. Atualize o checkout.');
+    if (body.offlineMethod) {
+      if (demo) throw new ApiError(400,'Loja demo não pode registrar cobrança local.');
+      const enabled=await client.query<{offline_methods:string[]}>(
+        'SELECT offline_methods FROM store_profiles WHERE store_id=$1',[storeId]);
+      if (!enabled.rows[0]?.offline_methods?.includes(body.offlineMethod))
+        throw new ApiError(409,'Essa forma de combinar pagamento foi desativada pela loja.');
+      if(body.fulfillment !== 'PICKUP')
+        throw new ApiError(400,'Pedidos com pagamento local disponíveis somente para retirada.');
+    }
     // A mesma intenção de checkout nunca pode reservar duas vezes.
     const previous=await client.query<{id:string}>(`
       SELECT id FROM orders WHERE store_id=$1 AND customer_id=$2 AND idempotency_key=$3`,
@@ -226,7 +236,8 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16)`,
       [orderId,storeId,customerId,body.idempotencyKey,demo?'PAID':'PENDING_PAYMENT',
         subtotal.toString(),shippingCents,total.toString(),
-        JSON.stringify({...shippingAddress,...(demo?{demoPaymentMethod:body.demoPaymentMethod}: {})}),
+        JSON.stringify({...shippingAddress,...(demo?{demoPaymentMethod:body.demoPaymentMethod}: {}),
+          ...(body.offlineMethod?{offlineMethod:body.offlineMethod}: {})}),
         body.fulfillment,demo?null:new Date(Date.now()+48*60*60*1000),
         selected?.id??null,selected?`${selected.carrier} - ${selected.name}`:null,
         selected?.deliveryDays??null,demo?new Date():null,demo]);
@@ -248,11 +259,12 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
           demo?-quantity:0,orderId,demo?`Venda fictícia de ${quantity} un.`:`Reserva de ${quantity} un.`]);
     }
     await client.query(`INSERT INTO payments(order_id,store_id,provider,amount_cents,status)
-      VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,demo?'demo':'mercadopago',
+      VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,demo?'demo':body.offlineMethod?'offline':'mercadopago',
         total.toString(),demo?'APPROVED':'PENDING']);
     await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
       VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,customerId,demo?'PAID':'PENDING_PAYMENT',
         demo?`SIMULAÇÃO ${body.demoPaymentMethod}: sem cobrança ou transferência real`:
+          body.offlineMethod?`Pedido local ${body.offlineMethod}: AINDA NÃO PAGO; conferir manualmente`:
           'Pedido criado com estoque reservado']);
     await client.query('COMMIT');
     return orderId;
@@ -434,15 +446,60 @@ export async function commerceRoutes(app:FastifyInstance) {
     const store=await pool.query<{is_demo:boolean}>(
       'SELECT is_demo FROM stores WHERE id=$1 AND status=$2',[storeId,'ACTIVE']);
     const demo=store.rows[0]?.is_demo===true;
-    if (!demo) assertPilot(storeId);
     const identity=await requireIdentity(req);
     const body=validated(orderBody,req.body);
     if (demo !== (body.demoPaymentMethod !== undefined))
       throw new ApiError(400,demo?'Escolha Pix ou cartão simulado.':'Pagamento de demonstração não permitido nesta loja.');
+    if (body.offlineMethod && (demo || body.demoPaymentMethod))
+      throw new ApiError(400,'Não misture modalidades de pagamento.');
+    if (!demo && !body.offlineMethod) assertPilot(storeId);
     const orderId=await createReservedOrder(storeId,identity.userId,body,demo);
-    const url=demo?null:await checkoutUrl(orderId,storeId);
+    const url=demo || body.offlineMethod?null:await checkoutUrl(orderId,storeId);
     return reply.code(201).send({order:await orderView(orderId,storeId),checkoutUrl:url,
-      demo,simulated:demo});
+      demo,simulated:demo,offlinePending:!!body.offlineMethod});
+  });
+  // A confirmação MANUAL exige responsável autenticado. Não aceitar sinais do cliente
+  // ou WhatsApp como prova de pagamento. Auditoria guarda quem confirmou.
+  app.post('/v1/stores/:storeId/orders/:orderId/confirm-offline', async req => {
+    const {storeId,orderId}=validated(storeOrderParams,req.params);
+    const {identity}=await requireStoreRole(req,storeId,['OWNER','MANAGER']);
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const order=await queryOrder(client,orderId);
+      if(order.store_id!==storeId) throw new ApiError(404,'Pedido não encontrado.');
+      const payment=await client.query<{provider:string;status:string}>(
+        'SELECT provider,status FROM payments WHERE order_id=$1 AND store_id=$2 FOR UPDATE',
+        [orderId,storeId]);
+      if(payment.rows[0]?.provider!=='offline' || payment.rows[0].status!=='PENDING')
+        throw new ApiError(409,'Pedido não é uma reserva local pendente.');
+      if(order.status!=='PENDING_PAYMENT' || !order.reservation_expires_at ||
+          order.reservation_expires_at.getTime()<=Date.now())
+        throw new ApiError(409,'Reserva expirada ou pedido já finalizado.');
+      const requests=await client.query(`SELECT 1 FROM after_sales_requests WHERE order_id=$1
+        AND request_type='CANCEL' AND status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')`,[orderId]);
+      if(requests.rowCount) throw new ApiError(409,'Há solicitação de cancelamento pendente.');
+      const items=await client.query<{variant_id:string;quantity:number}>(
+        'SELECT variant_id,quantity FROM order_items WHERE order_id=$1 ORDER BY variant_id',[orderId]);
+      for(const item of items.rows) {
+        const change=await client.query(`UPDATE product_variants
+          SET on_hand=on_hand-$3,reserved=reserved-$3,updated_at=now()
+          WHERE id=$1 AND store_id=$2 AND reserved >= $3 AND on_hand >= $3 RETURNING id`,
+          [item.variant_id,storeId,item.quantity]);
+        if(!change.rowCount) throw new ApiError(409,'Saldo reservado inconsistente; revise o estoque.');
+        await client.query(`INSERT INTO inventory_movements(store_id,variant_id,performed_by,kind,quantity_delta,reference_id,notes)
+          VALUES($1,$2,$3,'SALE',$4,$5,'Pagamento local confirmado manualmente')`,
+          [storeId,item.variant_id,identity.userId,-item.quantity,orderId]);
+      }
+      await client.query("UPDATE orders SET status='PAID',paid_at=now(),updated_at=now() WHERE id=$1",[orderId]);
+      await client.query("UPDATE payments SET status='APPROVED',updated_at=now() WHERE order_id=$1 AND provider='offline'",[orderId]);
+      await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
+        VALUES($1,$2,$3,'PAID','Responsável atestou pagamento local após conferência externa')`,
+        [orderId,storeId,identity.userId]);
+      await client.query('COMMIT');
+    } catch(e) { await client.query('ROLLBACK'); throw e; }
+    finally { client.release(); }
+    return {order:await orderView(orderId,storeId)};
   });
   app.post('/v1/shops/:slug/orders/:orderId/checkout', {config:{rateLimit:{max:5,timeWindow:'1 minute'}}},async(req)=>{
     const {slug:shop,orderId}=validated(shopOrderParams,req.params);
@@ -453,7 +510,7 @@ export async function commerceRoutes(app:FastifyInstance) {
       [orderId,storeId,identity.userId]);
     if(!owns.rowCount) throw new ApiError(404,'Pedido não encontrado.');
     const existing=await orderView(orderId,storeId);
-    if(existing.isDemo) throw new ApiError(409,'Pedido de demonstração não recebe cobrança real.');
+    if(existing.isDemo || existing.paymentProvider==='offline') throw new ApiError(409,'Este pedido não utiliza cobrança pelo Mercado Pago.');
     return {order:existing,checkoutUrl:await checkoutUrl(orderId,storeId)};
   });
   app.get('/v1/shops/:slug/orders/events',async(req,reply)=>{
@@ -551,9 +608,13 @@ export async function commerceRoutes(app:FastifyInstance) {
     const storeId=await storeBySlug(shop);
     const found=await pool.query<{is_demo:boolean}>('SELECT is_demo FROM stores WHERE id=$1',[storeId]);
     const demo=found.rows[0]?.is_demo===true;
+    const methods=await pool.query<{offline_methods:string[]}>(
+      'SELECT offline_methods FROM store_profiles WHERE store_id=$1',[storeId]);
+    const offlineMethods=demo?[]:(methods.rows[0]?.offline_methods??[]);
+    const realEnabled=!demo && config.ENABLE_REAL_PAYMENTS && config.PAYMENT_PILOT_STORE_ID===storeId &&
+      !!config.MERCADOPAGO_ACCESS_TOKEN && !!config.MERCADOPAGO_WEBHOOK_SECRET && !!config.PUBLIC_BASE_URL;
     return {demo,demoLoginEnabled:demo && config.ENABLE_PUBLIC_DEMO_LOGIN,simulatedMethods:demo?['PIX','CARD']:[],
-      enabled:demo || (config.ENABLE_REAL_PAYMENTS && config.PAYMENT_PILOT_STORE_ID===storeId &&
-      !!config.MERCADOPAGO_ACCESS_TOKEN && !!config.MERCADOPAGO_WEBHOOK_SECRET && !!config.PUBLIC_BASE_URL),
+      offlineMethods,realEnabled,enabled:demo || realEnabled || offlineMethods.length>0,
       fulfillment:demo?['PICKUP']:['PICKUP',
         ...(!!config.SHIPPING_MELHOR_ENVIO_TOKEN && config.SHIPPING_PILOT_STORE_ID===storeId ? ['DELIVERY']:[])]};
   });

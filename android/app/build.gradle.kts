@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.loja.roupas.loja_roupas"
+        applicationId = (project.findProperty("LOJA_APPLICATION_ID") as String?) ?: "com.loja.roupas.loja_roupas"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -33,6 +33,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["lojaAppName"] = (project.findProperty("LOJA_DISPLAY_NAME") as String?) ?: "Loja de Roupas"
     }
 
     buildTypes {

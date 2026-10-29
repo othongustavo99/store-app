@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/loja_api.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/product.dart';
-import '../../../providers/auth_providers.dart';
 import '../../../providers/category_providers.dart';
 import '../../../providers/product_providers.dart';
 import '../widgets/empty_state.dart';
@@ -23,8 +22,6 @@ class HomeScreen extends ConsumerWidget {
     final products = ref.watch(productsProvider);
     final featured = ref.watch(featuredProductsProvider);
     final categories = ref.watch(categoriesProvider);
-    final auth = ref.watch(authProvider);
-    final isLoggedIn = auth.isLoggedIn;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -53,43 +50,11 @@ class HomeScreen extends ConsumerWidget {
                         ? const RailwayStorefrontIdentity()
                         : const Text('Loja de Roupas'),
                     actions: [
-                      if (auth.role == UserRole.admin && isLoggedIn)
-                        IconButton(
-                          tooltip: 'Painel da loja',
-                          icon: const Icon(Icons.admin_panel_settings_outlined),
-                          onPressed: () => context.push('/admin'),
-                        ),
-                      IconButton(
-                        tooltip: 'Buscar produtos',
-                        icon: const Icon(Icons.search_rounded),
-                        onPressed: () => context.push('/search'),
-                      ),
-                      IconButton(
-                        tooltip: 'Atendimento',
-                        icon: const Icon(Icons.support_agent_outlined),
-                        onPressed: () => context.push('/chat'),
-                      ),
-                      if (LojaBackend.isRailway)
-                        IconButton(
-                          tooltip: 'Aceitar convite da equipe',
-                          icon: const Icon(Icons.group_add_outlined),
-                          onPressed: () => context.push('/invite'),
-                        ),
-                      if (LojaBackend.isRailway)
-                        IconButton(
-                          tooltip: 'Minha conta',
-                          icon: const Icon(Icons.account_circle_outlined),
-                          onPressed: () => context.push('/account'),
-                        ),
-                      if (isLoggedIn) IconButton(
-                        tooltip: 'Sair da conta',
-                        icon: const Icon(Icons.logout_rounded),
-                        onPressed: () async {
-                          await ref.read(authProvider.notifier).logout();
-                          if (context.mounted) context.go('/');
-                        },
-                      ),
-                      const SizedBox(width: 4),
+                      IconButton(tooltip: 'Buscar produtos', icon: const Icon(Icons.search_rounded),
+                        onPressed: () => context.push('/search')),
+                      IconButton(tooltip: 'Carrinho', icon: const Icon(Icons.shopping_bag_outlined),
+                        onPressed: () => context.go('/cart')),
+                      const SizedBox(width: 6),
                     ],
                   ),
                   SliverToBoxAdapter(
@@ -223,6 +188,18 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ],
                     data: (all) => [
+                      if (all.any((p) => p.oldPrice != null && p.oldPrice! > p.price)) ...[
+                        const SliverToBoxAdapter(child: _SectionHeading(title: 'Em promoção',
+                          subtitle: 'Condições selecionadas pela loja')),
+                        SliverToBoxAdapter(child: _HorizontalProducts(products: all.where(
+                          (p) => p.oldPrice != null && p.oldPrice! > p.price).take(10).toList())),
+                      ],
+                      if (all.any((p) => p.isNew)) ...[
+                        const SliverToBoxAdapter(child: _SectionHeading(title: 'Novidades',
+                          subtitle: 'Acabaram de chegar à vitrine')),
+                        SliverToBoxAdapter(child: _HorizontalProducts(products: all.where(
+                          (p) => p.isNew).take(10).toList())),
+                      ],
                       if (featured.isNotEmpty) ...[
                         const SliverToBoxAdapter(
                           child: _SectionHeading(title: 'Seleção da loja',
@@ -383,4 +360,15 @@ class _LegacyBanner extends StatelessWidget {
           ),
         ),
       );
+}
+
+class _HorizontalProducts extends StatelessWidget {
+  const _HorizontalProducts({required this.products});
+  final List<Product> products;
+  @override
+  Widget build(BuildContext context) => SizedBox(height: 325,
+    child: ListView.separated(scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: products.length, separatorBuilder: (_, __) => const SizedBox(width: 12),
+      itemBuilder: (_, i) => SizedBox(width: 190, child: ProductCard(product: products[i]))));
 }
