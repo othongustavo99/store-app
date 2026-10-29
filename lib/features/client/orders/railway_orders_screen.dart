@@ -58,6 +58,7 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
         physics:const AlwaysScrollableScrollPhysics(),itemCount:orders.length,itemBuilder:(context,index){
           final order=orders[index];
           final status=order['status']?.toString()??'PENDING_PAYMENT';
+          final isDemo=order['isDemo']==true;
           final total=(int.tryParse(order['totalCents'].toString())??0)/100;
           final checkoutUrl=order['checkoutUrl']?.toString();
           final cases=(order['afterSalesRequests'] as List? ?? const [])
@@ -68,6 +69,8 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
               Text('Pedido #${order['id'].toString().length > 8 ? order['id'].toString().substring(0,8) : order['id']}',
                   style:Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 5),
+              if(isDemo) const Text('PEDIDO FICTÍCIO · sem cobrança real',
+                style: TextStyle(color: Colors.deepOrange,fontWeight: FontWeight.w700)),
               Chip(avatar: Icon(_statusIcon(status), size: 18),
                 label: Text(_label(status, delivery: order['fulfillment']=='DELIVERY')),
                 visualDensity: VisualDensity.compact),
@@ -103,7 +106,7 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                   if(created && mounted) await _refresh();
                 }, icon: const Icon(Icons.assignment_outlined),
                   label: const Text('Cancelamento / pós-venda')),
-              if(status=='PENDING_PAYMENT' && !active) TextButton.icon(
+              if(!isDemo && status=='PENDING_PAYMENT' && !active) TextButton.icon(
                 onPressed:() async {
                   try {
                     final url=checkoutUrl ?? await _repo.retryCheckout(order['id'].toString());

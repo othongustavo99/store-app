@@ -14,7 +14,7 @@ export async function storeRoutes(app: FastifyInstance) {
   app.get('/v1/shops/:slug', async (request) => {
     const { slug } = validated(slugParams, request.params);
     const result = await pool.query<{ id: string; name: string; slug: string; currency: string }>(
-      `SELECT id,name,slug,currency FROM stores WHERE slug=$1 AND status='ACTIVE'`, [slug],
+      `SELECT id,name,slug,currency,is_demo AS "isDemo" FROM stores WHERE slug=$1 AND status='ACTIVE'`, [slug],
     );
     if (!result.rowCount) throw new ApiError(404, 'Loja não encontrada.');
     return { store: result.rows[0] };

@@ -1,0 +1,9 @@
+P0 Loja de Roupas — correções completas.
+
+1) Extraia o ZIP na pasta raiz do Flutter (onde fica pubspec.yaml).
+2) Substitua arquivos de nomes iguais, não apague outros arquivos.
+3) Leia docs/P0_DEMO_APLICACAO.md ANTES de publicar.
+4) Faça backup do PostgreSQL antes da migration 013.
+5) Backend/Railway antes do build do APK.
+
+Nenhuma credencial inclusa, pagamentos reais permanecem desligados.

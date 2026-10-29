@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/railway_inventory_repository.dart';
 import '../../providers/auth_providers.dart';
+import '../client/widgets/demo_store_banner.dart';
 
 /// Painel operacional. Mantém os mesmos endpoints e autorizações da API.
 class RemoteAdminHome extends ConsumerStatefulWidget {
@@ -40,6 +41,7 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
 
   @override
   Widget build(BuildContext context) {
+    final isDemo = ref.watch(isDemoStoreProvider).valueOrNull == true;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Administração da loja'),
@@ -54,12 +56,14 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
             icon: const Icon(Icons.logout_rounded),
             onPressed: () async {
               await ref.read(authProvider.notifier).logout();
-              if (context.mounted) context.go('/login');
+              if (context.mounted) context.go('/');
             },
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: Column(children: [
+        const DemoStoreBanner(),
+        Expanded(child: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -114,7 +118,7 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                               Icons.receipt_long_outlined),
                           _MetricData('Pedidos em andamento', _count(orders['inProgress']),
                               Icons.local_shipping_outlined),
-                          _MetricData('Total bruto de pedidos pagos', currency.format(cents / 100),
+                          _MetricData(isDemo ? 'Total FICTÍCIO de pedidos' : 'Total bruto de pedidos pagos', currency.format(cents / 100),
                               Icons.payments_outlined),
                         ];
                         return LayoutBuilder(
@@ -177,9 +181,10 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
+                      isDemo ? 'DADOS FICTÍCIOS: os valores acima não são receita nem correspondem a dinheiro recebido.' :
                       'A receita exibida é bruta e não representa lucro ou valores disponíveis para repasse.',
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -187,7 +192,8 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
             ),
           ],
         ),
-      ),
+        )),
+      ]),
     );
   }
 }

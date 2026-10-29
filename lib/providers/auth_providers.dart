@@ -153,6 +153,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<String?> loginDemoCustomer() async {
+    if (!LojaBackend.isRailway) return 'A demonstração exige o Railway.';
+    try {
+      final result=await LojaApi.instance.loginDemoCustomer();
+      await _applyRailwayUser(Map<String,dynamic>.from(result['user'] as Map));
+      return null;
+    } on LojaApiException catch(e) {return e.message;}
+    catch (_) {return 'Não foi possível abrir a sessão demonstrativa.';}
+  }
+
   /// Login Google
   Future<String?> loginWithGoogle() async {
     if (LojaBackend.isRailway) {

@@ -15,7 +15,8 @@
     "test": "npm run build && node --test dist/tests/*.test.js",
     "check": "npm run build && npm test",
     "catalog:import": "tsx src/scripts/firebase_catalog_import.ts",
-    "privacy:process": "node dist/scripts/process_account_deletions.js"
+    "privacy:process": "node dist/scripts/process_account_deletions.js",
+    "demo:seed": "tsx src/scripts/seed_demo.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.0",

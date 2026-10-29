@@ -17,6 +17,7 @@ class AdminLoginScreen extends ConsumerStatefulWidget {
 class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late final Future<bool> _demoLoginAvailable;
 
   final _loginFormKey = GlobalKey<FormState>();
   final _registerFormKey = GlobalKey<FormState>();
@@ -38,6 +39,11 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _demoLoginAvailable = LojaBackend.isRailway
+        ? LojaApi.instance.request('GET',
+            '/v1/shops/${LojaBackend.storeSlug}/checkout/availability')
+          .then((data) => data['demoLoginEnabled'] == true).catchError((Object _) => false)
+        : Future<bool>.value(false);
   }
 
   @override
@@ -52,12 +58,27 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
   }
 
   void _goAfterLogin() {
+    final from = GoRouterState.of(context).uri.queryParameters['from'];
+    if (from != null && from.startsWith('/') && !from.startsWith('//') &&
+        !from.startsWith('/login')) {
+      context.go(from);
+      return;
+    }
     final auth = ref.read(authProvider);
     if (auth.role == UserRole.admin) {
       context.go('/admin');
     } else {
       context.go('/');
     }
+  }
+
+  Future<void> _loginAsDemoCustomer() async {
+    setState(() { _isLoading=true; _errorMessage=null; });
+    final error=await ref.read(authProvider.notifier).loginDemoCustomer();
+    if (!mounted) return;
+    setState(() => _isLoading=false);
+    if (error != null) {setState(() => _errorMessage=error);return;}
+    _goAfterLogin();
   }
 
   Future<void> _login() async {
@@ -195,6 +216,25 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
                     fontSize: 15,
                   ),
                 ),
+                if (LojaBackend.isRailway) ...[
+                  OutlinedButton.icon(
+                    onPressed: busy ? null : () => context.go('/'),
+                    icon: const Icon(Icons.storefront_outlined),
+                    label: const Text('Continuar como visitante'),
+                  ),
+                  const SizedBox(height: 8),
+                  FutureBuilder<bool>(
+                    future: _demoLoginAvailable,
+                    builder: (context,snapshot) => snapshot.data == true
+                      ? Padding(padding: const EdgeInsets.only(bottom: 12),
+                          child: FilledButton.tonalIcon(
+                            onPressed: busy ? null : _loginAsDemoCustomer,
+                            icon: const Icon(Icons.science_outlined),
+                            label: const Text('Entrar como cliente demo'),
+                          ))
+                      : const SizedBox.shrink(),
+                  ),
+                ],
                 const SizedBox(height: 24),
 
                 // Abas

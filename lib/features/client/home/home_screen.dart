@@ -23,6 +23,8 @@ class HomeScreen extends ConsumerWidget {
     final products = ref.watch(productsProvider);
     final featured = ref.watch(featuredProductsProvider);
     final categories = ref.watch(categoriesProvider);
+    final auth = ref.watch(authProvider);
+    final isLoggedIn = auth.isLoggedIn;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -51,6 +53,12 @@ class HomeScreen extends ConsumerWidget {
                         ? const RailwayStorefrontIdentity()
                         : const Text('Loja de Roupas'),
                     actions: [
+                      if (auth.role == UserRole.admin && isLoggedIn)
+                        IconButton(
+                          tooltip: 'Painel da loja',
+                          icon: const Icon(Icons.admin_panel_settings_outlined),
+                          onPressed: () => context.push('/admin'),
+                        ),
                       IconButton(
                         tooltip: 'Buscar produtos',
                         icon: const Icon(Icons.search_rounded),
@@ -73,12 +81,12 @@ class HomeScreen extends ConsumerWidget {
                           icon: const Icon(Icons.account_circle_outlined),
                           onPressed: () => context.push('/account'),
                         ),
-                      IconButton(
+                      if (isLoggedIn) IconButton(
                         tooltip: 'Sair da conta',
                         icon: const Icon(Icons.logout_rounded),
                         onPressed: () async {
                           await ref.read(authProvider.notifier).logout();
-                          if (context.mounted) context.go('/login');
+                          if (context.mounted) context.go('/');
                         },
                       ),
                       const SizedBox(width: 4),

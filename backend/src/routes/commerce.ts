@@ -34,6 +34,7 @@ const deliveryAddress = z.object({
 }).strict();
 const orderBody = z.object({
   idempotencyKey: uuidParam,
+  demoPaymentMethod: z.enum(['PIX','CARD']).optional(),
   items: z.array(item).min(1).max(30),
   customer: z.object({
     name: z.string().trim().min(2).max(100),
@@ -50,7 +51,7 @@ const transitionBody = z.object({ status: z.enum(['PREPARING','SHIPPED','DELIVER
 const webhookQuery = z.object({ 'data.id': z.coerce.string().regex(/^\d{1,30}$/) });
 
 type OrderRow = {
-  id:string; store_id:string; customer_id:string; status:string;
+  id:string; store_id:string; customer_id:string; status:string; is_demo:boolean;
   subtotal_cents:string; shipping_cents:string; total_cents:string;
   reservation_expires_at:Date|null; created_at:Date;
   checkout_url:string|null; checkout_reference:string|null; checkout_expires_at:Date|null;
@@ -72,7 +73,7 @@ async function storeBySlug(value:string):Promise<string> {
 async function queryOrder(client:PoolClient, id:string):Promise<OrderRow> {
   const r=await client.query<OrderRow>(`
     SELECT o.*,p.checkout_url,p.checkout_reference,p.checkout_expires_at FROM orders o
-    LEFT JOIN payments p ON p.order_id=o.id AND p.provider='mercadopago'
+    LEFT JOIN payments p ON p.order_id=o.id AND p.provider IN ('mercadopago','demo')
     WHERE o.id=$1 FOR UPDATE OF o`,[id]);
   if (!r.rowCount) throw new ApiError(404, 'Pedido não encontrado.');
   return r.rows[0];
@@ -82,6 +83,7 @@ async function orderView(id:string, storeId:string) {
     o.status,o.subtotal_cents::text AS "subtotalCents",o.shipping_cents::text AS "shippingCents",
     o.total_cents::text AS "totalCents",o.fulfillment_method AS "fulfillment",
     o.reservation_expires_at AS "reservationExpiresAt",o.created_at AS "createdAt",
+    o.is_demo AS "isDemo",
     o.shipping_address AS "customerContact",
     o.shipping_service_id AS "shippingServiceId",
     o.shipping_carrier AS "shippingCarrier",
@@ -92,11 +94,11 @@ async function orderView(id:string, storeId:string) {
       SELECT 1 FROM after_sales_requests a WHERE a.order_id=o.id
         AND a.request_type='CANCEL' AND a.status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')
     ) THEN p.checkout_url ELSE NULL END AS "checkoutUrl",
-    p.status AS "paymentStatus",
+    p.status AS "paymentStatus",p.provider AS "paymentProvider",
     (SELECT json_build_object('status',r.status,'amountCents',r.amount_cents::text,
       'confirmedAt',r.confirmed_at) FROM payment_refund_operations r
       WHERE r.order_id=o.id LIMIT 1) AS "refundOperation"
-    FROM orders o LEFT JOIN payments p ON p.order_id=o.id AND p.provider='mercadopago'
+    FROM orders o LEFT JOIN payments p ON p.order_id=o.id AND p.provider IN ('mercadopago','demo')
     WHERE o.id=$1 AND o.store_id=$2`,[id,storeId]);
   if (!found.rowCount) throw new ApiError(404,'Pedido não encontrado.');
   const details=await pool.query(`SELECT product_name AS "name",sku_snapshot AS sku,
@@ -121,10 +123,16 @@ function subscribeSse(req:FastifyRequest, reply:import('fastify').FastifyReply, 
   emit();
 }
 
-async function createReservedOrder(storeId:string,customerId:string,body:z.infer<typeof orderBody>):Promise<string> {
+async function createReservedOrder(storeId:string,customerId:string,body:z.infer<typeof orderBody>,demo=false):Promise<string> {
   const client=await pool.connect();
   try {
     await client.query('BEGIN');
+    // A modalidade pertence ao banco, não ao app: impede alternância de flag
+    // durante uma compra, mesmo entre o check da rota e esta transação.
+    const demoFlag=await client.query<{is_demo:boolean}>(
+      'SELECT is_demo FROM stores WHERE id=$1 AND status=$2 FOR SHARE',[storeId,'ACTIVE']);
+    if (demoFlag.rows[0]?.is_demo !== demo)
+      throw new ApiError(409,'Configuração da loja alterada. Atualize o checkout.');
     // A mesma intenção de checkout nunca pode reservar duas vezes.
     const previous=await client.query<{id:string}>(`
       SELECT id FROM orders WHERE store_id=$1 AND customer_id=$2 AND idempotency_key=$3`,
@@ -165,6 +173,8 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
     }
     const subtotal=variants.reduce((total,{v,quantity})=>total+BigInt(v.price_cents)*BigInt(quantity),0n);
     if(subtotal<=0n || subtotal>100_000_000_00n) throw new ApiError(400,'Valor do pedido inválido.');
+    if (demo && body.fulfillment !== 'PICKUP')
+      throw new ApiError(400,'Demonstração disponível apenas para retirada.');
     let shippingCents=0;
     let selected:ShippingService|null=null;
     let shippingAddress:Record<string,unknown>={name:body.customer.name,phone:body.customer.phone,notes:body.notes,fulfillment:'PICKUP'};
@@ -212,25 +222,38 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
     const orderId=randomUUID();
     await client.query(`INSERT INTO orders(id,store_id,customer_id,idempotency_key,status,subtotal_cents,
       shipping_cents,total_cents,shipping_address,fulfillment_method,reservation_expires_at,
-      shipping_service_id,shipping_carrier,shipping_delivery_days)
-      VALUES($1,$2,$3,$4,'PENDING_PAYMENT',$5,$6,$7,$8::jsonb,$9,now()+interval '48 hours',$10,$11,$12)`,
-      [orderId,storeId,customerId,body.idempotencyKey,subtotal.toString(),shippingCents,total.toString(),
-        JSON.stringify(shippingAddress),body.fulfillment,selected?.id??null,
-        selected?`${selected.carrier} - ${selected.name}`:null,selected?.deliveryDays??null]);
+      shipping_service_id,shipping_carrier,shipping_delivery_days,paid_at,is_demo)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16)`,
+      [orderId,storeId,customerId,body.idempotencyKey,demo?'PAID':'PENDING_PAYMENT',
+        subtotal.toString(),shippingCents,total.toString(),
+        JSON.stringify({...shippingAddress,...(demo?{demoPaymentMethod:body.demoPaymentMethod}: {})}),
+        body.fulfillment,demo?null:new Date(Date.now()+48*60*60*1000),
+        selected?.id??null,selected?`${selected.carrier} - ${selected.name}`:null,
+        selected?.deliveryDays??null,demo?new Date():null,demo]);
     for(const {v,quantity} of variants) {
-      await client.query(`UPDATE product_variants SET reserved=reserved+$3,updated_at=now()
-        WHERE id=$1 AND store_id=$2`,[v.id,storeId,quantity]);
+      if (demo) {
+        // Somente estoque de loja marcada como demo: compra fictícia baixada na hora.
+        await client.query(`UPDATE product_variants SET on_hand=on_hand-$3,updated_at=now()
+          WHERE id=$1 AND store_id=$2`,[v.id,storeId,quantity]);
+      } else {
+        await client.query(`UPDATE product_variants SET reserved=reserved+$3,updated_at=now()
+          WHERE id=$1 AND store_id=$2`,[v.id,storeId,quantity]);
+      }
       await client.query(`INSERT INTO order_items(order_id,store_id,product_id,variant_id,product_name,
         sku_snapshot,variant_snapshot,quantity,unit_price_cents)
         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)`,
         [orderId,storeId,v.product_id,v.id,v.name,v.sku,JSON.stringify(v.attributes),quantity,v.price_cents]);
       await client.query(`INSERT INTO inventory_movements(store_id,variant_id,performed_by,kind,quantity_delta,reference_id,notes)
-        VALUES($1,$2,$3,'RESERVATION',0,$4,$5)`,[storeId,v.id,customerId,orderId,`Reserva de ${quantity} un.`]);
+        VALUES($1,$2,$3,$4,$5,$6,$7)`,[storeId,v.id,customerId,demo?'SALE':'RESERVATION',
+          demo?-quantity:0,orderId,demo?`Venda fictícia de ${quantity} un.`:`Reserva de ${quantity} un.`]);
     }
     await client.query(`INSERT INTO payments(order_id,store_id,provider,amount_cents,status)
-      VALUES($1,$2,'mercadopago',$3,'PENDING')`,[orderId,storeId,total.toString()]);
+      VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,demo?'demo':'mercadopago',
+        total.toString(),demo?'APPROVED':'PENDING']);
     await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
-      VALUES($1,$2,$3,'PENDING_PAYMENT','Pedido criado com estoque reservado')`,[orderId,storeId,customerId]);
+      VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,customerId,demo?'PAID':'PENDING_PAYMENT',
+        demo?`SIMULAÇÃO ${body.demoPaymentMethod}: sem cobrança ou transferência real`:
+          'Pedido criado com estoque reservado']);
     await client.query('COMMIT');
     return orderId;
   } catch(e) { await client.query('ROLLBACK'); throw e; }
@@ -408,12 +431,18 @@ export async function commerceRoutes(app:FastifyInstance) {
   app.post('/v1/shops/:slug/checkout/orders', { config:{rateLimit:{max:8,timeWindow:'1 minute'}} }, async(req,reply)=>{
     const {slug:shop}=validated(shopParams,req.params);
     const storeId=await storeBySlug(shop);
-    assertPilot(storeId);
+    const store=await pool.query<{is_demo:boolean}>(
+      'SELECT is_demo FROM stores WHERE id=$1 AND status=$2',[storeId,'ACTIVE']);
+    const demo=store.rows[0]?.is_demo===true;
+    if (!demo) assertPilot(storeId);
     const identity=await requireIdentity(req);
     const body=validated(orderBody,req.body);
-    const orderId=await createReservedOrder(storeId,identity.userId,body);
-    const url=await checkoutUrl(orderId,storeId);
-    return reply.code(201).send({order:await orderView(orderId,storeId),checkoutUrl:url});
+    if (demo !== (body.demoPaymentMethod !== undefined))
+      throw new ApiError(400,demo?'Escolha Pix ou cartão simulado.':'Pagamento de demonstração não permitido nesta loja.');
+    const orderId=await createReservedOrder(storeId,identity.userId,body,demo);
+    const url=demo?null:await checkoutUrl(orderId,storeId);
+    return reply.code(201).send({order:await orderView(orderId,storeId),checkoutUrl:url,
+      demo,simulated:demo});
   });
   app.post('/v1/shops/:slug/orders/:orderId/checkout', {config:{rateLimit:{max:5,timeWindow:'1 minute'}}},async(req)=>{
     const {slug:shop,orderId}=validated(shopOrderParams,req.params);
@@ -423,7 +452,9 @@ export async function commerceRoutes(app:FastifyInstance) {
     const owns=await pool.query('SELECT 1 FROM orders WHERE id=$1 AND store_id=$2 AND customer_id=$3',
       [orderId,storeId,identity.userId]);
     if(!owns.rowCount) throw new ApiError(404,'Pedido não encontrado.');
-    return {order:await orderView(orderId,storeId),checkoutUrl:await checkoutUrl(orderId,storeId)};
+    const existing=await orderView(orderId,storeId);
+    if(existing.isDemo) throw new ApiError(409,'Pedido de demonstração não recebe cobrança real.');
+    return {order:existing,checkoutUrl:await checkoutUrl(orderId,storeId)};
   });
   app.get('/v1/shops/:slug/orders/events',async(req,reply)=>{
     const {slug:shop}=validated(shopParams,req.params);
@@ -518,8 +549,12 @@ export async function commerceRoutes(app:FastifyInstance) {
   app.get('/v1/shops/:slug/checkout/availability',async(req)=>{
     const {slug:shop}=validated(shopParams,req.params);
     const storeId=await storeBySlug(shop);
-    return {enabled:config.ENABLE_REAL_PAYMENTS && config.PAYMENT_PILOT_STORE_ID===storeId &&
-      !!config.MERCADOPAGO_ACCESS_TOKEN && !!config.MERCADOPAGO_WEBHOOK_SECRET && !!config.PUBLIC_BASE_URL,
-      fulfillment:['PICKUP',...(!!config.SHIPPING_MELHOR_ENVIO_TOKEN && config.SHIPPING_PILOT_STORE_ID===storeId ? ['DELIVERY']:[])]};
+    const found=await pool.query<{is_demo:boolean}>('SELECT is_demo FROM stores WHERE id=$1',[storeId]);
+    const demo=found.rows[0]?.is_demo===true;
+    return {demo,demoLoginEnabled:demo && config.ENABLE_PUBLIC_DEMO_LOGIN,simulatedMethods:demo?['PIX','CARD']:[],
+      enabled:demo || (config.ENABLE_REAL_PAYMENTS && config.PAYMENT_PILOT_STORE_ID===storeId &&
+      !!config.MERCADOPAGO_ACCESS_TOKEN && !!config.MERCADOPAGO_WEBHOOK_SECRET && !!config.PUBLIC_BASE_URL),
+      fulfillment:demo?['PICKUP']:['PICKUP',
+        ...(!!config.SHIPPING_MELHOR_ENVIO_TOKEN && config.SHIPPING_PILOT_STORE_ID===storeId ? ['DELIVERY']:[])]};
   });
 }

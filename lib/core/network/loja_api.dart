@@ -124,6 +124,13 @@ class LojaApi {
     return result;
   }
 
+  Future<Map<String,dynamic>> loginDemoCustomer() async {
+    final result=await request('POST',
+      '/v1/shops/${LojaBackend.storeSlug}/auth/demo-customer');
+    await _saveTokens(result);
+    return result;
+  }
+
   Future<Map<String, dynamic>> register(String email, String password) async {
     final name = email.split('@').first.trim();
     final result = await request('POST', '/v1/auth/register', body: {

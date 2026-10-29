@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
+import { config } from '../config.js';
 import { ApiError } from '../security/errors.js';
 import { requireIdentity } from '../security/identity.js';
 import { hashPassword, verifyPassword } from '../security/password.js';
@@ -30,6 +31,27 @@ async function createSession(userId: string) {
 }
 
 export async function authRoutes(app: FastifyInstance) {
+  // Sessão descartável, sempre CLIENTE, sem conta compartilhada nem privilégios.
+  // Precisa de duas autorizações: flag do servidor E is_demo da loja.
+  app.post('/v1/shops/:slug/auth/demo-customer', {
+    config: {rateLimit: {max: 10, timeWindow: '1 hour'}}
+  }, async (request, reply) => {
+    if (!config.ENABLE_PUBLIC_DEMO_LOGIN) throw new ApiError(403,'Login demonstrativo desabilitado.');
+    const params=z.object({slug:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48)});
+    const {slug}=validated(params,request.params);
+    const result=await pool.query('SELECT id FROM stores WHERE slug=$1 AND status=$2 AND is_demo=true',
+      [slug,'ACTIVE']);
+    if (!result.rowCount) throw new ApiError(403,'A loja não está habilitada para demonstração.');
+    const email=`visitor-${randomUUID()}@demo.invalid`;
+    const hash=await hashPassword(randomBytes(48).toString('base64url'));
+    const created=await pool.query<{id:string;email:string;display_name:string}>(
+      'INSERT INTO users(email,display_name,password_hash) VALUES($1,$2,$3) RETURNING id,email,display_name',
+      [email,'Cliente demonstração',hash]);
+    const user=created.rows[0];
+    return reply.code(201).send({user:{id:user.id,email:user.email,name:user.display_name},
+      ...(await createSession(user.id))});
+  });
+
   app.post('/v1/auth/register', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = validated(registerBody, request.body);
     const hash = await hashPassword(body.password);

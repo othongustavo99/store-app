@@ -15,7 +15,18 @@ final cartProvider = StateNotifierProvider<CartNotifier, List<CartItem>>((ref) {
 class CartNotifier extends StateNotifier<List<CartItem>> {
   final CartRepository _repo;
 
-  CartNotifier(this._repo) : super(_repo.items);
+  CartNotifier(this._repo) : super(_repo.items) {
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    try {
+      final items=await _repo.restore();
+      if(mounted) state=items;
+    } catch (_) {
+      // Sem internet, preservamos o armazenamento local para a próxima abertura.
+    }
+  }
 
   int get itemCount => _repo.itemCount;
   double get subtotal => _repo.subtotal;

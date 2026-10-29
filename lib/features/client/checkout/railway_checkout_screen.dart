@@ -40,6 +40,8 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
   bool _deliveryEnabled = false;
   bool _sandbox = true;
   bool? _paymentEnabled;
+  bool _demo = false;
+  String _demoMethod = 'PIX';
   String _method = 'PICKUP';
   String _error = '';
   String _quoteId = '';
@@ -82,14 +84,16 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
   Future<void> _load() async {
     try {
       final data = await Future.wait([
-        _orders.checkoutEnabled(),
+        _orders.checkoutAvailability(),
         _shipping.availability(),
       ]);
       if (!mounted) return;
       final availability = data[1] as Map<String, dynamic>;
       setState(() {
-        _paymentEnabled = data[0] as bool;
-        _deliveryEnabled = availability['delivery'] == true;
+        final checkout=Map<String,dynamic>.from(data[0] as Map);
+        _paymentEnabled = checkout['enabled'] == true;
+        _demo = checkout['demo'] == true;
+        _deliveryEnabled = !_demo && availability['delivery'] == true;
         _sandbox = availability['sandbox'] != false;
       });
     } catch (error) {
@@ -195,7 +199,17 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
         quoteId: _method == 'DELIVERY' ? _quoteId : null,
         serviceId: _method == 'DELIVERY' ? _serviceId : null,
         address: _method == 'DELIVERY' ? _address() : null,
+        demoPaymentMethod: _demo ? _demoMethod : null,
       );
+      if (response['simulated'] == true && response['order'] is Map &&
+          (response['order'] as Map)['isDemo'] == true) {
+        ref.read(cartProvider.notifier).clear();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Pedido de demonstração criado! Nenhum valor foi cobrado.')));
+        context.go('/orders');
+        return;
+      }
       final uri = Uri.tryParse(response['checkoutUrl']?.toString() ?? '');
       if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
         throw StateError('O pedido foi registrado, mas o link de pagamento não está disponível. Consulte seus pedidos.');
@@ -377,6 +391,22 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
                       else
                         const Text('O total será exibido após escolher o frete.'),
                       const SizedBox(height: 12),
+                      if (_demo) ...[
+                        const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text(
+                          'MODO DEMONSTRAÇÃO — Nenhuma cobrança real será feita. Pedidos são fictícios.',
+                          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.deepOrange))),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(value:'PIX',label:Text('Pix simulado'),icon:Icon(Icons.qr_code)),
+                            ButtonSegment(value:'CARD',label:Text('Cartão simulado'),icon:Icon(Icons.credit_card)),
+                          ], selected:{_demoMethod},
+                          onSelectionChanged: (methods) => setState(() {
+                            _demoMethod=methods.first;
+                            _checkoutKey=RailwayOrderRepository.newCheckoutKey();
+                          }),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       if (_paymentEnabled == null) const Center(child: CircularProgressIndicator()),
                       if (_paymentEnabled == false)
                         const Card(
@@ -395,11 +425,13 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
                         icon: _busy
                             ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.lock_outline),
-                        label: Text(_busy ? 'Preparando pedido…' : 'Ir para pagamento seguro'),
+                        label: Text(_busy ? 'Preparando pedido…' : (_demo ? 'Concluir pedido simulado' : 'Ir para pagamento seguro')),
                       ),
                       const SizedBox(height: 10),
-                      const Text('O preço, o estoque e a entrega são revalidados pelo servidor antes de criar a cobrança.',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      Text(_demo
+                          ? 'Preço e estoque são revalidados na API. Esta compra não movimenta dinheiro.'
+                          : 'O preço, o estoque e a entrega são revalidados pelo servidor antes de criar a cobrança.',
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                     ]));
                   if (wide) {
                     return SingleChildScrollView(

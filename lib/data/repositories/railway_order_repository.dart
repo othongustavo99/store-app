@@ -11,11 +11,11 @@ class RailwayOrderRepository {
   final LojaApi _api = LojaApi.instance;
   final RailwayAfterSalesRepository _afterSales = RailwayAfterSalesRepository();
 
-  Future<bool> checkoutEnabled() async {
-    final json = await _api.request('GET',
-        '/v1/shops/${LojaBackend.storeSlug}/checkout/availability');
-    return json['enabled'] == true;
-  }
+  Future<Map<String,dynamic>> checkoutAvailability() => _api.request('GET',
+      '/v1/shops/${LojaBackend.storeSlug}/checkout/availability');
+
+  Future<bool> checkoutEnabled() async =>
+      (await checkoutAvailability())['enabled'] == true;
 
   Future<Map<String, dynamic>> createOrder({
     required List<CartItem> cart,
@@ -23,6 +23,7 @@ class RailwayOrderRepository {
     required String customerPhone,
     required String idempotencyKey,
     String fulfillment = 'PICKUP',
+    String? demoPaymentMethod,
     String? quoteId,
     String? serviceId,
     Map<String,String>? address,
@@ -33,6 +34,7 @@ class RailwayOrderRepository {
       body: {
         'idempotencyKey': idempotencyKey,
         'fulfillment': fulfillment,
+        if (demoPaymentMethod != null) 'demoPaymentMethod': demoPaymentMethod,
         if(fulfillment == 'DELIVERY') 'shipping': {
           'quoteId': quoteId, 'serviceId': serviceId, 'address': address,
         },

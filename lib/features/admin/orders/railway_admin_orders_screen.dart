@@ -93,6 +93,8 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
               Text('Pedido ${o['id'].toString().substring(0,8)} • ${_money.format(total)}',
                   style:Theme.of(context).textTheme.titleMedium),
               Text('Status: $status'),
+              if(o['isDemo']==true) const Text('PEDIDO FICTÍCIO · sem cobrança real',
+                  style: TextStyle(color: Colors.deepOrange,fontWeight: FontWeight.bold)),
               if(delivery) ...[
                 Text('Transportadora: ${o['shippingCarrier'] ?? 'A definir'}'),
                 if(o['customerContact'] is Map) Text('Destino: ${(o['customerContact'] as Map)['street'] ?? ''}, '
@@ -130,7 +132,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
                           final changed=await showReviewAfterSalesRequest(context,request);
                           if(changed && mounted)await _refresh();
                         },child:const Text('Analisar')),
-                      if(_canRefund && _refundsEnabled && request['status']=='MANUAL_ACTION' &&
+                      if(o['isDemo'] != true && _canRefund && _refundsEnabled && request['status']=='MANUAL_ACTION' &&
                           !_refundByCase.containsKey(request['id']) &&
                           ['PAID','PREPARING','SHIPPED','DELIVERED'].contains(status) &&
                           o['paymentStatus']=='APPROVED')
@@ -141,7 +143,7 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
                           if(changed && mounted)await _refresh();
                         },icon:const Icon(Icons.currency_exchange),
                           label:const Text('Reembolsar integralmente')),
-                      if(_canRefund && _refundByCase.containsKey(request['id']) &&
+                      if(o['isDemo'] != true && _canRefund && _refundByCase.containsKey(request['id']) &&
                           _refundByCase[request['id']]?['status']!='CONFIRMED')
                         OutlinedButton.icon(onPressed:_busy!=null?null:() async {
                           final changed=await showRailwayRefundReconcileDialog(

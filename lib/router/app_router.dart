@@ -29,6 +29,7 @@ import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
 import '../providers/cart_providers.dart';
 import '../features/client/chat/chat_screen.dart';
+import '../features/client/widgets/demo_store_banner.dart';
 import '../features/support/railway_support_screen.dart';
 import '../features/support/railway_support_conversation_screen.dart';
 
@@ -40,24 +41,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.read(authProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/',
     redirect: (context, state) {
       final loggedIn = auth.isLoggedIn;
       final location = state.matchedLocation;
       final isLogin = location == '/login';
       final isAdminRoute = location.startsWith('/admin');
 
-      // 1) Sem login → só pode ficar na tela de login
-      if (!loggedIn) {
-        return isLogin ? null : '/login';
+      // Catálogo, busca, produtos, categorias e carrinho são públicos.
+      // Checkout, pedidos, suporte, perfil e painel exigem sessão.
+      final requiresLogin = location == '/checkout' || location == '/orders' ||
+          location == '/account' || location == '/chat' || location == '/support' ||
+          location.startsWith('/support/') || location == '/invite' || isAdminRoute;
+      if (!loggedIn && requiresLogin) {
+        return '/login?from=${Uri.encodeComponent(state.uri.toString())}';
       }
-
-      // 2) Já logado e tentando abrir /login → manda pro destino certo
       if (loggedIn && isLogin) {
+        final from = state.uri.queryParameters['from'];
+        if (from != null && from.startsWith('/') && !from.startsWith('//') &&
+            !from.startsWith('/login')) return from;
         return auth.role == UserRole.admin ? '/admin' : '/';
       }
 
-      // 3) Rotas /admin só para admin
+      // Rotas /admin só para a equipe da loja.
       if (isAdminRoute && auth.role != UserRole.admin) {
         return '/';
       }
@@ -287,13 +293,17 @@ class ClientShell extends ConsumerWidget {
                   ],
                 ),
                 const VerticalDivider(width: 1),
-                Expanded(child: navigationShell),
+                Expanded(child: SafeArea(bottom: false, child: Column(children: [
+                  const DemoStoreBanner(), Expanded(child: navigationShell),
+                ]))),
               ],
             ),
           );
         }
         return Scaffold(
-          body: navigationShell,
+          body: SafeArea(bottom: false, child: Column(children: [
+            const DemoStoreBanner(), Expanded(child: navigationShell),
+          ])),
           bottomNavigationBar: NavigationBar(
             selectedIndex: navigationShell.currentIndex,
             onDestinationSelected: _navigate,
