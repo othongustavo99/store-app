@@ -999,7 +999,8 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
     try {
       final upload = MediaUploadService();
       final urls = <String>[];
-      if (!LojaBackend.isRailway) for (final f in _pickedFiles) {
+      if (!LojaBackend.isRailway) {
+        for (final f in _pickedFiles) {
         final lower = f.path.toLowerCase();
         final isVideo = lower.endsWith('.mp4') ||
             lower.endsWith('.mov') ||
@@ -1008,6 +1009,7 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
             ? await upload.uploadVideo(f, widget.productId)
             : await upload.uploadImage(f, widget.productId);
         urls.add(url);
+        }
       }
 
       final review = Review(

@@ -122,8 +122,10 @@ class _RailwayInventoryScreenState extends State<RailwayInventoryScreen> {
       title: Text(variantId == null ? 'Últimas movimentações' : 'Histórico da variante'),
       content: SizedBox(width: 650, height: 420, child: FutureBuilder<List<Map<String,dynamic>>>(
         future: _repo.movements(variantId: variantId), builder: (context, snap) {
-          if (!snap.hasData) return Center(child: snap.hasError
+          if (!snap.hasData) {
+            return Center(child: snap.hasError
               ? Text('Falha ao consultar: ${snap.error}') : const CircularProgressIndicator());
+          }
           if (snap.data!.isEmpty) return const Center(child: Text('Sem movimentações.'));
           return ListView.separated(itemCount: snap.data!.length,
             separatorBuilder: (context, index) => const Divider(height: 1),
@@ -159,11 +161,13 @@ class _RailwayInventoryScreenState extends State<RailwayInventoryScreen> {
       ])),
       Expanded(child: FutureBuilder<Map<String,dynamic>>(future: _page, builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        if (snap.hasError) return Center(child: Padding(padding: const EdgeInsets.all(24),
+        if (snap.hasError) {
+          return Center(child: Padding(padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Erro ao carregar inventário: ${snap.error}', textAlign: TextAlign.center),
             const SizedBox(height: 10), FilledButton(onPressed: _reload, child: const Text('Tentar novamente')),
           ])));
+        }
         final rows = (snap.data?['variants'] as List? ?? const []);
         final total = (snap.data?['total'] as num?)?.toInt() ?? 0;
         final canAdjust = snap.data?['canAdjust'] == true;

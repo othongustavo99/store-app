@@ -91,8 +91,10 @@ class _RailwaySupportScreenState extends State<RailwaySupportScreen> {
       await _refresh();
       if (mounted) context.push('/support/ticket/$ticketId');
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Não foi possível criar atendimento: $e')));
+      }
     } finally {
       subject.dispose();
       message.dispose();

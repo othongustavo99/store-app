@@ -111,11 +111,13 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
   Widget _readinessSection() => FutureBuilder<Map<String, dynamic>>(
     future: _readiness,
     builder: (context, snapshot) {
-      if (!snapshot.hasData) return Padding(
+      if (!snapshot.hasData) {
+        return Padding(
         padding: const EdgeInsets.all(16),
         child: snapshot.hasError ? Text('Não foi possível consultar preparação: ${snapshot.error}')
             : const Center(child: CircularProgressIndicator()),
       );
+      }
       final info = snapshot.data!;
       final checks = Map<String, dynamic>.from(info['checks'] as Map);
       final labels = <String, String>{
@@ -158,9 +160,11 @@ class _RailwayStoreSettingsScreenState extends State<RailwayStoreSettingsScreen>
     body: FutureBuilder<Map<String, dynamic>>(
       future: _profile,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return Center(child: snapshot.hasError
+        if (!snapshot.hasData) {
+          return Center(child: snapshot.hasError
           ? Text('Falha ao carregar perfil: ${snapshot.error}')
           : const CircularProgressIndicator());
+        }
         final store = Map<String, dynamic>.from(snapshot.data!['store'] as Map);
         return Center(child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),

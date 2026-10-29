@@ -1,28 +1,31 @@
-import { createHash } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { pool } from './pool.js';
+import { formatDatabaseError } from './diagnostics.js';
+import { migrationStatus, readMigrationFiles, type AppliedMigration } from './migration_files.js';
 
-const migrationDir = resolve(process.cwd(), 'migrations');
+let phase = 'leitura dos arquivos SQL';
 
 async function run() {
+  const files = await readMigrationFiles();
+  phase = 'conexão com PostgreSQL';
   const client = await pool.connect();
+  let locked = false;
+  let failed = false;
+  let cleanupFailed = false;
   try {
-    // A mesma chave bloqueia migrations concorrentes de diferentes instâncias.
+    phase = 'bloqueio e histórico de migrations';
     await client.query('SELECT pg_advisory_lock(418036712)');
+    locked = true;
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`);
-    const files = (await readdir(migrationDir)).filter((name) => /^\d+_[a-z0-9_]+\.sql$/.test(name)).sort();
-    if (!files.length) throw new Error('Nenhuma migration SQL encontrada.');
-    for (const name of files) {
-      const sql = await readFile(resolve(migrationDir, name), 'utf8');
-      const checksum = createHash('sha256').update(sql).digest('hex');
-      const existing = await client.query<{ checksum: string }>(
-        'SELECT checksum FROM schema_migrations WHERE name = $1', [name],
-      );
-      if (existing.rowCount) {
-        if (existing.rows[0].checksum !== checksum) throw new Error(`Migration alterada após execução: ${name}. Crie uma nova migration.`);
+    const history = await client.query<AppliedMigration>('SELECT name, checksum FROM schema_migrations');
+    const status = migrationStatus(files, history.rows);
+    if (status.changed.length) throw new Error(`Migration alterada após execução: ${status.changed.join(', ')}. Restaure o arquivo original e crie uma nova migration.`);
+    if (status.missing.length) throw new Error(`Histórico do banco contém migrations ausentes no projeto: ${status.missing.join(', ')}. Confira a versão antes de continuar.`);
+    const applied = new Set(status.applied);
+    for (const { name, sql, checksum } of files) {
+      phase = name;
+      if (applied.has(name)) {
         console.log(`Já aplicada: ${name}`);
         continue;
       }
@@ -33,16 +36,28 @@ async function run() {
         await client.query('COMMIT');
         console.log(`Aplicada: ${name}`);
       } catch (error) {
-        await client.query('ROLLBACK');
+        // Falha no rollback não deve esconder a causa original.
+        try { await client.query('ROLLBACK'); } catch { /* descartar conexão abaixo */ }
         throw error;
       }
     }
+    console.log('Migrations concluídas.');
+  } catch (error) {
+    failed = true;
+    throw error;
   } finally {
-    try { await client.query('SELECT pg_advisory_unlock(418036712)'); } finally { client.release(); }
+    try {
+      if (locked) await client.query('SELECT pg_advisory_unlock(418036712)');
+    } catch (error) {
+      cleanupFailed = true;
+      if (!failed) throw error;
+    } finally {
+      client.release(failed || cleanupFailed);
+    }
   }
 }
 
-run().catch((err: unknown) => {
-  console.error('Falha nas migrations:', err instanceof Error ? err.message : 'erro desconhecido');
+run().catch((error: unknown) => {
+  console.error(`Falha nas migrations (${phase}):\n${formatDatabaseError(error)}`);
   process.exitCode = 1;
 }).finally(async () => { await pool.end(); });

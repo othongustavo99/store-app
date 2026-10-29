@@ -49,8 +49,10 @@ class _RailwaySupportConversationScreenState
       _input.clear();
       if (mounted) await _refresh();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Não foi possível enviar: $e')));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -61,8 +63,10 @@ class _RailwaySupportConversationScreenState
       await _repo.status(widget.ticketId, status, admin: widget.admin);
       if (mounted) await _refresh();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Não foi possível alterar atendimento: $e')));
+      }
     }
   }
 

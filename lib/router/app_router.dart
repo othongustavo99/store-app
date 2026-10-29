@@ -72,7 +72,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (from != null &&
             from.startsWith('/') &&
             !from.startsWith('//') &&
-            !from.startsWith('/login')) return from;
+            !from.startsWith('/login')) {
+          return from;
+        }
         return auth.role == UserRole.admin ? '/admin' : '/';
       }
 

@@ -152,8 +152,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen>
       try {
         await LojaApi.instance.request('POST', '/v1/auth/password/forgot',
           body: {'email': requested});
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Se o email estiver cadastrado, você receberá um link válido por 30 minutos.')));
+        }
       } on LojaApiException catch (error) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
       } finally { if (mounted) setState(() => _isLoading = false); }

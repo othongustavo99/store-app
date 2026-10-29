@@ -43,8 +43,10 @@ Future<bool> showRailwayRefundDialog(BuildContext context, {
               content:Text(r['message']?.toString()??'Operação registrada. Verifique a conciliação.')));
             if(dialogContext.mounted)Navigator.pop(dialogContext,true);
           }catch(e){
-            if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(
+            if(context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content:Text('Falha na operação: $e')));
+            }
             if(dialogContext.mounted)setState(()=>busy=false);
           }
         },child:const Text('Confirmar estorno')),
@@ -64,12 +66,16 @@ Future<bool> showRailwayRefundReconcileDialog(BuildContext context,String caseId
   if(confirmed!=true)return false;
   try {
     final result=await RailwayRefundRepository().reconcile(caseId);
-    if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    if(context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content:Text(result['message']?.toString()??'Conciliação consultada.')));
+    }
     return true;
   }catch(e){
-    if(context.mounted)ScaffoldMessenger.of(context).showSnackBar(
+    if(context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content:Text('Não foi possível conciliar: $e')));
+    }
     return false;
   }
 }

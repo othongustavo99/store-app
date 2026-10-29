@@ -12,6 +12,7 @@
     "start": "node dist/server.js",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:migrate:prod": "node dist/db/migrate.js",
+    "db:check": "node dist/db/check.js",
     "test": "npm run build && node --test dist/tests/*.test.js",
     "check": "npm run build && npm test",
     "catalog:import": "tsx src/scripts/firebase_catalog_import.ts",

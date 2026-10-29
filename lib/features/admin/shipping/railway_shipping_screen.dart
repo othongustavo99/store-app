@@ -68,7 +68,9 @@ class _RailwayShippingScreenState extends State<RailwayShippingScreen> {
       setState(()=>busy=true);
       try {await repo.saveParcel(item['id'].toString(),values);message('Embalagem salva.');reload();}
       catch(e){message(e);}finally{if(mounted)setState(()=>busy=false);}
-    } finally {for(final input in inputs)input.dispose();}
+    } finally {for(final input in inputs) {
+      input.dispose();
+    }}
   }
 
   @override
@@ -76,8 +78,10 @@ class _RailwayShippingScreenState extends State<RailwayShippingScreen> {
     appBar:AppBar(leading: const AppBackButton(fallbackLocation: '/admin'), title:const Text('Frete e embalagens'),
       actions:[IconButton(onPressed:reload,icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<Map<String,dynamic>>(future:setup,builder:(context,snapshot){
-      if(!snapshot.hasData)return Center(child:snapshot.hasError?
+      if(!snapshot.hasData) {
+        return Center(child:snapshot.hasError?
         Text('Erro: ${snapshot.error}'):const CircularProgressIndicator());
+      }
       final data=snapshot.data!;
       if(origin.text.isEmpty)origin.text=data['originPostalCode']?.toString()??'';
       final items=(data['variants'] as List? ?? const [])

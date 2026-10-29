@@ -19,10 +19,12 @@ class FavoritesScreen extends ConsumerWidget {
           onPressed: () => ref.invalidate(productsProvider), child: const Text('Tentar novamente'))),
         data: (catalog) {
           final items = catalog.where((item) => saved.contains(item.id)).toList();
-          if (items.isEmpty) return const Center(child: Padding(
+          if (items.isEmpty) {
+            return const Center(child: Padding(
             padding: EdgeInsets.all(30), child: Column(mainAxisSize: MainAxisSize.min,
               children: [Icon(Icons.favorite_border, size: 54), SizedBox(height: 16),
                 Text('Seus produtos favoritos aparecerão aqui.', textAlign: TextAlign.center)])));
+          }
           return LayoutBuilder(builder: (context, size) => GridView.builder(
             padding: const EdgeInsets.all(16), itemCount: items.length,
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(

@@ -86,8 +86,11 @@ class CartRepository {
     if(at<0)return;
     final item=_items[at];
     final stock=item.product.getVariant(item.color,item.size)?.stock??0;
-    if(stock<=0) _items.removeAt(at);
-    else _items[at]=item.copyWith(quantity:quantity.clamp(1,stock).toInt());
+    if(stock<=0) {
+      _items.removeAt(at);
+    } else {
+      _items[at]=item.copyWith(quantity:quantity.clamp(1,stock).toInt());
+    }
     save();
   }
   void removeItem(String itemId){_items.removeWhere((i)=>i.id==itemId);save();}

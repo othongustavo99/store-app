@@ -14,8 +14,10 @@ Future<bool> showRailwayShipmentDialog(BuildContext context, {
     ));
     if(accept!=true)return false;
     try {await RailwayShippingRepository().delivered(orderId);return true;}
-    catch(e){if(context.mounted)ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content:Text('Não foi possível registrar a entrega: $e')));return false;}
+    catch(e){if(context.mounted) {
+      ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content:Text('Não foi possível registrar a entrega: $e')));
+    }return false;}
   }
   final field=TextEditingController();
   try {
@@ -32,7 +34,9 @@ Future<bool> showRailwayShipmentDialog(BuildContext context, {
     ));
     if(code==null)return false;
     try {await RailwayShippingRepository().postShipment(orderId,code);return true;}
-    catch(e){if(context.mounted)ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content:Text('Não foi possível salvar: $e')));return false;}
+    catch(e){if(context.mounted) {
+      ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content:Text('Não foi possível salvar: $e')));
+    }return false;}
   }finally {field.dispose();}
 }

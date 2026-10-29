@@ -54,10 +54,12 @@ class _RailwayAdminOrdersScreenState extends ConsumerState<RailwayAdminOrdersScr
           entries[record['caseId'].toString()]=record;
         }
       }
-      if(mounted)setState((){
+      if(mounted) {
+        setState((){
         _refundByCase=entries;
         _refundsEnabled=r['enabled']==true;
       });
+      }
     }catch(_){/* O backend também valida permissão de todas as operações. */}
   }
   Future<void> _refresh()async{

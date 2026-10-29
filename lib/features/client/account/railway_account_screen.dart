@@ -28,8 +28,10 @@ class _RailwayAccountScreenState extends ConsumerState<RailwayAccountScreen> {
     } on LojaApiException catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Não foi possível salvar. Tente novamente.')));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -167,8 +169,10 @@ class _RailwayAccountScreenState extends ConsumerState<RailwayAccountScreen> {
           await ref.read(authProvider.notifier).logout();
           if(mounted) context.go('/login');
         }
-        if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        if(mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(message), duration: const Duration(seconds: 8)));
+        }
       } on LojaApiException catch(e) {
         if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       } finally { if(mounted) setState(() => _busy = false); }

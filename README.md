@@ -1,27 +1,43 @@
-# Loja de Roupas — Evolução para plataforma comercial
+# Loja de Roupas — modelo comercial em evolução
 
-Projeto Flutter em desenvolvimento. Objetivo: e-commerce multi-loja comercial com
-cliente, painel administrativo e, no futuro, ferramenta Dev Windows.
+Aplicativo Flutter para compradores e administração de lojas locais de roupas. API Fastify/TypeScript com PostgreSQL, preparada para dados separados por loja. O objetivo é reutilizar a base com identidade e configuração próprias de cada lojista.
 
-## Estado atual
+## Entrega atual
 
-- Fase 0 aplicada: proteções para demonstração, indicadores e testes iniciais.
-- **Fase 1:** API backend Node.js/TypeScript + PostgreSQL multi-loja no Railway.
-- O Flutter **ainda usa Firebase** para catálogo, pedidos e autenticação até a Fase 2.
-- **Não publique nem aceite pagamentos reais**: ainda não existem checkout seguro,
-  gateway de pagamento, migração de dados ou autorização completa no Flutter.
+**Etapa 01 — estabilidade, testes e diagnóstico do banco.**
 
-## Como executar
+Leia [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md) para instalação do pacote, configuração Windows/Railway, validação, limitações e reversão. O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
 
-Flutter: `flutter pub get`, `flutter analyze`, `flutter test`.
-Backend: veja [backend/README.md](backend/README.md) e
-[docs/FASE_1_RAILWAY_APLICACAO.md](docs/FASE_1_RAILWAY_APLICACAO.md).
+A base já contém catálogo, variantes, inventário, checkout, pedidos, atendimento, pós-venda, cupons e identidade de loja. A validação desta etapa não equivale à aprovação completa de operação comercial.
 
-## Etapas seguintes
+## Backend escolhido no build
 
-- Fase 2: substituição progressiva dos repositórios Firebase por API HTTP
-  e sincronização em tempo real, com plano de migração de dados e usuários.
-- Fase 3: compra e pagamento reais com estoque transacional.
-- Fases 4–8: ferramentas administrativas, visual, lojas, Windows Dev e expansão.
+A aplicação possui caminhos Firebase legado e API Railway. O padrão ainda é Firebase. Para utilizar a API, preserve seus parâmetros:
 
-**Não remova Firebase até que a Fase 2 tenha sido concluída e validada.**
+~~~text
+--dart-define=LOJA_BACKEND=railway
+--dart-define=LOJA_API_BASE_URL=https://SUA-API
+--dart-define=LOJA_STORE_SLUG=sua-loja
+~~~
+
+As telas e regras novas de comércio estão no caminho Railway. Preserve o legado enquanto houver necessidade de compatibilidade; sua remoção não faz parte desta etapa.
+
+## Verificações
+
+Na raiz Flutter: flutter pub get, flutter analyze, flutter test.
+
+Em backend: npm ci, npm run build, npm test. O comando npm run db:check verifica conexão e migrations em transação somente leitura. Migrations reais continuam sendo aplicadas por npm run db:migrate:prod, após recompilar e confirmar o banco correto.
+
+DATABASE_URL e JWT_SECRET são configurados no ambiente do servidor/backend local. Segredos não entram no aplicativo.
+
+## Próximas prioridades
+
+- Corrigir recuperação do carrinho/favoritos fora dos primeiros 50 produtos.
+- Corrigir a montagem do valor cobrado com cupom.
+- Refinar mensagens e acompanhamento após confirmação manual.
+- Polir vitrine, produto, compra e rotina do lojista.
+- Tornar provisionamento, marca e integrações repetíveis por cliente.
+
+Recebimento e frete externos ainda dependem de configuração de loja piloto. Antes de operar com clientes reais, validar integração própria do lojista, assinatura de distribuição e os cenários completos de compra em homologação.
+
+Os documentos de fases antigas em docs são referências históricas; verifique o registro da etapa atual antes de seguir seus comandos.

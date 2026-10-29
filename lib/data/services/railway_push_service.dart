@@ -26,7 +26,9 @@ class RailwayPushService {
   await initialize();
   final permission=await FirebaseMessaging.instance.requestPermission(alert:true,badge:true,sound:true);
   if(permission.authorizationStatus!=AuthorizationStatus.authorized &&
-    permission.authorizationStatus!=AuthorizationStatus.provisional)return false;
+    permission.authorizationStatus!=AuthorizationStatus.provisional) {
+    return false;
+  }
   await FirebaseMessaging.instance.setAutoInitEnabled(true);
   final token=await FirebaseMessaging.instance.getToken();
   if(token==null||token.isEmpty)return false;

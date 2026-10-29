@@ -1,0 +1,177 @@
+{
+  "stage": "01",
+  "title": "Estabilidade, testes e diagnóstico do banco",
+  "base_repository": "https://github.com/othongustavo99/store-app",
+  "base_commit": "747e7ed8a6f03f4f0714643d50fed223c829c2bb",
+  "installation_root": "pasta que contém pubspec.yaml",
+  "files": [
+    {
+      "path": "LEIA_ETAPA_01.md",
+      "operation": "ADICIONAR",
+      "sha256": "b38d30d54e45849ab88e2608a82524113a07feaa056ef87603fbba46fd305b3d"
+    },
+    {
+      "path": "README.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "aa5f3c9f6c584ef9989a777ac811cbabbd4093513c0b44376e0403c5091c6a8a"
+    },
+    {
+      "path": "backend/package.json",
+      "operation": "SUBSTITUIR",
+      "sha256": "f9453cb13690e6a9c1dea52d57a8c9d7c58612f82945a0595700bf19095a8fe5"
+    },
+    {
+      "path": "backend/src/db/check.ts",
+      "operation": "ADICIONAR",
+      "sha256": "61fb60723ceca480ea144074af74230c3d464bf150ebe7351fc74483ac2f5767"
+    },
+    {
+      "path": "backend/src/db/diagnostics.ts",
+      "operation": "ADICIONAR",
+      "sha256": "fe9a6d91cfd1dee139fc7f6cd94ad7c2c10260b46b4e7c633793c309cdca933a"
+    },
+    {
+      "path": "backend/src/db/migrate.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "161b06fe2c974a072c01e9be1c6cd5393d9fe46d018c7a91e4bf700dd3c4f116"
+    },
+    {
+      "path": "backend/src/db/migration_files.ts",
+      "operation": "ADICIONAR",
+      "sha256": "c2a07087b7d30a5ec9946f7dd6f65775b47b700449084a76b979732b78e61264"
+    },
+    {
+      "path": "backend/src/tests/database_diagnostics.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "71c51d0b36c528bccee4d8afc355b06eea0a03bdb48768370ae7e95951c7db92"
+    },
+    {
+      "path": "docs/EVOLUCAO_MODELO_COMERCIAL.md",
+      "operation": "ADICIONAR",
+      "sha256": "d521693b25903a72e10874e545f3e1c19d50eb50b30beb4861aaaa3838885bcf"
+    },
+    {
+      "path": "lib/data/repositories/cart_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "40358551182b1a3e4871549a2e2aee314df5ad600575f63eed5a016b1fac9cd8"
+    },
+    {
+      "path": "lib/data/services/railway_push_service.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "4adc41bbb718f419f4e85baadfae516bb7ab737ae218989755c3acf5f06c8dbc"
+    },
+    {
+      "path": "lib/features/admin/inventory/railway_inventory_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "55ad420fe27c2f8c9eaee6a38b08456813b88672daa03b6b1441f2261b4ff1ec"
+    },
+    {
+      "path": "lib/features/admin/login/admin_login_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "48259420419c62ace60516fa448d3938b689869adf1c5d87b9cfbeef37a72dc4"
+    },
+    {
+      "path": "lib/features/admin/orders/admin_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "832ff0cd4e538f343b3480607504d6659b803e716da65128b7577decfb77fbb5"
+    },
+    {
+      "path": "lib/features/admin/orders/railway_admin_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "1a76c21a0e6b831e01af07111fa600fc32062ad6f45a2ebcc184015cb1830b55"
+    },
+    {
+      "path": "lib/features/admin/products/admin_products_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "030fee0a5bb80f5243200b8cdf52c9a35b4eb07fd17803c775beeb28cec06ded"
+    },
+    {
+      "path": "lib/features/admin/shipping/railway_shipment_dialog.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "cd3b3aec645fb9dc8afec97a60235f21b8a0509d43b4a47696c498b06f76b3be"
+    },
+    {
+      "path": "lib/features/admin/shipping/railway_shipping_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "b77e145a55030990b2bf987ce2cb2890879ed4f4871212e17c0870a32e14311d"
+    },
+    {
+      "path": "lib/features/admin/store_settings/railway_store_settings_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "4a5ec3912ae9458dd276c0ae1f6de63062976ded6f484522938c21e4b76aaf46"
+    },
+    {
+      "path": "lib/features/client/account/railway_account_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "cedcd7ec36f1edcedf2fb2c5d3c09fe5a759bb9e03b503fc4915cf82b91cf1a8"
+    },
+    {
+      "path": "lib/features/client/chat/chat_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "3868a129c3556a32d072482cce9bc69df1db17cbbccaf9b0a592d57778dffa19"
+    },
+    {
+      "path": "lib/features/client/checkout/railway_checkout_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "cdab5cff0055ac65d3bd3a284575ff698c34659b866a6a52b38e728fadf45eed"
+    },
+    {
+      "path": "lib/features/client/discounted/discounted_products_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "c0acf609b2f277c761629d8d5a526000bb110b566388398c100c51a223d890bc"
+    },
+    {
+      "path": "lib/features/client/favorites/favorites_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "7c234bcc9d0de425d00f6b5727d45c451e110c60f565aa25a48b39a5ca9304f2"
+    },
+    {
+      "path": "lib/features/client/orders/railway_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "97fced02ee3a2eaff6d742d8a727ddf533c315ba4679f6931b0774fbcc43ca8a"
+    },
+    {
+      "path": "lib/features/client/product_detail/product_detail_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "e0c97706414215996e0e406b5888cc8bbd1b7c1310c2b2fc179d6faade9b7cde"
+    },
+    {
+      "path": "lib/features/client/profile/profile_tab_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "fe9c5947ebabb3fd98bb0d058e0c629e3a0bfc4bdf0f27594736a27d9c161ea3"
+    },
+    {
+      "path": "lib/features/support/railway_refund_dialog.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "00eeee9ba72f325a02de9fe6cc16d90c5680786e4814b08c5aeadfe43628104d"
+    },
+    {
+      "path": "lib/features/support/railway_support_conversation_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "367d42df059fb64dffc5d295f0933258a0cc15db80380ee8ade3388a0db60baf"
+    },
+    {
+      "path": "lib/features/support/railway_support_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "6dc8c9e7060c3ec0c05895124dc0aaa94b725d16c038047eb50b1a7d0e6fa45f"
+    },
+    {
+      "path": "lib/router/app_router.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "4d98f4df13793a5f10cc35657dcd4478a96f02dacb10803ae95a493f750cd349"
+    },
+    {
+      "path": "test/phase5_product_card_test.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "3cc34cacc4cff46f00af99221784d8736e4fc119924dacebaec6af64b5b6d1b1"
+    }
+  ],
+  "remove": [],
+  "sql_migrations_changed": false,
+  "validation": {
+    "flutter_analyze": "No issues found",
+    "flutter_tests_passed": 21,
+    "backend_tests_passed": 54,
+    "live_database_migrations_executed": false
+  }
+}

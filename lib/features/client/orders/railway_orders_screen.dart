@@ -40,21 +40,25 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
       tooltip:'Atualizar pedidos',onPressed:() { _refresh(); },icon:const Icon(Icons.refresh))]),
     body:FutureBuilder<List<Map<String,dynamic>>>(future:_orders,builder:(context,snapshot){
       if(snapshot.connectionState!=ConnectionState.done) return const Center(child:Column(mainAxisSize: MainAxisSize.min,children:[CircularProgressIndicator(),SizedBox(height:14),Text('Carregando seus pedidos…')]));
-      if(snapshot.hasError) return EmptyState(
+      if(snapshot.hasError) {
+        return EmptyState(
         icon: Icons.wifi_off_outlined,
         title: 'Pedidos indisponíveis',
         subtitle: 'Não foi possível consultar os pedidos agora. Verifique sua conexão.',
         buttonLabel: 'Tentar novamente',
         onButtonPressed: () { setState(_reload); },
       );
+      }
       final orders=snapshot.data??[];
-      if(orders.isEmpty) return EmptyState(
+      if(orders.isEmpty) {
+        return EmptyState(
         icon: Icons.receipt_long_outlined,
         title: 'Você ainda não fez pedidos',
         subtitle: 'Quando sua primeira compra for registrada, ela aparecerá aqui.',
         buttonLabel: 'Explorar produtos',
         onButtonPressed: () => context.go('/'),
       );
+      }
       return RefreshIndicator(onRefresh:_refresh,child:ListView.builder(
         physics:const AlwaysScrollableScrollPhysics(),itemCount:orders.length,itemBuilder:(context,index){
           final order=orders[index];
@@ -120,8 +124,10 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                       await launchUrl(uri,mode:LaunchMode.externalApplication);
                     }
                   } catch(e) {
-                    if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                    if(context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content:Text('Pagamento indisponível: $e')));
+                    }
                   }
                 },
                 icon:const Icon(Icons.open_in_new),label:const Text('Retomar pagamento')),

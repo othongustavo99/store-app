@@ -1,7 +1,6 @@
 import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/network/loja_api.dart';
 import '../widgets/railway_paged_catalog_screen.dart';
