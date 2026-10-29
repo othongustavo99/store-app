@@ -11,6 +11,7 @@ import { verifyMercadoPagoSignature } from '../security/payment_signature.js';
 import { orderEvents } from './catalog.js';
 import { cartFingerprint, type ParcelItem, type ShippingService } from '../services/shipping_rules.js';
 import { calculateCoupon, type Coupon } from '../services/coupon_rules.js';
+import { buildCheckoutItems, preferenceMatchesOrder } from '../services/checkout_totals.js';
 
 const slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48);
 const shopParams = z.object({ slug });
@@ -55,7 +56,7 @@ const webhookQuery = z.object({ 'data.id': z.coerce.string().regex(/^\d{1,30}$/)
 
 type OrderRow = {
   id:string; store_id:string; customer_id:string; status:string; is_demo:boolean;
-  subtotal_cents:string; shipping_cents:string; total_cents:string;
+  subtotal_cents:string; shipping_cents:string; total_cents:string; discount_cents:string;
   reservation_expires_at:Date|null; created_at:Date;
   checkout_url:string|null; checkout_reference:string|null; checkout_expires_at:Date|null;
 };
@@ -94,7 +95,7 @@ async function orderView(id:string, storeId:string) {
     o.shipping_delivery_days AS "shippingDeliveryDays",
     (SELECT json_build_object('carrier',s.carrier,'trackingCode',s.tracking_code,'status',s.status)
       FROM shipments s WHERE s.order_id=o.id ORDER BY s.created_at DESC LIMIT 1) AS "shipment",
-    CASE WHEN p.checkout_expires_at>now() AND NOT EXISTS (
+    CASE WHEN p.checkout_expires_at>now() AND o.discount_cents=0 AND NOT EXISTS (
       SELECT 1 FROM after_sales_requests a WHERE a.order_id=o.id
         AND a.request_type='CANCEL' AND a.status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')
     ) THEN p.checkout_url ELSE NULL END AS "checkoutUrl",
@@ -316,22 +317,35 @@ async function checkoutUrl(orderId:string,storeId:string):Promise<string> {
     if(cancel.rowCount)throw new ApiError(409,'Há um cancelamento em análise. Aguarde a equipe da loja.');
     if(o.status!=='PENDING_PAYMENT' || (o.reservation_expires_at && o.reservation_expires_at.getTime()<Date.now()))
       throw new ApiError(409,'Pedido não está mais aguardando pagamento.');
-    if(o.checkout_url && o.checkout_expires_at && o.checkout_expires_at.getTime()>Date.now()) {
-      await client.query('COMMIT'); return o.checkout_url;
-    }
     // Uma preferência por pedido enquanto o banco estiver saudável; execução serializada.
     const items=await client.query<{product_name:string;quantity:number;unit_price_cents:string}>(
       'SELECT product_name,quantity,unit_price_cents::text FROM order_items WHERE order_id=$1',[orderId]);
+    const checkoutItems = buildCheckoutItems(items.rows, {
+      subtotalCents: o.subtotal_cents, discountCents: o.discount_cents,
+      shippingCents: o.shipping_cents, totalCents: o.total_cents,
+    });
+    if(o.checkout_url && o.checkout_expires_at && o.checkout_expires_at.getTime()>Date.now()) {
+      if (BigInt(o.discount_cents) > 0n) {
+        // Preferências criadas antes desta correção podem ter ignorado o cupom.
+        // A listagem não expõe esses links diretamente: revalida ao retomar.
+        if (!o.checkout_reference) throw new ApiError(409, 'Não foi possível verificar o pagamento. Contate a loja.');
+        const path = `/checkout/preferences/${encodeURIComponent(o.checkout_reference)}`;
+        let existing = await mpFetch(path);
+        if (existing.external_reference !== orderId) throw new ApiError(409, 'Referência de pagamento divergente. Contate a loja.');
+        if (!preferenceMatchesOrder(existing, orderId, o.total_cents)) {
+          existing = await mpFetch(path, { method: 'PUT', body: JSON.stringify({ items: checkoutItems }) });
+          if (!preferenceMatchesOrder(existing, orderId, o.total_cents)) {
+            throw new ApiError(502, 'O valor do pagamento não foi confirmado. Contate a loja antes de pagar.');
+          }
+        }
+      }
+      await client.query('COMMIT'); return o.checkout_url;
+    }
     const publicUrl=config.PUBLIC_BASE_URL!.replace(/\/$/,'');
     const checkoutExpiresAt=new Date(Date.now()+30*60_000);
-    const delivery=await client.query<{shipping_cents:string}>(
-      'SELECT shipping_cents::text FROM orders WHERE id=$1 AND store_id=$2',[orderId,storeId]);
-    const fee=Number(delivery.rows[0]?.shipping_cents??0);
     const preference=await mpFetch('/checkout/preferences',{
       method:'POST', body:JSON.stringify({
-        items:[...items.rows.map(i=>({title:i.product_name,quantity:i.quantity,
-          unit_price:Number(i.unit_price_cents)/100,currency_id:'BRL'})),
-          ...(fee>0?[{title:'Frete',quantity:1,unit_price:fee/100,currency_id:'BRL'}]:[])],
+        items: checkoutItems,
         external_reference:orderId,
         notification_url:`${publicUrl}/v1/payments/mercadopago/webhook`,
         back_urls:{success:`${publicUrl}/v1/payments/return`,
@@ -343,6 +357,8 @@ async function checkoutUrl(orderId:string,storeId:string):Promise<string> {
     });
     const url=preference.init_point;
     const id=preference.id;
+    if (!preferenceMatchesOrder(preference, orderId, o.total_cents))
+      throw new ApiError(502, 'O gateway retornou um valor de cobrança divergente. Contate a loja.');
     if(typeof url!=='string' || !url.startsWith('https://') || typeof id!=='string')
       throw new ApiError(502,'O gateway não retornou uma URL de pagamento válida.');
     await client.query(`UPDATE payments SET checkout_url=$3,checkout_reference=$4,checkout_expires_at=$5,updated_at=now()

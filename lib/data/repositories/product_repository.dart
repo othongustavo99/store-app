@@ -41,6 +41,19 @@ class ProductRepository {
     return Product.fromJson(doc.id, doc.data()!);
   }
 
+  Future<List<Product>> getByIds(Iterable<String> ids) async {
+    final unique = ids.toSet().toList(growable: false);
+    if (_remote) return _railway.getProductsByIds(unique);
+    final result = <Product>[];
+    // Mantém compatibilidade com o legado sem carregar o catálogo inteiro.
+    for (var start = 0; start < unique.length; start += 10) {
+      final end = (start + 10).clamp(0, unique.length).toInt();
+      final batch = await Future.wait(unique.sublist(start, end).map(getById));
+      result.addAll(batch.whereType<Product>());
+    }
+    return result;
+  }
+
   Future<Product> addProduct(Product product) async {
     if (_remote) return _railway.addProduct(product);
     // Usa o id já gerado (ex.: antes do upload de mídia) ou cria um novo
@@ -71,7 +84,10 @@ class ProductRepository {
     String size,
     int quantity,
   ) async {
-    if (_remote) throw StateError('Desconto por compra desabilitado até a Fase 3: estoque transacional.');
+    if (_remote) {
+      throw StateError(
+          'Desconto por compra desabilitado até a Fase 3: estoque transacional.');
+    }
     if (quantity <= 0) {
       return false;
     }
@@ -217,7 +233,9 @@ class ProductRepository {
   }
 
   Future<void> resetToMock() async {
-    if (_remote) throw StateError('Reset de produtos não disponível no Railway.');
+    if (_remote) {
+      throw StateError('Reset de produtos não disponível no Railway.');
+    }
     AppEnvironment.requireDemoReset();
     final snap = await _col.get();
     for (final doc in snap.docs) {

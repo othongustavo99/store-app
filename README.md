@@ -4,9 +4,9 @@ Aplicativo Flutter para compradores e administração de lojas locais de roupas.
 
 ## Entrega atual
 
-**Etapa 01 — estabilidade, testes e diagnóstico do banco.**
+**Etapa 02 — confiabilidade da compra.**
 
-Leia [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md) para instalação do pacote, configuração Windows/Railway, validação, limitações e reversão. O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
+Leia [LEIA_ETAPA_02.md](LEIA_ETAPA_02.md) para instalar a etapa atual. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
 
 A base já contém catálogo, variantes, inventário, checkout, pedidos, atendimento, pós-venda, cupons e identidade de loja. A validação desta etapa não equivale à aprovação completa de operação comercial.
 
@@ -30,11 +30,11 @@ Em backend: npm ci, npm run build, npm test. O comando npm run db:check verifica
 
 DATABASE_URL e JWT_SECRET são configurados no ambiente do servidor/backend local. Segredos não entram no aplicativo.
 
-## Próximas prioridades
+## Entregas e próximas prioridades
 
-- Corrigir recuperação do carrinho/favoritos fora dos primeiros 50 produtos.
-- Corrigir a montagem do valor cobrado com cupom.
-- Refinar mensagens e acompanhamento após confirmação manual.
+- Recuperação de carrinho e favoritos por IDs, inclusive fora da Home: entregue na Etapa 02.
+- Montagem e conferência do valor cobrado com cupom: entregue na Etapa 02.
+- Mensagens após confirmação manual, revisão e cancelamento: entregues na Etapa 02.
 - Polir vitrine, produto, compra e rotina do lojista.
 - Tornar provisionamento, marca e integrações repetíveis por cliente.
 

@@ -18,6 +18,7 @@ class CartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final items = ref.watch(cartProvider);
+    final restoration = ref.watch(cartRestorationProvider);
     final cart = ref.read(cartProvider.notifier);
     final money = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
     final subtotal = items.fold<double>(0, (sum, item) => sum + item.total);
@@ -61,7 +62,18 @@ class CartScreen extends ConsumerWidget {
         ],
       ),
       body: items.isEmpty
-          ? const _EmptyCart()
+          ? restoration.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, __) => EmptyState(
+                icon: Icons.wifi_off_outlined,
+                title: 'Não foi possível recuperar seu carrinho',
+                subtitle:
+                    'Seus itens salvos foram preservados. Verifique a conexão e tente novamente.',
+                buttonLabel: 'Tentar novamente',
+                onButtonPressed: () => ref.invalidate(cartRestorationProvider),
+              ),
+              data: (_) => const _EmptyCart(),
+            )
           : Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1140),
@@ -71,14 +83,16 @@ class CartScreen extends ConsumerWidget {
                     final list = ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: items.length + 1,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         if (index == items.length) {
                           return const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Text(
                               'Os preços e a disponibilidade serão confirmados pela loja na finalização. Adicionar ao carrinho não reserva estoque.',
-                              style: TextStyle(color: AppColors.textSecondary, height: 1.45),
+                              style: TextStyle(
+                                  color: AppColors.textSecondary, height: 1.45),
                             ),
                           );
                         }
@@ -87,8 +101,10 @@ class CartScreen extends ConsumerWidget {
                           key: ValueKey(item.id),
                           item: item,
                           money: money,
-                          onDecrease: () => cart.updateQuantity(item.id, item.quantity - 1),
-                          onIncrease: () => cart.updateQuantity(item.id, item.quantity + 1),
+                          onDecrease: () =>
+                              cart.updateQuantity(item.id, item.quantity - 1),
+                          onIncrease: () =>
+                              cart.updateQuantity(item.id, item.quantity + 1),
                           onRemove: () => cart.removeItem(item.id),
                         );
                       },
@@ -153,7 +169,8 @@ class _CartLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final available = item.product.getVariant(item.color, item.size)?.stock ?? 0;
+    final available =
+        item.product.getVariant(item.color, item.size)?.stock ?? 0;
     final atLimit = item.quantity >= available;
     return Card(
       child: Padding(
@@ -169,7 +186,8 @@ class _CartLine extends StatelessWidget {
                 child: item.product.images.isEmpty
                     ? const ColoredBox(
                         color: AppColors.divider,
-                        child: Icon(Icons.image_outlined, color: AppColors.textLight),
+                        child: Icon(Icons.image_outlined,
+                            color: AppColors.textLight),
                       )
                     : CachedNetworkImage(
                         imageUrl: item.product.images.first,
@@ -190,13 +208,20 @@ class _CartLine extends StatelessWidget {
                   Text(item.product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 3),
                   Text('${item.color} · ${item.size}',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12)),
                   const SizedBox(height: 8),
                   Text(money.format(item.total),
-                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800, fontSize: 16)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16)),
                   const SizedBox(height: 10),
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -211,10 +236,14 @@ class _CartLine extends StatelessWidget {
                       ),
                       Semantics(
                         label: '${item.quantity} unidades',
-                        child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        child: Text('${item.quantity}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                       IconButton.outlined(
-                        tooltip: atLimit ? 'Limite de estoque atingido' : 'Aumentar quantidade',
+                        tooltip: atLimit
+                            ? 'Limite de estoque atingido'
+                            : 'Aumentar quantidade',
                         visualDensity: VisualDensity.compact,
                         onPressed: atLimit ? null : onIncrease,
                         icon: const Icon(Icons.add, size: 18),
@@ -223,12 +252,14 @@ class _CartLine extends StatelessWidget {
                         tooltip: 'Remover produto',
                         visualDensity: VisualDensity.compact,
                         onPressed: onRemove,
-                        icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                        icon: const Icon(Icons.delete_outline,
+                            color: AppColors.error),
                       ),
                     ],
                   ),
                   if (available <= 0)
-                    const Text('Produto indisponível; remova-o antes de comprar.',
+                    const Text(
+                        'Produto indisponível; remova-o antes de comprar.',
                         style: TextStyle(color: AppColors.error, fontSize: 12)),
                 ],
               ),
@@ -241,8 +272,12 @@ class _CartLine extends StatelessWidget {
 }
 
 class _OrderSummary extends StatelessWidget {
-  const _OrderSummary({required this.subtotal, required this.count, required this.money,
-    required this.canCheckout, required this.onCheckout});
+  const _OrderSummary(
+      {required this.subtotal,
+      required this.count,
+      required this.money,
+      required this.canCheckout,
+      required this.onCheckout});
   final double subtotal;
   final int count;
   final NumberFormat money;
@@ -257,20 +292,32 @@ class _OrderSummary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Resumo', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            Text('Resumo',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 14),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('$count ${count == 1 ? 'item' : 'itens'}'),
-              Text(money.format(subtotal), style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(money.format(subtotal),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             ]),
             const SizedBox(height: 10),
-            const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('Entrega'), Text('A calcular no checkout', style: TextStyle(fontSize: 12)),
-            ]),
+            const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Entrega'),
+                  Text('A calcular no checkout',
+                      style: TextStyle(fontSize: 12)),
+                ]),
             const Divider(height: 26),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Subtotal dos produtos', style: TextStyle(fontWeight: FontWeight.w700)),
-              Text(money.format(subtotal), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              const Text('Subtotal dos produtos',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(money.format(subtotal),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 18)),
             ]),
             const SizedBox(height: 14),
             FilledButton.icon(
@@ -279,7 +326,8 @@ class _OrderSummary extends StatelessWidget {
               label: const Text('Continuar para o checkout'),
             ),
             const SizedBox(height: 8),
-            const Text('O valor final pode incluir frete e será validado pelo servidor.',
+            const Text(
+                'O valor final pode incluir frete e será validado pelo servidor.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],

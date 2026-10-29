@@ -132,7 +132,7 @@ function toPublicProduct(p: ProductRow) {
   };
 }
 
-async function products(storeId: string, includeUnpublished: boolean, productId: string | null = null) {
+async function products(storeId: string, includeUnpublished: boolean, productId: string | null = null, ids: string[] | null = null) {
   const result = await pool.query<ProductRow>(`
     SELECT p.id,p.name,p.description,p.category_id,p.size_guide,p.status,p.created_at,
            p.images,p.videos,p.old_price_cents,p.is_featured,p.is_new,
@@ -143,7 +143,8 @@ async function products(storeId: string, includeUnpublished: boolean, productId:
              FROM product_variants v WHERE v.product_id=p.id AND v.status='ACTIVE'), '[]'::jsonb) AS variants
     FROM products p WHERE p.store_id=$1 AND (($2::boolean AND p.status <> 'ARCHIVED') OR p.status='PUBLISHED')
     AND ($3::uuid IS NULL OR p.id=$3)
-    ORDER BY p.created_at DESC LIMIT 500`, [storeId, includeUnpublished, productId]);
+    AND ($4::uuid[] IS NULL OR p.id=ANY($4::uuid[]))
+    ORDER BY p.created_at DESC LIMIT 500`, [storeId, includeUnpublished, productId, ids]);
   return result.rows.map(toPublicProduct);
 }
 
@@ -153,6 +154,12 @@ async function assertCategory(client: PoolClient, storeId: string, categoryId: s
 }
 
 export async function catalogRoutes(app: FastifyInstance) {
+  // Recupera somente produtos públicos desta loja, independentemente da página da vitrine.
+  app.post('/v1/shops/:slug/catalog/products/resolve', async req => {
+    const { slug } = validated(publicParams, req.params);
+    const { ids } = validated(z.object({ ids: z.array(uuidParam).min(1).max(100) }).strict(), req.body);
+    return { products: await products(await lookupStore(slug), false, null, [...new Set(ids)]) };
+  });
   app.get('/v1/shops/:slug/catalog/categories', async (req) => {
     const { slug } = validated(publicParams, req.params);
     return { categories: await categories(await lookupStore(slug)) };

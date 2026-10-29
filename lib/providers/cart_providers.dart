@@ -16,16 +16,22 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
   final CartRepository _repo;
 
   CartNotifier(this._repo) : super(_repo.items) {
-    _restore();
+    // A shell inicia a recuperação antes de abrir a tela. A tela observa o mesmo Future.
+    restore().ignore();
+  }
+
+  Future<void>? _restoring;
+  bool _restored = false;
+
+  Future<void> restore() {
+    if (_restored) return Future<void>.value();
+    return _restoring ??= _restore().whenComplete(() => _restoring = null);
   }
 
   Future<void> _restore() async {
-    try {
-      final items=await _repo.restore();
-      if(mounted) state=items;
-    } catch (_) {
-      // Sem internet, preservamos o armazenamento local para a próxima abertura.
-    }
+    final items = await _repo.restore();
+    _restored = true;
+    if (mounted) state = items;
   }
 
   int get itemCount => _repo.itemCount;
@@ -61,6 +67,9 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     state = [];
   }
 }
+
+final cartRestorationProvider = FutureProvider.autoDispose<void>(
+    (ref) => ref.watch(cartProvider.notifier).restore());
 
 // Provider só para a quantidade (útil no badge do carrinho)
 final cartItemCountProvider = Provider<int>((ref) {

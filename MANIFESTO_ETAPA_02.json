@@ -1,0 +1,130 @@
+{
+  "stage": "02",
+  "previous_stage_required": "01",
+  "title": "Confiabilidade da compra",
+  "base_repository": "https://github.com/othongustavo99/store-app",
+  "base_commit": "fca2116a46752e13bc2c46910f29e7b3618d914b",
+  "installation_root": "pasta que contém pubspec.yaml",
+  "deployment_order": [
+    "backend",
+    "aplicativo"
+  ],
+  "files": [
+    {
+      "path": "LEIA_ETAPA_02.md",
+      "operation": "ADICIONAR",
+      "sha256": "875cd3f4d0f4d4b233944de059a100a598df484c668763a749bfb953244e1f85"
+    },
+    {
+      "path": "README.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "ec47cb96d37cf5cdc1e13bb0a9d7646e4a71c9d8f4ee56ba8a13292be55b7125"
+    },
+    {
+      "path": "backend/src/routes/catalog.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "7e07c8eb54d4b78a688232c6b1de55ec1392d86c6ac93d1115d35525a32ec764"
+    },
+    {
+      "path": "backend/src/routes/commerce.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "5d3f59caa0f1a69a9c43487456d1361fa0c1048572bef29b75d7df3399c168d7"
+    },
+    {
+      "path": "backend/src/services/checkout_totals.ts",
+      "operation": "ADICIONAR",
+      "sha256": "338cfc422e765872b256ac27db3855482ebfcd4778b2a259c73540418563a3c4"
+    },
+    {
+      "path": "backend/src/tests/catalog_resolve.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "36f763e4f379b824f6d81fb2c6723b1d04c670235d138c3c8b7d56b900c97c43"
+    },
+    {
+      "path": "backend/src/tests/checkout_route.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "39a117e849e588fcdd268ad36e370a0bfe24b1083ee4dea821dbfafdbde79751"
+    },
+    {
+      "path": "backend/src/tests/checkout_totals.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "a5b36226476302f2a36bb0885627f5165a04dd824e3707fa425aa877252a758e"
+    },
+    {
+      "path": "docs/EVOLUCAO_MODELO_COMERCIAL.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "c6fa6b1bd698408236b61e5bd0f7063b1e3cb867d86ddc654c4410e85410e443"
+    },
+    {
+      "path": "lib/data/repositories/cart_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "2c224abecff33463bc17a26012c4e5783c6ee6be118facf4660eeafbeb1b32c1"
+    },
+    {
+      "path": "lib/data/repositories/product_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "551c4730f991138b91f07cd2b0542c58128d068fa58a40fe2996e5a3a89b5c3e"
+    },
+    {
+      "path": "lib/data/repositories/railway_catalog_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "db53d88180b51e411e5c825c452fbb0525fd7cb35bbe36b8e11a2a600c57ed27"
+    },
+    {
+      "path": "lib/features/client/cart/cart_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "2ff46d1bdf824bd9f0cd2c3a326151f0fea61a5fd9b7b3a57916a2a18f4e0e29"
+    },
+    {
+      "path": "lib/features/client/favorites/favorites_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "09635c11bed5707745641a931cb51a9ac903513f3db4431efc9383487c706c58"
+    },
+    {
+      "path": "lib/features/client/orders/railway_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "1869f3d98e5c6240afdd61577939be9ad9a9dd6dbd7867707e6fc3362403c8c0"
+    },
+    {
+      "path": "lib/features/client/orders/widgets/offline_payment_notice.dart",
+      "operation": "ADICIONAR",
+      "sha256": "c889db7aff3b872918d022dc6088ca7740f0d0aaf2948f2dda6df63fa486096d"
+    },
+    {
+      "path": "lib/providers/cart_providers.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "b082325e85caf0edf4734bcee391bc1ec75e3452cd3c59471816751d613df5fb"
+    },
+    {
+      "path": "lib/providers/favorites_providers.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "9da9164753a174f57c1091c47d4396b987de61669ec0900fdaa96ebf77af28e1"
+    },
+    {
+      "path": "test/stage02_catalog_resolution_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "39f08fda9ac609a6fa8328d60e50a06def4bb2c42d328750a067fc6e23d6ac6c"
+    },
+    {
+      "path": "test/stage02_payment_notice_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "055aa39e2ddba50131861cb5bc2f18519ab066eec3e507c129c57c15c70587e9"
+    },
+    {
+      "path": "test/stage02_saved_products_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "14ff5689b312bab8fa6f5881d5aad2df72821d47e207171e2369336e754eacbd"
+    }
+  ],
+  "remove": [],
+  "sql_migrations_changed": false,
+  "dependencies_changed": false,
+  "validation": {
+    "flutter_analyze": "No issues found",
+    "flutter_tests_passed": 40,
+    "backend_tests_passed": 71,
+    "additional_railway_flag_tests_passed": 13,
+    "live_database_migrations_executed": false,
+    "live_payments_executed": false
+  }
+}
