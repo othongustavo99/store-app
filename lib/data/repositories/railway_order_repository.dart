@@ -11,8 +11,8 @@ class RailwayOrderRepository {
   final LojaApi _api = LojaApi.instance;
   final RailwayAfterSalesRepository _afterSales = RailwayAfterSalesRepository();
 
-  Future<Map<String,dynamic>> checkoutAvailability() => _api.request('GET',
-      '/v1/shops/${LojaBackend.storeSlug}/checkout/availability');
+  Future<Map<String, dynamic>> checkoutAvailability() => _api.request(
+      'GET', '/v1/shops/${LojaBackend.storeSlug}/checkout/availability');
 
   Future<bool> checkoutEnabled() async =>
       (await checkoutAvailability())['enabled'] == true;
@@ -26,81 +26,100 @@ class RailwayOrderRepository {
     String? demoPaymentMethod,
     String? offlineMethod,
     String? couponCode,
+    String notes = '',
     String? quoteId,
     String? serviceId,
-    Map<String,String>? address,
+    Map<String, String>? address,
   }) async {
     final result = await _api.request(
-      'POST', '/v1/shops/${LojaBackend.storeSlug}/checkout/orders',
+      'POST',
+      '/v1/shops/${LojaBackend.storeSlug}/checkout/orders',
       authenticated: true,
       body: {
         'idempotencyKey': idempotencyKey,
-        if (couponCode != null && couponCode.isNotEmpty) 'couponCode': couponCode,
+        if (couponCode != null && couponCode.isNotEmpty)
+          'couponCode': couponCode,
         'fulfillment': fulfillment,
+        'notes': notes.trim(),
         if (demoPaymentMethod != null) 'demoPaymentMethod': demoPaymentMethod,
         if (offlineMethod != null) 'offlineMethod': offlineMethod,
-        if(fulfillment == 'DELIVERY') 'shipping': {
-          'quoteId': quoteId, 'serviceId': serviceId, 'address': address,
+        if (fulfillment == 'DELIVERY')
+          'shipping': {
+            'quoteId': quoteId,
+            'serviceId': serviceId,
+            'address': address,
+          },
+        'customer': {
+          'name': customerName.trim(),
+          'phone': customerPhone.trim()
         },
-        'customer': {'name': customerName.trim(), 'phone': customerPhone.trim()},
-        'items': cart.map((c) => {
-          'productId': c.product.id,
-          'color': c.color,
-          'size': c.size,
-          'quantity': c.quantity,
-        }).toList(),
+        'items': cart
+            .map((c) => {
+                  'productId': c.product.id,
+                  'color': c.color,
+                  'size': c.size,
+                  'quantity': c.quantity,
+                })
+            .toList(),
       },
     );
     return result;
   }
 
   Future<String> retryCheckout(String orderId) async {
-    final response = await _api.request('POST',
-        '/v1/shops/${LojaBackend.storeSlug}/orders/$orderId/checkout',
+    final response = await _api.request(
+        'POST', '/v1/shops/${LojaBackend.storeSlug}/orders/$orderId/checkout',
         authenticated: true);
     final url = response['checkoutUrl'];
-    if (url is! String || url.isEmpty) throw StateError('Link de pagamento indisponível.');
+    if (url is! String || url.isEmpty) {
+      throw StateError('Link de pagamento indisponível.');
+    }
     return url;
   }
 
   Future<List<Map<String, dynamic>>> myOrders() async {
-    final response = await _api.request('GET',
-        '/v1/shops/${LojaBackend.storeSlug}/orders', authenticated: true);
+    final response = await _api.request(
+        'GET', '/v1/shops/${LojaBackend.storeSlug}/orders',
+        authenticated: true);
     return _mergeCases(_list(response), await _afterSales.list(admin: false));
   }
 
   Future<List<Map<String, dynamic>>> adminOrders() async {
     await _api.fetchStoreId();
-    final response = await _api.request('GET',
-        '/v1/stores/${_api.storeId}/orders', authenticated: true);
+    final response = await _api.request(
+        'GET', '/v1/stores/${_api.storeId}/orders',
+        authenticated: true);
     return _mergeCases(_list(response), await _afterSales.list(admin: true));
   }
 
-  List<Map<String, dynamic>> _mergeCases(List<Map<String, dynamic>> orders,
-      List<Map<String, dynamic>> requests) {
+  List<Map<String, dynamic>> _mergeCases(
+      List<Map<String, dynamic>> orders, List<Map<String, dynamic>> requests) {
     for (final order in orders) {
-      order['afterSalesRequests'] = requests
-          .where((item) => item['orderId'] == order['id']).toList();
+      order['afterSalesRequests'] =
+          requests.where((item) => item['orderId'] == order['id']).toList();
     }
     return orders;
   }
 
   Future<Map<String, dynamic>> confirmOffline(String orderId) async {
     await _api.fetchStoreId();
-    final response = await _api.request('POST',
-      '/v1/stores/${_api.storeId}/orders/$orderId/confirm-offline', authenticated: true);
+    final response = await _api.request(
+        'POST', '/v1/stores/${_api.storeId}/orders/$orderId/confirm-offline',
+        authenticated: true);
     return Map<String, dynamic>.from(response['order'] as Map);
   }
 
-  Future<Map<String, dynamic>> changeStatus(String orderId, String status) async {
+  Future<Map<String, dynamic>> changeStatus(
+      String orderId, String status) async {
     await _api.fetchStoreId();
-    final response = await _api.request('PATCH',
-        '/v1/stores/${_api.storeId}/orders/$orderId/status',
+    final response = await _api.request(
+        'PATCH', '/v1/stores/${_api.storeId}/orders/$orderId/status',
         authenticated: true, body: {'status': status});
     return Map<String, dynamic>.from(response['order'] as Map);
   }
 
-  Future<Map<String, dynamic>> timeline(String orderId, {required bool admin}) async {
+  Future<Map<String, dynamic>> timeline(String orderId,
+      {required bool admin}) async {
     final path = admin
         ? '/v1/stores/${await _api.fetchStoreId()}/orders/$orderId/timeline'
         : '/v1/shops/${LojaBackend.storeSlug}/orders/$orderId/timeline';
@@ -109,7 +128,8 @@ class RailwayOrderRepository {
 
   List<Map<String, dynamic>> _list(Map<String, dynamic> data) =>
       (data['orders'] as List? ?? const [])
-          .map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
 
   static String newCheckoutKey() => const Uuid().v4();
 }

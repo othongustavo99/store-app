@@ -12,6 +12,7 @@ const adminParams = z.object({storeId:uuidParam,orderId:uuidParam}).strict();
 
 async function timeline(storeId:string,orderId:string,customerId?:string) {
   const found=await pool.query(`SELECT id,status,fulfillment_method AS "fulfillment",
+    shipping_service_id AS "shippingServiceId",shipping_address AS "customerContact",
     created_at AS "createdAt" FROM orders WHERE id=$1 AND store_id=$2
       AND ($3::uuid IS NULL OR customer_id=$3)`,[orderId,storeId,customerId??null]);
   if(!found.rowCount)throw new ApiError(404,'Pedido não encontrado.');

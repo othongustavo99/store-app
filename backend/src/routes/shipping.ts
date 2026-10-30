@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { fulfillmentInput, fulfillmentSettings, localFingerprint, localRate } from '../services/local_fulfillment.js';
 import { config } from '../config.js';
 import { pool } from '../db/pool.js';
 import { ApiError } from '../security/errors.js';
@@ -11,7 +12,7 @@ const postal=z.string().regex(/^\d{8}$/,'CEP deve conter 8 dígitos');
 const shopParams=z.object({slug:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3).max(48)});
 const storeParams=z.object({storeId:uuidParam});
 const variantParams=storeParams.extend({variantId:uuidParam});
-const quoteBody=z.object({destinationPostalCode:postal,items:z.array(z.object({
+const quoteBody=z.object({destinationPostalCode:postal,mode:z.enum(['CARRIER','LOCAL']).default('CARRIER'),items:z.array(z.object({
   productId:uuidParam,color:z.string().min(1).max(60),size:z.string().min(1).max(50),
   quantity:z.number().int().min(1).max(20)
 }).strict()).min(1).max(30)}).strict();
@@ -30,7 +31,9 @@ export async function shippingRoutes(app:FastifyInstance) {
   app.get('/v1/shops/:slug/shipping/availability',async req=>{
     const {slug}=validated(shopParams,req.params); const storeId=await findStore(slug);
     const origin=await pool.query('SELECT 1 FROM store_shipping_settings WHERE store_id=$1',[storeId]);
-    return {enabled:providerEnabled(storeId)&&!!origin.rowCount, pickup:true,
+    const local=fulfillmentSettings((await pool.query('SELECT * FROM store_fulfillment_settings WHERE store_id=$1',[storeId])).rows[0]);
+    return {localDelivery:local.localEnabled,localFeeCents:local.localFeeCents,localEstimate:local.localEstimate,
+      pickupAddress:local.pickupAddress,pickupHours:local.pickupHours,enabled:providerEnabled(storeId)&&!!origin.rowCount, pickup:true,
       delivery:providerEnabled(storeId)&&!!origin.rowCount, sandbox:config.SHIPPING_MELHOR_ENVIO_SANDBOX};
   });
 
@@ -38,12 +41,13 @@ export async function shippingRoutes(app:FastifyInstance) {
     const {slug}=validated(shopParams,req.params);
     const {userId}=await requireIdentity(req);
     const storeId=await findStore(slug);
-    if(!providerEnabled(storeId)) throw new ApiError(503,'Cálculo de entrega ainda não habilitado nesta loja.');
     const body=validated(quoteBody,req.body);
+    const local=body.mode==='LOCAL';
+    if(!local && !providerEnabled(storeId)) throw new ApiError(503,'Cálculo de entrega ainda não habilitado nesta loja.');
     const setting=await pool.query<{origin_postal_code:string}>(
       'SELECT origin_postal_code FROM store_shipping_settings WHERE store_id=$1',[storeId]);
-    if(!setting.rowCount) throw new ApiError(409,'CEP de origem não cadastrado pela loja.');
-    const origin=setting.rows[0].origin_postal_code;
+    if(!local && !setting.rowCount) throw new ApiError(409,'CEP de origem não cadastrado pela loja.');
+    const origin=local?'00000000':setting.rows[0].origin_postal_code;
     const grouped=new Map<string,{productId:string;color:string;size:string;quantity:number}>();
     for(const line of body.items){
       const key=`${line.productId}:${line.color.toLowerCase().trim()}:${line.size.toLowerCase().trim()}`;
@@ -67,10 +71,22 @@ export async function shippingRoutes(app:FastifyInstance) {
       if(!r.rowCount)throw new ApiError(409,'Produto ou variante indisponível.');
       const v=r.rows[0];
       if(v.on_hand-v.reserved<line.quantity) throw new ApiError(409,'Estoque insuficiente. Atualize seu carrinho.');
-      if(!v.weight_kg||!v.width_cm||!v.height_cm||!v.length_cm)
+      if(!local && (!v.weight_kg||!v.width_cm||!v.height_cm||!v.length_cm))
         throw new ApiError(409,'A loja ainda não cadastrou peso e dimensões de todos os produtos no carrinho.');
       items.push({variantId:v.id,quantity:line.quantity,unitCents:v.price_cents,
         weightKg:Number(v.weight_kg),widthCm:Number(v.width_cm),heightCm:Number(v.height_cm),lengthCm:Number(v.length_cm)});
+    }
+    if(local){
+      const settings=fulfillmentSettings((await pool.query(
+        'SELECT * FROM store_fulfillment_settings WHERE store_id=$1',[storeId])).rows[0]);
+      const rate=localRate(settings,body.destinationPostalCode);
+      if(!rate)throw new ApiError(409,'Entrega local indisponível para este CEP. Escolha retirada ou outro endereço.');
+      const saved=await pool.query<{id:string;expires_at:Date}>(`
+        INSERT INTO shipping_quotes(store_id,customer_id,origin_postal_code,destination_postal_code,cart_hash,services,expires_at,provider)
+        VALUES($1,$2,$3,$4,$5,$6::jsonb,now()+interval '15 minutes','LOCAL') RETURNING id,expires_at`,
+        [storeId,userId,origin,body.destinationPostalCode,
+          localFingerprint(settings,body.destinationPostalCode,items),JSON.stringify([rate])]);
+      return {quoteId:saved.rows[0].id,expiresAt:saved.rows[0].expires_at,options:[rate],sandbox:false,provider:'LOCAL'};
     }
     const endpoint=config.SHIPPING_MELHOR_ENVIO_SANDBOX
       ?'https://sandbox.melhorenvio.com.br':'https://melhorenvio.com.br';
@@ -95,12 +111,12 @@ export async function shippingRoutes(app:FastifyInstance) {
       VALUES($1,$2,$3,$4,$5,$6::jsonb,now()+interval '15 minutes') RETURNING id,expires_at`,
       [storeId,userId,origin,body.destinationPostalCode,fingerprint,JSON.stringify(options)]);
     return {quoteId:saved.rows[0].id,expiresAt:saved.rows[0].expires_at,options,
-      sandbox:config.SHIPPING_MELHOR_ENVIO_SANDBOX};
+      sandbox:config.SHIPPING_MELHOR_ENVIO_SANDBOX,provider:'CARRIER'};
   });
 
   app.get('/v1/stores/:storeId/shipping/setup',async req=>{
     const {storeId}=validated(storeParams,req.params);
-    await requireStoreRole(req,storeId,['OWNER','MANAGER','STAFF']);
+    const {role}=await requireStoreRole(req,storeId,['OWNER','MANAGER','STAFF']);
     const setting=await pool.query<{origin_postal_code:string}>(
       'SELECT origin_postal_code FROM store_shipping_settings WHERE store_id=$1',[storeId]);
     const variants=await pool.query(`SELECT v.id,v.sku,p.name AS "productName",
@@ -109,8 +125,23 @@ export async function shippingRoutes(app:FastifyInstance) {
       FROM product_variants v JOIN products p ON p.id=v.product_id AND p.store_id=v.store_id
       LEFT JOIN shipping_variant_parcels sp ON sp.variant_id=v.id AND sp.store_id=v.store_id
       WHERE v.store_id=$1 AND p.status<>'ARCHIVED' ORDER BY p.name,v.sku LIMIT 300`,[storeId]);
-    return {enabled:providerEnabled(storeId),originPostalCode:setting.rows[0]?.origin_postal_code??'',
+    const local=fulfillmentSettings((await pool.query('SELECT * FROM store_fulfillment_settings WHERE store_id=$1',[storeId])).rows[0]);
+    return {myRole:role,fulfillment:local,enabled:providerEnabled(storeId),originPostalCode:setting.rows[0]?.origin_postal_code??'',
       sandbox:config.SHIPPING_MELHOR_ENVIO_SANDBOX,variants:variants.rows};
+  });
+  app.put('/v1/stores/:storeId/shipping/fulfillment',async req=>{
+    const {storeId}=validated(storeParams,req.params);
+    const {identity}=await requireStoreRole(req,storeId,['OWNER','MANAGER']);
+    const data=validated(fulfillmentInput,req.body);
+    await pool.query(`INSERT INTO store_fulfillment_settings
+      (store_id,pickup_address,pickup_hours,local_enabled,local_fee_cents,local_estimate,local_postal_ranges,updated_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8) ON CONFLICT(store_id) DO UPDATE SET
+      pickup_address=EXCLUDED.pickup_address,pickup_hours=EXCLUDED.pickup_hours,
+      local_enabled=EXCLUDED.local_enabled,local_fee_cents=EXCLUDED.local_fee_cents,
+      local_estimate=EXCLUDED.local_estimate,local_postal_ranges=EXCLUDED.local_postal_ranges,
+      updated_by=EXCLUDED.updated_by,updated_at=now()`,[storeId,data.pickupAddress,data.pickupHours,
+        data.localEnabled,data.localFeeCents,data.localEstimate,JSON.stringify(data.localPostalRanges),identity.userId]);
+    return {ok:true};
   });
   app.put('/v1/stores/:storeId/shipping/origin',async req=>{
     const {storeId}=validated(storeParams,req.params);

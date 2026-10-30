@@ -4,9 +4,9 @@ Aplicativo Flutter para compradores e administração de lojas locais de roupas.
 
 ## Entrega atual
 
-**Etapa 03 — vitrine, busca e produto.**
+**Etapa 04 — checkout, recebimento e acompanhamento.**
 
-Leia [LEIA_ETAPA_03.md](LEIA_ETAPA_03.md) para instalar a etapa atual, sobre as Etapas 01 e 02. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
+Leia [LEIA_ETAPA_04.md](LEIA_ETAPA_04.md) para instalar a etapa atual, sobre as Etapas 01 a 03. Esta etapa inclui a migration 017: aplique banco, depois backend e aplicativo. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
 
 A base já contém catálogo, variantes, inventário, checkout, pedidos, atendimento, pós-venda, cupons e identidade de loja. A validação desta etapa não equivale à aprovação completa de operação comercial.
 
@@ -36,10 +36,10 @@ DATABASE_URL e JWT_SECRET são configurados no ambiente do servidor/backend loca
 - Montagem e conferência do valor cobrado com cupom: entregue na Etapa 02.
 - Mensagens após confirmação manual, revisão e cancelamento: entregues na Etapa 02.
 - Vitrine por marca, filtros reais, ordenação, fotos por variante e ações de compra: entregues na Etapa 03.
-- Próxima prioridade: checkout, entrega/retirada local e acompanhamento do pedido.
-- Em seguida: polir a rotina do lojista.
+- Checkout revisado, retirada com orientações, entrega local por CEP e histórico de pedidos: entregues na Etapa 04.
+- Próxima prioridade: polir a rotina administrativa do lojista.
 - Tornar provisionamento, marca e integrações repetíveis por cliente.
 
-Recebimento e frete externos ainda dependem de configuração de loja piloto. Antes de operar com clientes reais, validar integração própria do lojista, assinatura de distribuição e os cenários completos de compra em homologação.
+Pagamento online e frete por transportadora ainda dependem de configuração de loja piloto. Entrega local usa taxa fixa e faixas de CEP cadastradas pelo lojista, sem transportadora. Antes de operar com clientes reais, validar integração própria do lojista, assinatura de distribuição e os cenários completos de compra em homologação.
 
 Os documentos de fases antigas em docs são referências históricas; verifique o registro da etapa atual antes de seguir seus comandos.

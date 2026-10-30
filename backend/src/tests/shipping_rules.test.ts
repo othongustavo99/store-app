@@ -7,6 +7,7 @@ test('cotação não usa preço arbitrário nem taxas inválidas',()=>{
     {id:1,name:'PAC',company:{name:'Correios'},custom_price:'18.90',custom_delivery_time:5},
     {id:2,name:'INVALID',company:{name:'X'},error:'undeliverable',price:'1.00'},
     {id:3,name:'invalid',company:{name:'X'},price:'-1.00',delivery_time:0},
+    {id:0,name:'reserved',company:{name:'X'},price:'1.00',delivery_time:1},
   ]);
   assert.deepEqual(result,[{id:'1',name:'PAC',carrier:'Correios',priceCents:1890,deliveryDays:5}]);
   assert.equal(decimalCents('1.999'),null);

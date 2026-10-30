@@ -16,7 +16,9 @@ A conexão com o banco foi confirmada como resolvida pelo usuário antes da Etap
 
 Etapa 03 entregue, a partir do commit 4fa14a4d2a0c876530d9136f5a0d3232b788e2d7: vitrine com identidade compartilhada, seções sem repetição, busca com opções reais e ordenação paginada, navegação por categoria/oferta integrada aos filtros, fotos por variante, barra fixa de compra e contraste do tema. Limite de quantidade alinhado ao servidor: 20 por combinação. Sem SQL ou dependências novas. Backend antes do aplicativo. Instalação, configuração de marca e verificações em LEIA_ETAPA_03.md.
 
-Próxima etapa prevista: checkout, entrega/retirada local e acompanhamento do pedido.
+Etapa 04 entregue, a partir do commit 8a599a8a4e68682e5b62837ac011906b5ec4cb29: revisão completa de contato/recebimento/pagamento, confirmação persistente na tela após registro, proteção contra respostas antigas de CEP/cotação/cupom, retirada com endereço/horário, entrega local por faixas de CEP e taxa fixa revalidada no servidor, saída/conclusão local sem rastreio artificial e histórico legível com nova tentativa. Inclui migration 017_local_fulfillment.sql. Ordem: migration, backend e aplicativo. Instruções em LEIA_ETAPA_04.md.
+
+Próxima etapa prevista: operação administrativa — cadastro, estoque, pedidos e clareza das ações do lojista.
 
 Pendências seguintes: operação administrativa; provisionamento por lojista e demonstração comercial; validação de integrações e revisão de dependências antes da operação comercial.
 

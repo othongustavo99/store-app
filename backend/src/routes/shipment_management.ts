@@ -21,9 +21,11 @@ export async function shipmentManagementRoutes(app:FastifyInstance){
     const client=await pool.connect();
     try{
       await client.query('BEGIN');
-      const order=await client.query<{status:string;fulfillment_method:string;shipping_carrier:string|null}>(
-        'SELECT status,fulfillment_method,shipping_carrier FROM orders WHERE id=$1 AND store_id=$2 FOR UPDATE',[orderId,storeId]);
+      const order=await client.query<{status:string;fulfillment_method:string;shipping_carrier:string|null;shipping_service_id:string|null}>(
+        'SELECT status,fulfillment_method,shipping_carrier,shipping_service_id FROM orders WHERE id=$1 AND store_id=$2 FOR UPDATE',[orderId,storeId]);
       if(!order.rowCount)throw new ApiError(404,'Pedido não encontrado.');
+      if(order.rows[0].shipping_service_id==='0')
+        throw new ApiError(409,'Entrega local usa a atualização do pedido e não exige código de transportadora.');
       if(order.rows[0].fulfillment_method!=='DELIVERY' || order.rows[0].status!=='PREPARING')
         throw new ApiError(409,'Apenas entregas pagas e em preparação podem ser postadas.');
       const pending=await client.query(`SELECT 1 FROM after_sales_requests WHERE order_id=$1

@@ -109,8 +109,9 @@ export async function storeProfileRoutes(app: FastifyInstance): Promise<void> {
       },
       limitations: [
         'Cada lojista ainda precisa de sua integração financeira própria antes de receber pagamentos.',
-        'Frete multi-loja exige autorização de transportadora por estabelecimento; apenas a loja-piloto pode cotar no momento.',
+        'Frete por transportadora exige autorização por estabelecimento; a integração atual atende à loja-piloto.',
         'Retirada na loja está disponível sem provedor de frete.',
+        'Entrega local pode ser configurada por faixa de CEP no painel de frete, sem token de transportadora.',
       ],
     };
   });

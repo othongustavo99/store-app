@@ -1,3 +1,4 @@
+import { fulfillmentSettings, localFingerprint, localRate } from '../services/local_fulfillment.js';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { PoolClient } from 'pg';
@@ -144,8 +145,8 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
         'SELECT offline_methods FROM store_profiles WHERE store_id=$1',[storeId]);
       if (!enabled.rows[0]?.offline_methods?.includes(body.offlineMethod))
         throw new ApiError(409,'Essa forma de combinar pagamento foi desativada pela loja.');
-      if(body.fulfillment !== 'PICKUP')
-        throw new ApiError(400,'Pedidos com pagamento local disponíveis somente para retirada.');
+      if(body.fulfillment !== 'PICKUP' && body.offlineMethod==='PAY_ON_PICKUP')
+        throw new ApiError(400,'Pagar na retirada exige retirada na loja.');
     }
     // A mesma intenção de checkout nunca pode reservar duas vezes.
     const previous=await client.query<{id:string}>(`
@@ -192,22 +193,36 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
     let shippingCents=0;
     let selected:ShippingService|null=null;
     let shippingAddress:Record<string,unknown>={name:body.customer.name,phone:body.customer.phone,notes:body.notes,fulfillment:'PICKUP'};
+    if(body.fulfillment==='PICKUP'){
+      const pickup=fulfillmentSettings((await client.query(
+        'SELECT * FROM store_fulfillment_settings WHERE store_id=$1 FOR SHARE',[storeId])).rows[0]);
+      shippingAddress={...shippingAddress,pickupAddress:pickup.pickupAddress,pickupHours:pickup.pickupHours};
+    }
     if(body.fulfillment==='DELIVERY'){
-      // Cotações sandbox nunca podem fundamentar uma cobrança real.
-      if(config.SHIPPING_MELHOR_ENVIO_SANDBOX)
-        throw new ApiError(409,'Frete em ambiente de teste: não é permitido cobrar entrega.');
       const details=body.shipping!;
-      if(!config.SHIPPING_MELHOR_ENVIO_TOKEN || config.SHIPPING_PILOT_STORE_ID!==storeId ||
-          !config.SHIPPING_USER_AGENT) throw new ApiError(503,'Entrega não habilitada nesta loja.');
       const quote=await client.query<{origin_postal_code:string;destination_postal_code:string;cart_hash:string;
-        services:ShippingService[];expires_at:Date}>(`
-        SELECT origin_postal_code,destination_postal_code,cart_hash,services,expires_at
+        services:ShippingService[];expires_at:Date;provider?:string}>(`
+        SELECT origin_postal_code,destination_postal_code,cart_hash,services,expires_at,provider
         FROM shipping_quotes WHERE id=$1 AND store_id=$2 AND customer_id=$3 FOR UPDATE`,
         [details.quoteId,storeId,customerId]);
       if(!quote.rowCount || quote.rows[0].expires_at.getTime()<=Date.now())
         throw new ApiError(409,'Cotação vencida ou indisponível. Calcule o frete novamente.');
       const q=quote.rows[0];
       if(q.destination_postal_code!==details.address.postalCode)throw new ApiError(409,'CEP diferente da cotação.');
+      if(q.provider==='LOCAL'){
+        const settings=fulfillmentSettings((await client.query(
+          'SELECT * FROM store_fulfillment_settings WHERE store_id=$1 FOR SHARE',[storeId])).rows[0]);
+        const lines=variants.map(({v,quantity})=>({variantId:v.id,quantity,unitCents:v.price_cents}));
+        selected=localRate(settings,details.address.postalCode);
+        if(!selected || details.serviceId!=='0' ||
+            localFingerprint(settings,details.address.postalCode,lines)!==q.cart_hash)
+          throw new ApiError(409,'Entrega local ou carrinho alterados. Calcule a taxa novamente.');
+      }else{
+        if(body.offlineMethod)throw new ApiError(400,'Pagamento combinado disponível apenas para retirada ou entrega local.');
+        if(config.SHIPPING_MELHOR_ENVIO_SANDBOX)
+          throw new ApiError(409,'Frete em ambiente de teste: não é permitido cobrar entrega.');
+        if(!config.SHIPPING_MELHOR_ENVIO_TOKEN || config.SHIPPING_PILOT_STORE_ID!==storeId ||
+            !config.SHIPPING_USER_AGENT)throw new ApiError(503,'Entrega não habilitada nesta loja.');
       const origin=await client.query<{origin_postal_code:string}>(
         'SELECT origin_postal_code FROM store_shipping_settings WHERE store_id=$1',[storeId]);
       if(origin.rows[0]?.origin_postal_code!==q.origin_postal_code)
@@ -224,12 +239,14 @@ async function createReservedOrder(storeId:string,customerId:string,body:z.infer
       }
       if(cartFingerprint(q.origin_postal_code,q.destination_postal_code,parcelItems)!==q.cart_hash)
         throw new ApiError(409,'Preços, pacotes ou produtos mudaram. Calcule o frete novamente.');
-      selected=q.services.find(o=>o.id===details.serviceId)??null;
-      if(!selected||!Number.isInteger(selected.priceCents)||selected.priceCents<=0)
-        throw new ApiError(409,'Modalidade de frete inválida.');
+        selected=q.services.find(o=>o.id===details.serviceId)??null;
+        if(!selected||!Number.isInteger(selected.priceCents)||selected.priceCents<=0)
+          throw new ApiError(409,'Modalidade de frete inválida.');
+      }
       shippingCents=selected.priceCents;
       shippingAddress={...details.address,name:body.customer.name,phone:body.customer.phone,
-        notes:body.notes,fulfillment:'DELIVERY'};
+        notes:body.notes,fulfillment:'DELIVERY',deliveryMode:q.provider==='LOCAL'?'LOCAL':'CARRIER',
+        deliveryEstimate:selected.name};
     }
     // Cupom e limite de uso são conferidos sob bloqueio na mesma transação do pedido.
     // Tentativas idempotentes retornam antes de qualquer contabilização.
@@ -599,15 +616,15 @@ export async function commerceRoutes(app:FastifyInstance) {
       const next:Record<string,string>={PAID:'PREPARING',PREPARING:'SHIPPED',SHIPPED:'DELIVERED'};
       if(next[order.status]!==status) throw new ApiError(409,'Transição de pedido inválida.');
       if(status==='SHIPPED'){
-        const method=await client.query<{fulfillment_method:string}>(
-          'SELECT fulfillment_method FROM orders WHERE id=$1',[orderId]);
-        if(method.rows[0]?.fulfillment_method==='DELIVERY')
+        const method=await client.query<{fulfillment_method:string;shipping_service_id:string}>(
+          'SELECT fulfillment_method,shipping_service_id FROM orders WHERE id=$1',[orderId]);
+        if(method.rows[0]?.fulfillment_method==='DELIVERY' && method.rows[0]?.shipping_service_id!=='0')
           throw new ApiError(409,'Para entregas, registre o código de rastreamento pelo painel de expedição.');
       }
       if(status==='DELIVERED'){
-        const method=await client.query<{fulfillment_method:string}>(
-          'SELECT fulfillment_method FROM orders WHERE id=$1',[orderId]);
-        if(method.rows[0]?.fulfillment_method==='DELIVERY')
+        const method=await client.query<{fulfillment_method:string;shipping_service_id:string}>(
+          'SELECT fulfillment_method,shipping_service_id FROM orders WHERE id=$1',[orderId]);
+        if(method.rows[0]?.fulfillment_method==='DELIVERY' && method.rows[0]?.shipping_service_id!=='0')
           throw new ApiError(409,'Confirme a entrega pela área de expedição.');
       }
       await client.query('UPDATE orders SET status=$2,updated_at=now() WHERE id=$1',[orderId,status]);
@@ -649,9 +666,10 @@ export async function commerceRoutes(app:FastifyInstance) {
     const offlineMethods=demo?[]:(methods.rows[0]?.offline_methods??[]);
     const realEnabled=!demo && config.ENABLE_REAL_PAYMENTS && config.PAYMENT_PILOT_STORE_ID===storeId &&
       !!config.MERCADOPAGO_ACCESS_TOKEN && !!config.MERCADOPAGO_WEBHOOK_SECRET && !!config.PUBLIC_BASE_URL;
-    return {demo,demoLoginEnabled:demo && config.ENABLE_PUBLIC_DEMO_LOGIN,simulatedMethods:demo?['PIX','CARD']:[],
+    const local=fulfillmentSettings((await pool.query('SELECT * FROM store_fulfillment_settings WHERE store_id=$1',[storeId])).rows[0]);
+    return {demo,localDelivery:!demo && local.localEnabled,demoLoginEnabled:demo && config.ENABLE_PUBLIC_DEMO_LOGIN,simulatedMethods:demo?['PIX','CARD']:[],
       offlineMethods,realEnabled,enabled:demo || realEnabled || offlineMethods.length>0,
       fulfillment:demo?['PICKUP']:['PICKUP',
-        ...(!!config.SHIPPING_MELHOR_ENVIO_TOKEN && config.SHIPPING_PILOT_STORE_ID===storeId ? ['DELIVERY']:[])]};
+        ...((local.localEnabled || !!config.SHIPPING_MELHOR_ENVIO_TOKEN && config.SHIPPING_PILOT_STORE_ID===storeId) ? ['DELIVERY']:[])]};
   });
 }

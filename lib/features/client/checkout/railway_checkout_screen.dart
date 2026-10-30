@@ -1,26 +1,37 @@
-import 'package:loja_roupas/router/app_back_button.dart';
-import 'package:flutter/material.dart';
 import 'dart:async';
-import '../../../data/services/shipping_service.dart';
-import '../../../models/saved_address.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../../../core/theme/app_colors.dart';
-import '../../../data/repositories/railway_order_repository.dart';
-import '../../../data/repositories/railway_coupon_repository.dart';
-import '../../../data/repositories/railway_shipping_repository.dart';
+import '../../../core/network/loja_api.dart';
 import '../../../data/repositories/address_repository.dart';
+import '../../../data/repositories/railway_coupon_repository.dart';
+import '../../../data/repositories/railway_order_repository.dart';
+import '../../../data/repositories/railway_shipping_repository.dart';
+import '../../../data/services/shipping_service.dart';
 import '../../../models/cart_item.dart';
+import '../../../models/saved_address.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/cart_providers.dart';
+import '../../../router/app_back_button.dart';
+import '../widgets/empty_state.dart';
 
-/// Checkout Railway: UI apenas. Preço final, estoque e frete são validados na API.
 class RailwayCheckoutScreen extends ConsumerStatefulWidget {
-  const RailwayCheckoutScreen({super.key});
-
+  const RailwayCheckoutScreen(
+      {super.key,
+      this.orders,
+      this.shipping,
+      this.coupons,
+      this.addresses,
+      this.cepService,
+      this.openPayment});
+  final RailwayOrderRepository? orders;
+  final RailwayShippingRepository? shipping;
+  final RailwayCouponRepository? coupons;
+  final AddressRepository? addresses;
+  final ShippingService? cepService;
+  final Future<bool> Function(Uri)? openPayment;
   @override
   ConsumerState<RailwayCheckoutScreen> createState() =>
       _RailwayCheckoutScreenState();
@@ -28,173 +39,182 @@ class RailwayCheckoutScreen extends ConsumerStatefulWidget {
 
 class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
   final _form = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
-  final _cep = TextEditingController();
-  final _street = TextEditingController();
-  final _number = TextEditingController();
-  final _complement = TextEditingController();
-  final _neighborhood = TextEditingController();
-  final _city = TextEditingController();
-  final _state = TextEditingController();
-  final _orders = RailwayOrderRepository();
+  final _scroll = ScrollController();
+  final _name = TextEditingController(), _phone = TextEditingController();
+  final _cep = TextEditingController(), _street = TextEditingController();
+  final _number = TextEditingController(),
+      _complement = TextEditingController();
+  final _neighborhood = TextEditingController(),
+      _city = TextEditingController();
+  final _state = TextEditingController(), _notes = TextEditingController();
   final _coupon = TextEditingController();
-  final _couponRepository = RailwayCouponRepository();
-  String? _validatedCode;
+  late final _orders = widget.orders ?? RailwayOrderRepository();
+  late final _shipping = widget.shipping ?? RailwayShippingRepository();
+  late final _coupons = widget.coupons ?? RailwayCouponRepository();
+  late final _cepService = widget.cepService ?? ShippingService();
+  final _money = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+  Map<String, dynamic> _availability = {}, _receiving = {};
+  bool _loading = true, _loadFailed = false, _busy = false;
+  bool _quoting = false, _findingCep = false, _validatingCoupon = false;
+  int _step = 0, _quoteRevision = 0, _cepRevision = 0, _couponRevision = 0;
+  String _method = 'PICKUP', _payment = '', _error = '';
+  String _quoteId = '', _serviceId = '', _quotedCart = '', _quotedZip = '';
+  String? _validatedCode, _couponSignature;
   int _discountCents = 0;
-  String? _couponSignature;
-  bool _validatingCoupon = false;
-
-  final _cepService = ShippingService();
-  Timer? _cepTimer;
-  List<SavedAddress> _savedAddresses = [];
-  bool _findingCep = false;
-  int _step = 0;
-  List<String> _offlineMethods = [];
-  bool _realEnabled = false;
-  String _paymentChoice = 'DEMO';
-  final _shipping = RailwayShippingRepository();
-  final _currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
-
-  bool _busy = false;
-  bool _quoting = false;
-  bool _deliveryEnabled = false;
-  bool _sandbox = true;
-  bool? _paymentEnabled;
-  bool _demo = false;
-  String _demoMethod = 'PIX';
-  String _method = 'PICKUP';
-  String _error = '';
-  String _quoteId = '';
-  String _serviceId = '';
-  String _quotedCart = '';
-  String _quotedZip = '';
-  DateTime? _quotedAt;
-  List<Map<String, dynamic>> _options = [];
+  DateTime? _quoteExpires;
+  bool _quoteSandbox = false;
+  List<Map<String, dynamic>> _rates = [];
+  List<SavedAddress> _saved = [];
+  final _autoFilled = <TextEditingController, String>{};
+  Timer? _cepTimer, _expiryTimer;
   String _checkoutKey = RailwayOrderRepository.newCheckoutKey();
+  Map<String, dynamic>? _recorded;
+
+  List<TextEditingController> get _inputs => [
+        _name,
+        _phone,
+        _cep,
+        _street,
+        _number,
+        _complement,
+        _neighborhood,
+        _city,
+        _state,
+        _notes
+      ];
+  bool get _demo => _availability['demo'] == true;
+  String get _postal => _cep.text.replaceAll(RegExp(r'\D'), '');
+  String get _couponCode => _coupon.text.trim().toUpperCase();
+  bool get _delivery => _method != 'PICKUP';
+  List<String> get _payments => _demo
+      ? ['PIX', 'CARD']
+      : [
+          if (_availability['realEnabled'] == true) 'GATEWAY',
+          if (_method != 'CARRIER')
+            for (final entry
+                in (_availability['offlineMethods'] as List? ?? []))
+              if (_method == 'PICKUP' || entry != 'PAY_ON_PICKUP') '$entry',
+        ];
+  String _paymentName(String value) => switch (value) {
+        'PIX' => 'Pix simulado',
+        'CARD' => 'Cartão simulado',
+        'GATEWAY' => 'Pagamento online',
+        'PAY_ON_PICKUP' => 'Pagar na retirada',
+        'MANUAL_PIX' => 'Pix combinado com a loja',
+        'WHATSAPP' => 'Combinar com a loja',
+        _ => 'Escolha uma forma de pagamento',
+      };
+  String get _methodName => switch (_method) {
+        'LOCAL' => 'Entrega local',
+        'CARRIER' => 'Transportadora',
+        _ => 'Retirada na loja',
+      };
+  String _signature(List<CartItem> items) => items
+      .map((i) =>
+          '${i.product.id}:${i.color}:${i.size}:${i.quantity}:${i.total}')
+      .join('|');
+  bool _validQuote(List<CartItem> items) =>
+      !_quoteSandbox &&
+      _quoteId.isNotEmpty &&
+      _serviceId.isNotEmpty &&
+      _postal == _quotedZip &&
+      _quotedCart == _signature(items) &&
+      _quoteExpires != null &&
+      DateTime.now().isBefore(_quoteExpires!);
+  bool _validCoupon(List<CartItem> items) =>
+      _couponCode.isEmpty ||
+      (_validatedCode == _couponCode && _couponSignature == _signature(items));
+  Map<String, String> _address() => {
+        'postalCode': _postal,
+        'street': _street.text.trim(),
+        'number': _number.text.trim(),
+        'complement': _complement.text.trim(),
+        'neighborhood': _neighborhood.text.trim(),
+        'city': _city.text.trim(),
+        'state': _state.text.trim().toUpperCase()
+      };
 
   @override
   void initState() {
     super.initState();
+    for (final input in _inputs) {
+      input.addListener(_intentChanged);
+    }
+    _cep.addListener(_cepChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _name.text = ref.read(authProvider).name;
+      if (mounted && _name.text.isEmpty) {
+        _name.text = ref.read(authProvider).name;
+      }
     });
     _load();
-    _prefillPrimaryAddress();
-    _cep.addListener(_onCepChanged);
+    _loadAddresses();
   }
 
-  Future<void> _prefillPrimaryAddress() async {
-    try {
-      final list = await AddressRepository().getAddresses();
-      if (!mounted || list.isEmpty || _cep.text.isNotEmpty) return;
-      _savedAddresses = list;
-      final address =
-          list.firstWhere((a) => a.isPrimary, orElse: () => list.first);
-      setState(() {
-        _cep.text = address.zipCode;
-        _street.text = address.street;
-        _number.text = address.number;
-        _complement.text = address.complement;
-        _neighborhood.text = address.neighborhood;
-        _city.text = address.city;
-        _state.text = address.state;
-      });
-      _onCepChanged();
-    } catch (_) {
-      // Permite preenchimento manual quando o perfil estiver indisponível.
-    }
+  void _intentChanged() {
+    if (_busy || _recorded != null) return;
+    _checkoutKey = RailwayOrderRepository.newCheckoutKey();
   }
 
-  Future<void> _load() async {
-    try {
-      final data = await Future.wait([
-        _orders.checkoutAvailability(),
-        _shipping.availability(),
-      ]);
-      if (!mounted) return;
-      final availability = data[1];
-      setState(() {
-        final checkout = Map<String, dynamic>.from(data[0] as Map);
-        _paymentEnabled = checkout['enabled'] == true;
-        _demo = checkout['demo'] == true;
-        _realEnabled = checkout['realEnabled'] == true;
-        _offlineMethods = (checkout['offlineMethods'] as List? ?? [])
-            .map((e) => '$e')
-            .toList();
-        _paymentChoice = _demo
-            ? 'DEMO'
-            : _offlineMethods.isNotEmpty
-                ? _offlineMethods.first
-                : 'GATEWAY';
-        _deliveryEnabled = !_demo &&
-            checkout['realEnabled'] == true &&
-            availability['delivery'] == true;
-        _sandbox = availability['sandbox'] != false;
-      });
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          _paymentEnabled = false;
-          _error = error.toString();
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _cepTimer?.cancel();
-    _coupon.dispose();
-    _cep.removeListener(_onCepChanged);
-    for (final controller in [
-      _name,
-      _phone,
-      _cep,
-      _street,
-      _number,
-      _complement,
-      _neighborhood,
-      _city,
-      _state
-    ]) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  void _onCepChanged() {
-    _cepTimer?.cancel();
-    if (_postal.length != 8) return;
-    final zip = _postal;
-    _cepTimer = Timer(const Duration(milliseconds: 450), () async {
-      if (!mounted || _postal != zip) return;
-      setState(() => _findingCep = true);
-      try {
-        final address =
-            await _cepService.fetchCep(zip).timeout(const Duration(seconds: 8));
-        if (!mounted || _postal != zip) return;
-        if (address != null) {
-          setState(() {
-            final street = address['logradouro']?.toString() ?? '';
-            final neighborhood = address['bairro']?.toString() ?? '';
-            if (street.isNotEmpty) _street.text = street;
-            if (neighborhood.isNotEmpty) _neighborhood.text = neighborhood;
-            _city.text = address['localidade']?.toString() ?? _city.text;
-            _state.text = address['uf']?.toString() ?? _state.text;
-          });
-          if (_method == 'DELIVERY' && _deliveryEnabled) {
-            await _quote(ref.read(cartProvider));
-          }
-        }
-      } catch (_) {/* Busca auxiliar; campos continuam editáveis. */} finally {
-        if (mounted) setState(() => _findingCep = false);
+  void _showError(String message) {
+    setState(() => _error = message);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scroll.hasClients) {
+        _scroll.animateTo(0,
+            duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
       }
     });
   }
 
-  void _applySaved(SavedAddress address) {
-    _cepTimer?.cancel();
+  String _message(Object error, String fallback) =>
+      error is LojaApiException ? error.message : fallback;
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+      _error = '';
+    });
+    try {
+      final data = await Future.wait(
+          [_orders.checkoutAvailability(), _shipping.availability()]);
+      if (!mounted) return;
+      setState(() {
+        _availability = data[0];
+        _receiving = data[1];
+        if ((_method == 'LOCAL' &&
+                (_demo || _receiving['localDelivery'] != true)) ||
+            (_method == 'CARRIER' &&
+                (_demo ||
+                    _receiving['delivery'] != true ||
+                    _receiving['sandbox'] != false))) {
+          _method = 'PICKUP';
+          _invalidateQuote();
+        }
+        if (!_payments.contains(_payment)) {
+          _payment = _payments.firstOrNull ?? '';
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadFailed = true);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadAddresses() async {
+    try {
+      final addresses =
+          await (widget.addresses ?? AddressRepository()).getAddresses();
+      if (!mounted) return;
+      setState(() => _saved = addresses);
+      if (addresses.isNotEmpty &&
+          [_cep, _street, _number, _city].every((c) => c.text.isEmpty)) {
+        _applyAddress(addresses.firstWhere((a) => a.isPrimary,
+            orElse: () => addresses.first));
+      }
+    } catch (_) {/* O preenchimento manual permanece disponível. */}
+  }
+
+  void _applyAddress(SavedAddress address) {
     setState(() {
       _cep.text = address.zipCode;
       _street.text = address.street;
@@ -204,114 +224,143 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
       _city.text = address.city;
       _state.text = address.state;
     });
-    if (_method == 'DELIVERY' && _deliveryEnabled) {
-      _quote(ref.read(cartProvider));
-    }
   }
 
-  void _nextStep() {
-    if (_step == 0 && (_form.currentState?.validate() != true)) return;
-    if (_step == 0 &&
-        _method == 'DELIVERY' &&
-        !_isQuoteValid(ref.read(cartProvider))) {
-      setState(() =>
-          _error = 'Selecione uma cotação de frete válida antes de continuar.');
-      return;
+  void _invalidateQuote() {
+    _quoteRevision++;
+    _expiryTimer?.cancel();
+    _quoteId = '';
+    _serviceId = '';
+    _rates = [];
+    _quoteExpires = null;
+    _quoting = false;
+  }
+
+  void _cepChanged() {
+    _cepTimer?.cancel();
+    final revision = ++_cepRevision;
+    for (final entry in _autoFilled.entries) {
+      if (entry.key.text == entry.value) entry.key.clear();
     }
+    _autoFilled.clear();
     setState(() {
-      _error = '';
-      _step = _step < 2 ? _step + 1 : 2;
+      _invalidateQuote();
+      _findingCep = false;
+    });
+    final zip = _postal;
+    if (zip.length != 8 || !_delivery) return;
+    _cepTimer = Timer(const Duration(milliseconds: 450), () async {
+      if (!mounted || revision != _cepRevision) return;
+      setState(() => _findingCep = true);
+      try {
+        final data =
+            await _cepService.fetchCep(zip).timeout(const Duration(seconds: 8));
+        if (!mounted || _busy || revision != _cepRevision || data == null) {
+          return;
+        }
+        for (final pair in [
+          (_street, 'logradouro'),
+          (_neighborhood, 'bairro'),
+          (_city, 'localidade'),
+          (_state, 'uf')
+        ]) {
+          if (pair.$1.text.isEmpty) {
+            final value = data[pair.$2]?.toString() ?? '';
+            pair.$1.text = value;
+            if (value.isNotEmpty) _autoFilled[pair.$1] = value;
+          }
+        }
+      } catch (_) {
+        /* Consulta auxiliar: não bloqueia endereço manual. */
+      } finally {
+        if (mounted && revision == _cepRevision) {
+          setState(() => _findingCep = false);
+        }
+      }
     });
   }
 
-  String get _postal => _cep.text.replaceAll(RegExp(r'\D'), '');
-
-  String _signature(List<CartItem> items) => items
-      .map((line) =>
-          '${line.product.id}:${line.color}:${line.size}:${line.quantity}:${line.total}')
-      .join('|');
-
-  bool _isQuoteValid(List<CartItem> items) =>
-      _quoteId.isNotEmpty &&
-      _serviceId.isNotEmpty &&
-      _signature(items) == _quotedCart &&
-      _postal == _quotedZip &&
-      _quotedAt != null &&
-      DateTime.now().difference(_quotedAt!) < const Duration(minutes: 15);
-
-  Map<String, String> _address() => {
-        'postalCode': _postal,
-        'street': _street.text.trim(),
-        'number': _number.text.trim(),
-        'complement': _complement.text.trim(),
-        'neighborhood': _neighborhood.text.trim(),
-        'city': _city.text.trim(),
-        'state': _state.text.trim().toUpperCase(),
-      };
-
-  void _selectMethod(String value) {
+  void _chooseMethod(String method) {
+    if (_busy) return;
+    _cepTimer?.cancel();
+    _cepRevision++;
     setState(() {
-      _method = value;
-      _quoteId = '';
-      _serviceId = '';
-      _quotedAt = null;
-      _options = [];
+      _findingCep = false;
+      _method = method;
+      _invalidateQuote();
+      _error = '';
+      if (!_payments.contains(_payment)) _payment = _payments.firstOrNull ?? '';
       _checkoutKey = RailwayOrderRepository.newCheckoutKey();
-      _error = '';
     });
   }
 
-  Future<void> _quote(List<CartItem> items) async {
-    if (_quoting || !RegExp(r'^\d{8}$').hasMatch(_postal)) {
-      setState(() => _error = 'Informe um CEP válido com oito números.');
+  Future<void> _quote() async {
+    if (_quoting || _busy) return;
+    if (!RegExp(r'^\d{8}$').hasMatch(_postal)) {
+      _showError('Informe um CEP com oito números para consultar a entrega.');
       return;
     }
+    final items = List<CartItem>.of(ref.read(cartProvider));
     if (items.isEmpty) return;
+    final zip = _postal, signature = _signature(items), method = _method;
+    final revision = ++_quoteRevision;
     setState(() {
       _quoting = true;
-      _error = '';
-      _options = [];
       _quoteId = '';
       _serviceId = '';
-      _quotedAt = null;
+      _rates = [];
+      _error = '';
     });
     try {
-      final result = await _shipping.quote(items, _postal);
-      if (!mounted) return;
+      final data = await _shipping.quote(items, zip, mode: method);
+      if (!mounted ||
+          revision != _quoteRevision ||
+          zip != _postal ||
+          method != _method ||
+          signature != _signature(ref.read(cartProvider))) {
+        return;
+      }
+      final expires = DateTime.tryParse('${data['expiresAt']}');
+      final rates = (data['options'] as List? ?? [])
+          .map((r) => Map<String, dynamic>.from(r as Map))
+          .toList();
+      if (expires == null ||
+          !expires.isAfter(DateTime.now()) ||
+          rates.isEmpty) {
+        _showError('Não há uma cotação válida. Consulte a entrega novamente.');
+        return;
+      }
       setState(() {
-        _quoteId = result['quoteId']?.toString() ?? '';
-        _options = (result['options'] as List? ?? const [])
-            .map((value) => Map<String, dynamic>.from(value as Map))
-            .toList();
-        _quotedCart = _signature(items);
-        _quotedZip = _postal;
-        _quotedAt = DateTime.now();
+        _quoteId = data['quoteId']?.toString() ?? '';
+        _rates = rates;
+        _quotedZip = zip;
+        _quotedCart = signature;
+        _quoteExpires = expires;
+        _quoteSandbox = data['sandbox'] == true;
+        _serviceId = rates.length == 1 ? '${rates.first['id']}' : '';
         _checkoutKey = RailwayOrderRepository.newCheckoutKey();
-        if (result['sandbox'] == true) {
-          _sandbox = true;
-          _error =
-              'Cotação do ambiente de teste: não é possível cobrar este frete.';
-        }
       });
-    } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      _expiryTimer?.cancel();
+      _expiryTimer = Timer(expires.difference(DateTime.now()), () {
+        if (mounted) setState(() {});
+      });
+    } catch (e) {
+      if (mounted && revision == _quoteRevision) {
+        _showError(_message(
+            e, 'Não foi possível consultar a entrega. Tente novamente.'));
+      }
     } finally {
-      if (mounted) setState(() => _quoting = false);
+      if (mounted && revision == _quoteRevision) {
+        setState(() => _quoting = false);
+      }
     }
   }
 
-  Future<void> _checkCoupon(List<CartItem> items) async {
-    if (_validatingCoupon) return;
-    final code = _coupon.text.trim().toUpperCase();
-    if (code.isEmpty) {
-      setState(() {
-        _validatedCode = null;
-        _discountCents = 0;
-        _couponSignature = null;
-        _checkoutKey = RailwayOrderRepository.newCheckoutKey();
-      });
-      return;
-    }
+  Future<void> _checkCoupon() async {
+    if (_validatingCoupon || _busy) return;
+    final code = _couponCode, items = List<CartItem>.of(ref.read(cartProvider));
+    final signature = _signature(items), revision = ++_couponRevision;
+    if (code.isEmpty) return;
     setState(() {
       _validatingCoupon = true;
       _validatedCode = null;
@@ -319,625 +368,629 @@ class _RailwayCheckoutScreenState extends ConsumerState<RailwayCheckoutScreen> {
       _error = '';
     });
     try {
-      final r = await _couponRepository.preview(code, items);
-      if (!mounted) return;
+      final result = await _coupons.preview(code, items);
+      if (!mounted ||
+          revision != _couponRevision ||
+          code != _couponCode ||
+          signature != _signature(ref.read(cartProvider))) {
+        return;
+      }
       setState(() {
         _validatedCode = code;
-        _discountCents = int.tryParse('${r['discountCents']}') ?? 0;
-        _couponSignature = _signature(items);
+        _couponSignature = signature;
+        _discountCents = int.tryParse('${result['discountCents']}') ?? 0;
         _checkoutKey = RailwayOrderRepository.newCheckoutKey();
       });
     } catch (e) {
-      if (mounted) setState(() => _error = 'Cupom: $e');
+      if (mounted && revision == _couponRevision) {
+        _showError(
+            _message(e, 'Não foi possível validar o cupom. Tente novamente.'));
+      }
     } finally {
-      if (mounted) setState(() => _validatingCoupon = false);
+      if (mounted && revision == _couponRevision) {
+        setState(() => _validatingCoupon = false);
+      }
     }
   }
 
-  Future<void> _pay(List<CartItem> items) async {
-    if (_busy || _paymentEnabled != true || _step != 2 || _validatingCoupon) {
+  void _couponChanged() {
+    setState(() {
+      _couponRevision++;
+      _validatingCoupon = false;
+      _validatedCode = null;
+      _couponSignature = null;
+      _discountCents = 0;
+      _checkoutKey = RailwayOrderRepository.newCheckoutKey();
+    });
+  }
+
+  void _goStep(int step) {
+    if (_busy) return;
+    if (step > _step && _step == 0) {
+      if (_form.currentState?.validate() != true) return;
+      if (_delivery && !_validQuote(ref.read(cartProvider))) {
+        _showError(
+            'Consulte a entrega e selecione uma opção válida antes de continuar.');
+        return;
+      }
+    }
+    if (step > _step && _step == 1 && !_payments.contains(_payment)) {
+      _showError(
+          'Escolha uma forma de pagamento disponível para este recebimento.');
       return;
     }
-    if (_coupon.text.trim().isNotEmpty &&
-        (_validatedCode != _coupon.text.trim().toUpperCase() ||
-            _couponSignature != _signature(items))) {
-      setState(() =>
-          _error = 'Revalide o cupom após qualquer alteração no carrinho.');
+    setState(() {
+      _step = step;
+      _error = '';
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  Future<void> _pay() async {
+    if (_busy ||
+        _availability['enabled'] != true ||
+        _step != 2 ||
+        _recorded != null) {
       return;
     }
-    if (items.isEmpty) return;
-    if (_method == 'DELIVERY' && !_isQuoteValid(items)) {
-      setState(() => _error =
-          'Atualize a cotação e selecione uma transportadora para continuar.');
+    final items = List<CartItem>.of(ref.read(cartProvider));
+    if (!_validCoupon(items) || _validatingCoupon) {
+      _showError('Valide o cupom para este carrinho ou remova o código.');
       return;
     }
+    if (_delivery && !_validQuote(items)) {
+      _goStep(0);
+      _showError(
+          'A cotação expirou ou o carrinho mudou. Consulte a entrega novamente.');
+      return;
+    }
+    if (!_payments.contains(_payment) || items.isEmpty) return;
+    final signature = _signature(items);
     setState(() {
       _busy = true;
       _error = '';
     });
     try {
-      final response = await _orders.createOrder(
-        cart: items,
-        customerName: _name.text,
-        customerPhone: _phone.text,
-        idempotencyKey: _checkoutKey,
-        couponCode: _validatedCode,
-        fulfillment: _method,
-        quoteId: _method == 'DELIVERY' ? _quoteId : null,
-        serviceId: _method == 'DELIVERY' ? _serviceId : null,
-        address: _method == 'DELIVERY' ? _address() : null,
-        demoPaymentMethod: _demo ? _demoMethod : null,
-        offlineMethod:
-            !_demo && _paymentChoice != 'GATEWAY' ? _paymentChoice : null,
-      );
-      if (response['simulated'] == true &&
-          response['order'] is Map &&
-          (response['order'] as Map)['isDemo'] == true) {
-        ref.read(cartProvider.notifier).clear();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Pedido de demonstração criado! Nenhum valor foi cobrado.')));
-        context.go('/orders');
+      final result = await _orders.createOrder(
+          cart: items,
+          customerName: _name.text,
+          customerPhone: _phone.text,
+          idempotencyKey: _checkoutKey,
+          fulfillment: _delivery ? 'DELIVERY' : 'PICKUP',
+          quoteId: _delivery ? _quoteId : null,
+          serviceId: _delivery ? _serviceId : null,
+          address: _delivery ? _address() : null,
+          notes: _notes.text,
+          couponCode: _validatedCode,
+          demoPaymentMethod: _demo ? _payment : null,
+          offlineMethod: !_demo && _payment != 'GATEWAY' ? _payment : null);
+      if (!mounted) return;
+      if (result['order'] is! Map || (result['order'] as Map)['id'] == null) {
+        _showError(
+            'Não foi possível confirmar a resposta. Tente novamente sem alterar os dados ou confira Meus pedidos.');
         return;
       }
-      if (response['offlinePending'] == true) {
+      setState(() => _recorded = result);
+      if (signature == _signature(ref.read(cartProvider))) {
         ref.read(cartProvider.notifier).clear();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Pedido registrado! Pagamento NÃO confirmado. Combine e confirme diretamente com a loja.')));
-        context.go('/orders');
-        return;
       }
-      final uri = Uri.tryParse(response['checkoutUrl']?.toString() ?? '');
-      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
-        throw StateError(
-            'O pedido foi registrado, mas o link de pagamento não está disponível. Consulte seus pedidos.');
+      // Confirmação permanece na tela; abrir o pagamento não cria outro pedido.
+    } catch (e) {
+      if (mounted) {
+        _showError(_message(e,
+            'Não foi possível confirmar o pedido. Confira Meus pedidos ou tente novamente sem alterar os dados.'));
       }
-      final launched =
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!launched) {
-        throw StateError(
-            'O pedido foi registrado, mas não conseguimos abrir o pagamento. Consulte seus pedidos.');
-      }
-      ref.read(cartProvider.notifier).clear();
-      if (mounted) context.go('/orders');
-    } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Widget _field(TextEditingController controller, String title,
-      {bool isRequired = true,
-      TextInputType? type,
-      String? Function(String?)? validator}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: type,
-        textInputAction: TextInputAction.next,
-        decoration: InputDecoration(labelText: title),
-        validator: validator ??
-            (text) => isRequired && (text == null || text.trim().isEmpty)
-                ? 'Preencha este campo.'
-                : null,
-      ),
-    );
+  Future<void> _openPayment() async {
+    if (_busy || _recorded == null) return;
+    setState(() => _busy = true);
+    try {
+      final order = Map<String, dynamic>.from(_recorded!['order'] as Map);
+      final url = _recorded!['checkoutUrl']?.toString() ??
+          await _orders.retryCheckout('${order['id']}');
+      final uri = Uri.tryParse(url);
+      if (uri == null ||
+          uri.scheme != 'https' ||
+          !uri.hasAuthority ||
+          uri.userInfo.isNotEmpty) {
+        throw StateError('Link indisponível');
+      }
+      final opened = await (widget.openPayment?.call(uri) ??
+          launchUrl(uri, mode: LaunchMode.externalApplication));
+      if (!opened) throw StateError('Aplicativo de pagamento indisponível');
+    } catch (_) {
+      if (mounted) {
+        _showError(
+            'Seu pedido está salvo. Não conseguimos abrir o pagamento; tente novamente ou acesse Meus pedidos.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
-  Widget _section(
-      BuildContext context, String title, IconData icon, Widget content) {
-    return Card(
+  @override
+  void dispose() {
+    _cepTimer?.cancel();
+    _expiryTimer?.cancel();
+    _scroll.dispose();
+    _cep.removeListener(_cepChanged);
+    for (final input in _inputs) {
+      input.removeListener(_intentChanged);
+      input.dispose();
+    }
+    _coupon.dispose();
+    super.dispose();
+  }
+
+  Widget _field(TextEditingController controller, String label,
+          {int max = 100,
+          int lines = 1,
+          bool required = true,
+          TextInputType? type,
+          String? Function(String?)? validator}) =>
+      Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: TextFormField(
+              controller: controller,
+              enabled: !_busy,
+              maxLength: max,
+              maxLines: lines,
+              keyboardType: type,
+              textInputAction:
+                  lines == 1 ? TextInputAction.next : TextInputAction.newline,
+              decoration: InputDecoration(labelText: label, counterText: ''),
+              validator: validator ??
+                  (text) => required && (text ?? '').trim().isEmpty
+                      ? 'Preencha este campo.'
+                      : null));
+  Widget _card(String title, List<Widget> children) => Card(
       child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          padding: const EdgeInsets.all(18),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            ...children
+          ])));
+  Widget _text(String text) =>
+      Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text));
+  Widget _line(String label, String value, {bool bold = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 16,
+          runSpacing: 4,
           children: [
-            Row(children: [
-              Icon(icon, size: 20, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text(title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800))),
-            ]),
-            const SizedBox(height: 14),
-            content,
+            Text(label),
+            Text(value,
+                style: TextStyle(
+                    fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: bold ? 20 : 14))
+          ]));
+  Widget _details(List<CartItem> items) => Form(
+      key: _form,
+      child: Column(children: [
+        _card('Como deseja receber?', [
+          RadioGroup<String>(
+              groupValue: _method,
+              onChanged: (v) {
+                if (v != null) _chooseMethod(v);
+              },
+              child: Column(children: [
+                const RadioListTile(
+                    value: 'PICKUP',
+                    title: Text('Retirar na loja'),
+                    subtitle: Text('Sem taxa de entrega'),
+                    contentPadding: EdgeInsets.zero),
+                if (!_demo && _receiving['localDelivery'] == true)
+                  RadioListTile(
+                      value: 'LOCAL',
+                      title: const Text('Entrega local'),
+                      contentPadding: EdgeInsets.zero,
+                      subtitle: Text(
+                          'Consulte seu CEP · ${_money.format(((_receiving['localFeeCents'] as num?) ?? 0) / 100)}')),
+                if (!_demo &&
+                    _availability['realEnabled'] == true &&
+                    _receiving['delivery'] == true &&
+                    _receiving['sandbox'] == false)
+                  const RadioListTile(
+                      value: 'CARRIER',
+                      title: Text('Transportadora'),
+                      subtitle: Text('Consulte prazo e frete pelo CEP'),
+                      contentPadding: EdgeInsets.zero),
+              ])),
+          if (!_delivery) ...[
+            _text((_receiving['pickupAddress']?.toString() ?? '').isEmpty
+                ? 'Combine o endereço de retirada com a loja.'
+                : '${_receiving['pickupAddress']}'),
+            if ('${_receiving['pickupHours'] ?? ''}'.isNotEmpty)
+              _text('${_receiving['pickupHours']}'),
+            _text(
+                'Aguarde a loja informar que seu pedido está pronto antes de ir buscar.'),
           ],
-        ),
-      ),
-    );
+        ]),
+        const SizedBox(height: 12),
+        _card('Seus dados', [
+          _field(_name, 'Nome completo',
+              validator: (v) =>
+                  (v ?? '').trim().length < 2 ? 'Informe seu nome.' : null),
+          _field(_phone, 'Telefone com DDD', max: 22, type: TextInputType.phone,
+              validator: (v) {
+            final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
+            return RegExp(r'^(?:55)?\d{10,11}$').hasMatch(digits)
+                ? null
+                : 'Informe um telefone com DDD.';
+          }),
+        ]),
+        if (_delivery) ...[
+          const SizedBox(height: 12),
+          _card('Endereço de entrega', [
+            if (_saved.isNotEmpty)
+              Wrap(spacing: 8, children: [
+                for (final a in _saved)
+                  ActionChip(
+                      label: Text(a.label),
+                      onPressed: _busy ? null : () => _applyAddress(a))
+              ]),
+            const SizedBox(height: 8),
+            _field(_cep, 'CEP',
+                max: 9,
+                type: TextInputType.number,
+                validator: (_) => _postal.length == 8
+                    ? null
+                    : 'Informe os oito números do CEP.'),
+            if (_findingCep)
+              _text(
+                  'Buscando endereço; você também pode preencher manualmente.'),
+            _field(_street, 'Logradouro',
+                max: 150,
+                validator: (v) => (v ?? '').trim().length < 3
+                    ? 'Informe o logradouro.'
+                    : null),
+            _field(_number, 'Número', max: 30),
+            _field(_complement, 'Complemento (opcional)', required: false),
+            _field(_neighborhood, 'Bairro',
+                validator: (v) =>
+                    (v ?? '').trim().length < 2 ? 'Informe o bairro.' : null),
+            _field(_city, 'Cidade',
+                validator: (v) =>
+                    (v ?? '').trim().length < 2 ? 'Informe a cidade.' : null),
+            _field(_state, 'UF',
+                max: 2,
+                validator: (v) =>
+                    RegExp(r'^[a-zA-Z]{2}$').hasMatch((v ?? '').trim())
+                        ? null
+                        : 'Informe a sigla da UF.'),
+            OutlinedButton.icon(
+                onPressed: _quoting || _busy ? null : _quote,
+                icon: _quoting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.local_shipping_outlined),
+                label: Text(_quoting ? 'Consultando…' : 'Consultar entrega')),
+            if (_rates.isNotEmpty)
+              RadioGroup<String>(
+                  groupValue: _serviceId,
+                  onChanged: (v) {
+                    if (v != null && !_busy) {
+                      setState(() {
+                        _serviceId = v;
+                        _intentChanged();
+                      });
+                    }
+                  },
+                  child: Column(children: [
+                    for (final rate in _rates)
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        value: '${rate['id']}',
+                        title: Text(
+                            '${rate['carrier']} · ${_money.format(((rate['priceCents'] as num?) ?? 0) / 100)}'),
+                        subtitle: Text(_method == 'LOCAL'
+                            ? '${rate['name']}'
+                            : '${rate['name']} · ${rate['deliveryDays']} dia(s) úteis estimados'),
+                      )
+                  ])),
+            if (_quoteSandbox)
+              _text('Cotação de teste indisponível para concluir a compra.'),
+            if (_quoteId.isNotEmpty && !_validQuote(items))
+              _text(
+                  'Selecione uma opção válida ou consulte a entrega novamente.'),
+          ])
+        ],
+        const SizedBox(height: 12),
+        _card('Observação para a loja', [
+          _field(_notes, 'Observação (opcional)',
+              max: 500, lines: 3, required: false),
+        ]),
+      ]));
+  Widget _paymentStep() => _card('Como deseja pagar?', [
+        if (_payments.isEmpty)
+          _text(
+              'Não há pagamento disponível para este recebimento. Volte e escolha outra opção ou fale com a loja.'),
+        RadioGroup<String>(
+            groupValue: _payment,
+            onChanged: (v) {
+              if (v != null && !_busy) {
+                setState(() {
+                  _payment = v;
+                  _intentChanged();
+                });
+              }
+            },
+            child: Column(children: [
+              for (final method in _payments)
+                RadioListTile(
+                    value: method,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(_paymentName(method)))
+            ])),
+        _text(_demo
+            ? 'Demonstração: nenhum valor será cobrado.'
+            : _payment == 'GATEWAY'
+                ? 'Você abrirá o ambiente seguro do pagamento após registrar o pedido.'
+                : 'O pedido ficará aguardando pagamento. Combine os dados oficiais com a loja; ela confirmará o recebimento.'),
+      ]);
+  Widget _review(List<CartItem> items, double subtotal, double shipping) =>
+      Column(children: [
+        _card('Confira antes de confirmar', [
+          _text(_name.text.trim()),
+          _text(_phone.text.trim()),
+          _text(_methodName),
+          if (_delivery)
+            _text(
+                '${_street.text}, ${_number.text}${_complement.text.isEmpty ? '' : ' · ${_complement.text}'}\n${_neighborhood.text} · ${_city.text}/${_state.text.toUpperCase()} · CEP ${_cep.text}'),
+          if (!_delivery) ...[
+            _text(
+                '${_receiving['pickupAddress'] ?? 'Combine a retirada com a loja.'}'),
+            _text('${_receiving['pickupHours'] ?? ''}')
+          ],
+          if (_delivery && _rates.any((r) => '${r['id']}' == _serviceId))
+            _text(
+                '${_rates.firstWhere((r) => '${r['id']}' == _serviceId)['name']}'),
+          if (_notes.text.trim().isNotEmpty)
+            _text('Observação: ${_notes.text.trim()}'),
+          TextButton(
+              onPressed: () => _goStep(0),
+              child: const Text('Alterar recebimento e contato')),
+          const Divider(),
+          _text(_paymentName(_payment)),
+          TextButton(
+              onPressed: () => _goStep(1),
+              child: const Text('Alterar pagamento')),
+        ]),
+        const SizedBox(height: 12),
+        _card('Resumo do pedido', [
+          for (final item in items)
+            _line(
+                '${item.product.name}\n${item.color} · ${item.size} · ${item.quantity} un.',
+                _money.format(item.total)),
+          const Divider(),
+          _line('Produtos', _money.format(subtotal)),
+          TextField(
+              controller: _coupon,
+              enabled: !_busy,
+              onChanged: (_) => _couponChanged(),
+              decoration: InputDecoration(
+                  labelText: 'Cupom de desconto',
+                  suffixIcon: IconButton(
+                      tooltip: 'Remover cupom',
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              _coupon.clear();
+                              _couponChanged();
+                            },
+                      icon: const Icon(Icons.close)))),
+          OutlinedButton(
+              onPressed: _validatingCoupon || _busy ? null : _checkCoupon,
+              child: Text(_validatingCoupon ? 'Validando…' : 'Aplicar cupom')),
+          if (!_validCoupon(items) && _couponCode.isNotEmpty)
+            _text('Valide o cupom para este carrinho ou remova o código.'),
+          if (_validCoupon(items) && _validatedCode != null)
+            _line('Desconto · $_validatedCode',
+                '- ${_money.format(_discountCents / 100)}'),
+          _line(_delivery ? 'Entrega' : 'Retirada',
+              _delivery ? _money.format(shipping) : 'Sem custo'),
+          const Divider(),
+          _line(
+              'Total estimado',
+              _money.format(subtotal +
+                  shipping -
+                  (_validCoupon(items) ? _discountCents / 100 : 0)),
+              bold: true),
+          _text(_demo
+              ? 'Compra simulada, sem cobrança.'
+              : 'Preço, estoque, desconto e entrega serão conferidos ao registrar o pedido.'),
+        ]),
+      ]);
+  Widget _confirmation() {
+    final result = _recorded!, order = result['order'] as Map;
+    final id = '${order['id']}';
+    final demo = result['simulated'] == true,
+        offline = result['offlinePending'] == true;
+    return _card('Pedido registrado', [
+      Icon(Icons.check_circle_outline,
+          size: 56, color: Theme.of(context).colorScheme.primary),
+      const SizedBox(height: 16),
+      _text('Pedido #${id.length > 8 ? id.substring(0, 8) : id}'),
+      _text(demo
+          ? 'Demonstração concluída. Nenhum valor foi cobrado.'
+          : offline
+              ? 'Aguardando pagamento. Combine com a loja e acompanhe a confirmação em Meus pedidos.'
+              : 'Seu pedido está salvo e aguarda pagamento. Abra o pagamento seguro para continuar.'),
+      if (!demo && !offline)
+        FilledButton.icon(
+            onPressed: _busy ? null : _openPayment,
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Abrir pagamento seguro')),
+      OutlinedButton(
+          onPressed: () => context.go('/orders'),
+          child: const Text('Acompanhar meu pedido')),
+      TextButton(
+          onPressed: () => context.go('/'),
+          child: const Text('Continuar comprando')),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
-    final subtotal = items.fold<double>(0, (sum, line) => sum + line.total);
-    final selected =
-        _options.where((rate) => rate['id'].toString() == _serviceId).toList();
-    final cents = selected.isEmpty
-        ? 0
-        : (selected.first['priceCents'] as num?)?.toInt() ?? 0;
-    final quoteValid = _isQuoteValid(items);
-    final shippingPrice = _method == 'PICKUP' ? 0.0 : cents / 100;
-    final couponValid = _coupon.text.trim().isEmpty ||
-        (_validatedCode == _coupon.text.trim().toUpperCase() &&
-            _couponSignature == _signature(items));
-    final canPay = _paymentEnabled == true &&
-        !_busy &&
-        !_validatingCoupon &&
-        couponValid &&
-        items.isNotEmpty &&
-        (_method == 'PICKUP' || (!_sandbox && quoteValid)) &&
-        (_demo || _paymentChoice != 'GATEWAY' || _realEnabled);
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-          leading: const AppBackButton(fallbackLocation: '/cart'),
-          title: const Text('Finalizar pedido')),
-      body: items.isEmpty
-          ? Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.shopping_cart_outlined, size: 48),
-              const SizedBox(height: 12),
-              const Text('Seu carrinho está vazio.'),
-              const SizedBox(height: 12),
-              FilledButton(
-                  onPressed: () => context.go('/cart'),
-                  child: const Text('Voltar ao carrinho')),
-            ]))
-          : Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1120),
-                child: LayoutBuilder(builder: (context, limits) {
-                  final wide = limits.maxWidth >= 780;
-                  final details = Form(
-                    key: _form,
-                    child: Column(
-                      children: [
-                        _section(
-                            context,
-                            '1. Recebimento',
-                            Icons.local_shipping_outlined,
-                            Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  SegmentedButton<String>(
-                                    segments: [
-                                      const ButtonSegment(
-                                          value: 'PICKUP',
-                                          label: Text('Retirada'),
-                                          icon: Icon(Icons.storefront)),
-                                      if (_deliveryEnabled)
-                                        const ButtonSegment(
-                                            value: 'DELIVERY',
-                                            label: Text('Entrega'),
-                                            icon: Icon(
-                                                Icons.local_shipping_outlined)),
-                                    ],
-                                    selected: {_method},
-                                    onSelectionChanged: (values) =>
-                                        _selectMethod(values.first),
-                                  ),
-                                  if (!_deliveryEnabled)
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 10),
-                                      child: Text(
-                                          'Entrega ainda não configurada. A retirada continua disponível.',
-                                          style: TextStyle(
-                                              color: AppColors.textSecondary)),
-                                    ),
-                                ])),
-                        const SizedBox(height: 12),
-                        _section(
-                            context,
-                            '2. Seus dados',
-                            Icons.person_outline,
-                            Column(children: [
-                              _field(_name, 'Nome completo'),
-                              _field(_phone, 'Telefone com DDD',
-                                  type: TextInputType.phone,
-                                  validator: (value) => RegExp(r'^\d{10,11}$')
-                                          .hasMatch((value ?? '')
-                                              .replaceAll(RegExp(r'\D'), ''))
-                                      ? null
-                                      : 'Informe um telefone com DDD.'),
-                              if (_method == 'DELIVERY') ...[
-                                Row(children: [
-                                  Expanded(
-                                      child: _field(_cep, 'CEP (8 números)',
-                                          type: TextInputType.number,
-                                          validator: (value) =>
-                                              RegExp(r'^\d{8}$').hasMatch(
-                                                      (value ?? '').replaceAll(
-                                                          RegExp(r'\D'), ''))
-                                                  ? null
-                                                  : 'CEP inválido.')),
-                                  const SizedBox(width: 8),
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: FilledButton.tonalIcon(
-                                      onPressed:
-                                          _quoting ? null : () => _quote(items),
-                                      icon: _quoting
-                                          ? const SizedBox(
-                                              height: 16,
-                                              width: 16,
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2))
-                                          : const Icon(Icons.search),
-                                      label: const Text('Cotar'),
-                                    ),
-                                  ),
-                                ]),
-                                if (_findingCep)
-                                  const Padding(
-                                      padding: EdgeInsets.only(bottom: 10),
-                                      child: Text(
-                                          'Buscando endereço pelo CEP...')),
-                                if (_savedAddresses.isNotEmpty) ...[
-                                  const Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text('Usar endereço salvo:',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w700))),
-                                  SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(children: [
-                                        for (final saved in _savedAddresses)
-                                          Padding(
-                                              padding: const EdgeInsets.only(
-                                                  right: 6),
-                                              child: ActionChip(
-                                                  label: Text(saved.label),
-                                                  onPressed: () =>
-                                                      _applySaved(saved))),
-                                      ])),
-                                  const SizedBox(height: 8),
-                                ],
-                                _field(_street, 'Logradouro'),
-                                _field(_number, 'Número'),
-                                _field(_complement, 'Complemento',
-                                    isRequired: false),
-                                _field(_neighborhood, 'Bairro'),
-                                _field(_city, 'Cidade'),
-                                _field(_state, 'UF (ex.: SP)',
-                                    validator: (value) =>
-                                        RegExp(r'^[a-zA-Z]{2}$')
-                                                .hasMatch((value ?? '').trim())
+    final subtotal = items.fold<double>(0, (s, i) => s + i.total);
+    final rate = _rates.where((r) => '${r['id']}' == _serviceId).firstOrNull;
+    final shipping =
+        _delivery ? ((rate?['priceCents'] as num?) ?? 0) / 100 : 0.0;
+    final enabled =
+        !_loading && !_loadFailed && _availability['enabled'] == true;
+    return PopScope(
+        canPop: !_busy,
+        child: Scaffold(
+          appBar: AppBar(
+              leading: _busy
+                  ? const SizedBox.shrink()
+                  : const AppBackButton(fallbackLocation: '/cart'),
+              title: const Text('Finalizar pedido')),
+          bottomNavigationBar: _recorded == null && items.isNotEmpty && enabled
+              ? Material(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: SafeArea(
+                      top: false,
+                      child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 760),
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (!_delivery || _validQuote(items))
+                                      _line(
+                                          'Total estimado',
+                                          _money.format(subtotal +
+                                              shipping -
+                                              (_validCoupon(items)
+                                                  ? _discountCents / 100
+                                                  : 0))),
+                                    FilledButton(
+                                        onPressed: _busy ||
+                                                _quoting ||
+                                                _validatingCoupon
                                             ? null
-                                            : 'Informe a sigla da UF.'),
-                              ],
-                            ])),
-                        if (_method == 'DELIVERY') ...[
-                          const SizedBox(height: 12),
-                          _section(
-                              context,
-                              '3. Frete',
-                              Icons.inventory_2_outlined,
-                              RadioGroup<String>(
-                                  groupValue: _serviceId,
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() => _serviceId = value);
-                                    }
-                                  },
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        if (_options.isEmpty)
-                                          const Text(
-                                              'Informe o CEP e solicite uma cotação.'),
-                                        for (final rate in _options)
-                                          RadioListTile<String>(
-                                            value: rate['id'].toString(),
-                                            contentPadding: EdgeInsets.zero,
-                                            title: Text(
-                                                '${rate['carrier']} · ${rate['name']}'),
-                                            subtitle: Text(
-                                                '${rate['deliveryDays']} dia(s) úteis estimados'),
-                                            secondary: Text(_currency.format(
-                                                ((rate['priceCents'] as num?)
-                                                            ?.toInt() ??
-                                                        0) /
-                                                    100)),
-                                          ),
-                                        if (_quoteId.isNotEmpty)
-                                          Text(
-                                              quoteValid
-                                                  ? 'Cotação válida por até 15 minutos.'
-                                                  : 'Cotação vencida ou carrinho alterado. Calcule novamente.',
-                                              style: TextStyle(
-                                                  color: quoteValid
-                                                      ? AppColors.textSecondary
-                                                      : AppColors.error)),
-                                        if (_sandbox)
-                                          const Text(
-                                              'Ambiente de testes: cotações não permitem cobrança real.',
-                                              style: TextStyle(
-                                                  color:
-                                                      AppColors.textSecondary)),
-                                      ]))),
-                        ],
-                      ],
-                    ),
-                  );
-                  final summary = _section(
-                      context,
-                      'Resumo e confirmação',
-                      Icons.receipt_long_outlined,
-                      Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            : _step < 2
+                                                ? () => _goStep(_step + 1)
+                                                : _pay,
+                                        child: Text(_busy
+                                            ? 'Registrando pedido…'
+                                            : _step < 2
+                                                ? 'Continuar'
+                                                : _demo
+                                                    ? 'Concluir demonstração'
+                                                    : _payment == 'GATEWAY'
+                                                        ? 'Registrar e seguir para pagamento'
+                                                        : 'Confirmar pedido · pagamento pendente')),
+                                  ])))))
+              : null,
+          body: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _loadFailed
+                  ? EmptyState(
+                      icon: Icons.wifi_off_outlined,
+                      title: 'Não foi possível preparar a compra',
+                      subtitle: 'Verifique sua conexão e tente novamente.',
+                      buttonLabel: 'Tentar novamente',
+                      onButtonPressed: _load)
+                  : items.isEmpty && _recorded == null
+                      ? EmptyState(
+                          icon: Icons.shopping_bag_outlined,
+                          title: 'Seu carrinho está vazio',
+                          subtitle: 'Escolha uma peça para continuar.',
+                          buttonLabel: 'Explorar coleção',
+                          onButtonPressed: () => context.go('/search'))
+                      : ListView(
+                          controller: _scroll,
+                          padding: const EdgeInsets.all(16),
                           children: [
-                            for (final line in items)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: Row(children: [
-                                  Expanded(
-                                      child: Text(
-                                          '${line.product.name}\n${line.color} · ${line.size} · ${line.quantity} un.',
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis)),
-                                  const SizedBox(width: 8),
-                                  Text(_currency.format(line.total)),
-                                ]),
-                              ),
-                            const Divider(height: 24),
-                            _summaryLine(
-                                'Produtos', _currency.format(subtotal)),
-                            const SizedBox(height: 10),
-                            TextField(
-                                controller: _coupon,
-                                decoration: InputDecoration(
-                                  labelText: 'Cupom de desconto',
-                                  hintText: 'Ex.: BEMVINDO10',
-                                  suffixIcon: IconButton(
-                                      icon: const Icon(Icons.close),
-                                      tooltip: 'Remover cupom',
-                                      onPressed: () {
-                                        _coupon.clear();
-                                        _checkCoupon(items);
-                                      }),
-                                ),
-                                onChanged: (_) => setState(() {
-                                      _validatedCode = null;
-                                      _discountCents = 0;
-                                      _couponSignature = null;
-                                    })),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                                onPressed: _validatingCoupon
-                                    ? null
-                                    : () => _checkCoupon(items),
-                                icon: _validatingCoupon
-                                    ? const SizedBox(
-                                        height: 16,
-                                        width: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2))
-                                    : const Icon(Icons.discount_outlined),
-                                label: const Text('Validar cupom')),
-                            if (_validatedCode != null)
-                              Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                      'Cupom $_validatedCode aplicado (estimativa; será revalidado no servidor).',
-                                      style: const TextStyle(
-                                          color: Colors.green))),
-                            if (_discountCents > 0)
-                              _summaryLine('Desconto',
-                                  '- ${_currency.format(_discountCents / 100)}'),
-                            const SizedBox(height: 10),
-                            _summaryLine(
-                                'Frete',
-                                _method == 'PICKUP'
-                                    ? 'Retirada sem custo'
-                                    : selected.isEmpty || !quoteValid
-                                        ? 'A calcular'
-                                        : _currency.format(shippingPrice)),
-                            const Divider(height: 24),
-                            if (_method == 'PICKUP' ||
-                                (selected.isNotEmpty && quoteValid))
-                              _summaryLine(
-                                  'Total estimado',
-                                  _currency.format(subtotal +
-                                      shippingPrice -
-                                      (_discountCents / 100)),
-                                  emphasized: true)
-                            else
-                              const Text(
-                                  'O total será exibido após escolher o frete.'),
-                            const SizedBox(height: 12),
-                            if (_demo)
-                              const Text(
-                                  'MODO DEMONSTRAÇÃO — nenhum valor é cobrado.'),
-                            if (!_demo && _paymentChoice != 'GATEWAY')
-                              const Text(
-                                  'PAGAMENTO PENDENTE: a loja só marcará como pago depois de conferir o recebimento.'),
-                            if (_paymentEnabled == null)
-                              const Center(child: CircularProgressIndicator()),
-                            if (_paymentEnabled == false)
-                              const Card(
-                                color: AppColors.divider,
-                                child: Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: Text(
-                                      'Pagamentos ainda não habilitados nesta loja. Você pode conferir o carrinho e testar a cotação, mas não concluir a compra.'),
-                                ),
-                              ),
-                            if (_error.isNotEmpty)
-                              Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  child: Text(_error,
-                                      style: const TextStyle(
-                                          color: AppColors.error))),
-                            const SizedBox(height: 10),
-                            FilledButton.icon(
-                              onPressed: canPay ? () => _pay(items) : null,
-                              icon: _busy
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2))
-                                  : const Icon(Icons.lock_outline),
-                              label: Text(_busy
-                                  ? 'Preparando pedido…'
-                                  : (_demo
-                                      ? 'Concluir pedido simulado'
-                                      : _paymentChoice == 'GATEWAY'
-                                          ? 'Ir para pagamento seguro'
-                                          : 'Registrar pedido (pagamento pendente)')),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                                _demo
-                                    ? 'Preço e estoque são revalidados na API. Esta compra não movimenta dinheiro.'
-                                    : 'O preço, o estoque e a entrega são revalidados pelo servidor antes de criar a cobrança.',
-                                style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 12)),
-                          ]));
-                  final payment = _section(
-                      context,
-                      'Como deseja pagar?',
-                      Icons.payments_outlined,
-                      RadioGroup<String>(
-                          groupValue: _demo ? _demoMethod : _paymentChoice,
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() {
-                              if (_demo) {
-                                _demoMethod = value;
-                              } else {
-                                _paymentChoice = value;
-                                _checkoutKey =
-                                    RailwayOrderRepository.newCheckoutKey();
-                              }
-                            });
-                          },
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (_demo) ...[
-                                  const Text(
-                                      'Apenas simulação; dinheiro não é movimentado.'),
-                                  RadioListTile<String>(
-                                      title: const Text('Pix simulado'),
-                                      value: 'PIX'),
-                                  RadioListTile<String>(
-                                      title: const Text('Cartão simulado'),
-                                      value: 'CARD'),
-                                ] else ...[
-                                  if (_realEnabled)
-                                    RadioListTile<String>(
-                                        title: const Text('Pagamento online'),
-                                        value: 'GATEWAY'),
-                                  for (final method in _offlineMethods)
-                                    RadioListTile<String>(
-                                        title: Text(switch (method) {
-                                          'PAY_ON_PICKUP' =>
-                                            'Pagar na retirada',
-                                          'MANUAL_PIX' =>
-                                            'Pix combinado diretamente com a loja',
-                                          _ => 'Combinar pelo WhatsApp',
-                                        }),
-                                        value: method),
-                                  if (_offlineMethods.isNotEmpty)
-                                    const Padding(
-                                        padding: EdgeInsets.all(12),
-                                        child: Text(
-                                            'O pedido fica aguardando pagamento. Não envie dinheiro sem confirmar os dados oficiais da loja. '
-                                            'Comprovantes e mensagens não confirmam recebimento automaticamente.')),
-                                ],
-                              ])));
-                  final stageContent = _step == 0
-                      ? details
-                      : _step == 1
-                          ? payment
-                          : summary;
-                  return ListView(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: wide ? 24 : 12, vertical: 12),
-                      children: [
-                        Center(
-                            child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 700),
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Text(
-                                          'Etapa ${_step + 1} de 3: ${[
-                                            'Entrega e contato',
-                                            'Pagamento',
-                                            'Revisão'
-                                          ][_step]}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleLarge),
-                                      const SizedBox(height: 12),
-                                      LinearProgressIndicator(
-                                          value: (_step + 1) / 3),
-                                      const SizedBox(height: 18),
-                                      stageContent,
-                                      if (_step < 2) ...[
-                                        const SizedBox(height: 16),
-                                        FilledButton(
-                                            onPressed: _paymentEnabled == false
-                                                ? null
-                                                : _nextStep,
-                                            child: const Text('Continuar')),
-                                      ],
-                                      if (_step > 0)
-                                        Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: TextButton.icon(
-                                                onPressed: () => setState(() {
-                                                      _error = '';
-                                                      _step--;
-                                                    }),
-                                                icon: const Icon(
-                                                    Icons.arrow_back),
-                                                label: const Text('Voltar'))),
-                                      if (_error.isNotEmpty)
-                                        Padding(
-                                            padding: const EdgeInsets.all(10),
-                                            child: Text(_error,
-                                                style: const TextStyle(
-                                                    color: Colors.red))),
-                                    ]))),
-                      ]);
-                }),
-              ),
-            ),
-    );
-  }
-
-  Widget _summaryLine(String label, String value, {bool emphasized = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-            child: Text(label,
-                style: TextStyle(
-                    fontWeight:
-                        emphasized ? FontWeight.w800 : FontWeight.w400))),
-        const SizedBox(width: 8),
-        Text(value,
-            style: TextStyle(
-                fontWeight: FontWeight.w700, fontSize: emphasized ? 18 : 14)),
-      ],
-    );
+                              Center(
+                                  child: ConstrainedBox(
+                                      constraints:
+                                          const BoxConstraints(maxWidth: 760),
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            if (_error.isNotEmpty)
+                                              Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          bottom: 16),
+                                                  child: Text(_error,
+                                                      style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .error),
+                                                      semanticsLabel: _error)),
+                                            if (_recorded != null)
+                                              _confirmation()
+                                            else ...[
+                                              Text(
+                                                  'Etapa ${_step + 1} de 3 · ${[
+                                                    'Recebimento',
+                                                    'Pagamento',
+                                                    'Revisão'
+                                                  ][_step]}',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleLarge),
+                                              const SizedBox(height: 12),
+                                              LinearProgressIndicator(
+                                                  value: (_step + 1) / 3),
+                                              const SizedBox(height: 20),
+                                              if (!enabled)
+                                                _card(
+                                                    'Compra indisponível no momento',
+                                                    [
+                                                      _text(
+                                                          'A loja ainda não habilitou uma forma de pagamento. Fale com o atendimento para saber mais.'),
+                                                      OutlinedButton(
+                                                          onPressed: _load,
+                                                          child: const Text(
+                                                              'Verificar novamente'))
+                                                    ]),
+                                              AbsorbPointer(
+                                                  absorbing: _busy,
+                                                  child: _step == 0
+                                                      ? _details(items)
+                                                      : _step == 1
+                                                          ? _paymentStep()
+                                                          : _review(
+                                                              items,
+                                                              subtotal,
+                                                              shipping)),
+                                              if (_step > 0)
+                                                TextButton.icon(
+                                                    onPressed: _busy
+                                                        ? null
+                                                        : () =>
+                                                            _goStep(_step - 1),
+                                                    icon: const Icon(
+                                                        Icons.arrow_back),
+                                                    label: const Text(
+                                                        'Voltar uma etapa')),
+                                            ],
+                                          ])))
+                            ]),
+        ));
   }
 }

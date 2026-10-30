@@ -1,3 +1,4 @@
+import 'widgets/order_receiving_info.dart';
 import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -13,29 +14,40 @@ import '../widgets/empty_state.dart';
 import 'widgets/offline_payment_notice.dart';
 
 class RailwayOrdersScreen extends ConsumerStatefulWidget {
-  const RailwayOrdersScreen({super.key});
+  const RailwayOrdersScreen({super.key, this.repository, this.changes});
+  final RailwayOrderRepository? repository;
+  final Stream<int>? changes;
   @override
   ConsumerState<RailwayOrdersScreen> createState() =>
       _RailwayOrdersScreenState();
 }
 
-class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
-  final _repo = RailwayOrderRepository();
+class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen>
+    with WidgetsBindingObserver {
+  late final _repo = widget.repository ?? RailwayOrderRepository();
   late Future<List<Map<String, dynamic>>> _orders;
   StreamSubscription<int>? _changes;
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _reload();
-    _changes = LojaApi.instance.orderChanges(admin: false).listen((_) {
+    _changes = (widget.changes ?? LojaApi.instance.orderChanges(admin: false))
+        .listen((_) {
       if (mounted) setState(_reload);
-    });
+    }, onError: (Object _) {/* A atualização manual continua disponível. */});
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _changes?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) setState(_reload);
   }
 
   void _reload() {
@@ -44,7 +56,9 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
 
   Future<void> _refresh() async {
     setState(_reload);
-    await _orders;
+    try {
+      await _orders;
+    } catch (_) {/* O erro é apresentado pelo FutureBuilder. */}
   }
 
   final _money = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
@@ -130,6 +144,12 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                                             .textTheme
                                             .titleMedium),
                                     const SizedBox(height: 5),
+                                    if (orderDate(order['createdAt'])
+                                        .isNotEmpty)
+                                      Text(orderDate(order['createdAt']),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall),
                                     if (isDemo)
                                       const Text(
                                           'PEDIDO FICTÍCIO · sem cobrança real',
@@ -146,9 +166,10 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                                     Chip(
                                         avatar:
                                             Icon(_statusIcon(status), size: 18),
-                                        label: Text(_label(status,
+                                        label: Text(orderStatusLabel(status,
                                             delivery: order['fulfillment'] ==
-                                                'DELIVERY')),
+                                                'DELIVERY',
+                                            local: isLocalDelivery(order))),
                                         visualDensity: VisualDensity.compact),
                                     Text(
                                         'Total: ${_money.format(total)}  •  ${order['fulfillment'] == 'DELIVERY' ? 'Entrega' : 'Retirada na loja'}'),
@@ -158,7 +179,9 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                                         0)
                                       Text(
                                           'Cupom ${order['couponCode'] ?? ''}: desconto de ${_money.format((int.tryParse('${order['discountCents']}') ?? 0) / 100)}'),
-                                    if (order['fulfillment'] == 'DELIVERY') ...[
+                                    OrderReceivingInfo(order: order),
+                                    if (order['fulfillment'] == 'DELIVERY' &&
+                                        !isLocalDelivery(order)) ...[
                                       Text(
                                           'Transportadora: ${order['shippingCarrier'] ?? 'A definir'}'),
                                       if (order['shipment'] is Map &&
@@ -172,7 +195,7 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                                         in (order['items'] as List? ??
                                             const []))
                                       Text(
-                                          '${line['quantity']}× ${line['name']}',
+                                          '${line['quantity']}× ${line['name']} · ${(line['attributes'] as Map?)?['color'] ?? ''} · ${(line['attributes'] as Map?)?['size'] ?? ''}',
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis),
                                     Wrap(spacing: 8, children: [
@@ -244,18 +267,27 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
                                                   await _repo.retryCheckout(
                                                       order['id'].toString());
                                               final uri = Uri.tryParse(url);
-                                              if (uri != null &&
-                                                  uri.scheme == 'https') {
-                                                await launchUrl(uri,
-                                                    mode: LaunchMode
-                                                        .externalApplication);
+                                              if (uri == null ||
+                                                  uri.scheme != 'https' ||
+                                                  !uri.hasAuthority ||
+                                                  uri.userInfo.isNotEmpty) {
+                                                throw StateError(
+                                                    'Link indisponível');
                                               }
-                                            } catch (e) {
+                                              final opened = await launchUrl(
+                                                  uri,
+                                                  mode: LaunchMode
+                                                      .externalApplication);
+                                              if (!opened) {
+                                                throw StateError(
+                                                    'Pagamento não aberto');
+                                              }
+                                            } catch (_) {
                                               if (context.mounted) {
                                                 ScaffoldMessenger.of(context)
                                                     .showSnackBar(SnackBar(
-                                                        content: Text(
-                                                            'Pagamento indisponível: $e')));
+                                                        content: const Text(
+                                                            'Seu pedido está salvo. Não foi possível abrir o pagamento; tente novamente.')));
                                               }
                                             }
                                           },
@@ -291,17 +323,5 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen> {
         'CANCELED' => Icons.cancel_outlined,
         'PAYMENT_REVIEW' => Icons.info_outline,
         _ => Icons.receipt_long_outlined,
-      };
-
-  String _label(String v, {bool delivery = false}) => switch (v) {
-        'PENDING_PAYMENT' => 'Aguardando pagamento',
-        'PAID' => 'Pago',
-        'PREPARING' => 'Preparando',
-        'SHIPPED' => delivery ? 'Envio postado' : 'Pronto para retirada',
-        'DELIVERED' => delivery ? 'Entregue' : 'Concluído',
-        'CANCELED' => 'Cancelado',
-        'REFUNDED' => 'Reembolsado',
-        'PAYMENT_REVIEW' => 'Pagamento em revisão',
-        _ => v,
       };
 }

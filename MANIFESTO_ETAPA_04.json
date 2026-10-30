@@ -1,0 +1,164 @@
+{
+  "stage": "04",
+  "previous_stage_required": "03",
+  "title": "Checkout, recebimento e acompanhamento",
+  "base_repository": "https://github.com/othongustavo99/store-app",
+  "base_commit": "8a599a8a4e68682e5b62837ac011906b5ec4cb29",
+  "installation_root": "pasta que contém pubspec.yaml",
+  "deployment_order": [
+    "migration 017 no banco correto",
+    "backend",
+    "aplicativo"
+  ],
+  "files": [
+    {
+      "path": "LEIA_ETAPA_04.md",
+      "operation": "ADICIONAR",
+      "sha256": "a2201197a3e5cbb7de0b0027f05ffbbccd41ec026636d47a06528c3e4c05490e"
+    },
+    {
+      "path": "README.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "ff8d2d1ce6e323d9d47930c18aa047c90ec4d8f94468813c4fa8dd048f3f0c91"
+    },
+    {
+      "path": "backend/migrations/017_local_fulfillment.sql",
+      "operation": "ADICIONAR",
+      "sha256": "1db5ea34882a44fc1f7e7a88fed9fa2d3673e1619bccd5315d03d1592cc220e1"
+    },
+    {
+      "path": "backend/src/routes/commerce.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "ef91124798fd4b6a220571ef424694b3d78c64f45b6624c1fae42e33145eeff2"
+    },
+    {
+      "path": "backend/src/routes/fulfillment.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "e3e0d77f1509dbf292f8ca1a3cb8473f768f14f90de1ec8bb0472317130787ad"
+    },
+    {
+      "path": "backend/src/routes/shipment_management.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "70e3bad71805b6697cea5558cdc5879a35dbaa3546848c3a03a6ab4efe3c6f0f"
+    },
+    {
+      "path": "backend/src/routes/shipping.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "f352132e16b3847b5136b9c7fc3fb89073f50c9bd61de014b18257aea7094f8f"
+    },
+    {
+      "path": "backend/src/routes/store_profiles.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "6a456b1948456d4960b25c873068853bf70a584e17e3f05fc0255e4040f3a63e"
+    },
+    {
+      "path": "backend/src/services/local_fulfillment.ts",
+      "operation": "ADICIONAR",
+      "sha256": "762c1c0c4ebbf02e99ad2d84af212d76ca073abcb5f1ad7bd1a59c4b624eb8ac"
+    },
+    {
+      "path": "backend/src/services/shipping_rules.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "2e62f5af1e23155030f3af58375623a8ae611ee1aa8302c87bf16ea2469453a9"
+    },
+    {
+      "path": "backend/src/tests/local_fulfillment.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "189404545516a7e019719edc952507fcce6cd2e04c5d407ca17372bf6094c545"
+    },
+    {
+      "path": "backend/src/tests/shipping_rules.test.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "53ee92c7706ea6695fdd09f73a31971c2c948e3f343a3f7cb24db2a4fae5a191"
+    },
+    {
+      "path": "docs/EVOLUCAO_MODELO_COMERCIAL.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "86e1e85e84e26e92813e092b5f4c1f4c88b39d2ed29f518724ff6bbf04c512cc"
+    },
+    {
+      "path": "lib/data/repositories/railway_order_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "2e4f95461a2d10e5c3da4626f8b9c7f335dd1390c01633553b26bdd9cc19273f"
+    },
+    {
+      "path": "lib/data/repositories/railway_shipping_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "7321bd3b41250382c07cdb54c8d742bae9d6c4046fae804dbc581de14df0225f"
+    },
+    {
+      "path": "lib/features/admin/orders/railway_admin_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "086500c879502f6b8306c08049ce630b06e688f182cd80229b7d9847acf35603"
+    },
+    {
+      "path": "lib/features/admin/shipping/local_fulfillment_settings.dart",
+      "operation": "ADICIONAR",
+      "sha256": "ba8c46f23db95874cf85b41a00c54bd50ce03d93c01f99c56ce2a24b563ad8c4"
+    },
+    {
+      "path": "lib/features/admin/shipping/railway_shipping_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "1461c509a53caf9cfa4653983d9d2297aca7043f63b576271b93c3d3b7a371d7"
+    },
+    {
+      "path": "lib/features/client/checkout/railway_checkout_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "32b79353b7f4fe333fc08f2cbf0a9ec32c0827adc1a3445d59651c6e2d655def"
+    },
+    {
+      "path": "lib/features/client/orders/railway_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "055ee852ba589bfbd6111b0216f5334066548578c9e38c8c4258fe3b79319f21"
+    },
+    {
+      "path": "lib/features/client/orders/widgets/order_receiving_info.dart",
+      "operation": "ADICIONAR",
+      "sha256": "624acb59e9cb851c6b3fe04d649556179054cbec9dea729b86186aacd203eb47"
+    },
+    {
+      "path": "lib/features/support/railway_order_timeline_dialog.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "4dfd0ef5503bd5613608b5d1c22214ae663e71934e4ff5471886429f857d606b"
+    },
+    {
+      "path": "test/stage04_checkout_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "2fc41bac2815c7fedbaeb8f372292edef1ed038838c8175ceb5d64551b6c9ea1"
+    },
+    {
+      "path": "test/stage04_receiving_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "5f807d06eafb40916cccd8640a4241cd3e28fd7182a047f2420612f3007a3c2d"
+    }
+  ],
+  "remove": [],
+  "sql_migrations_changed": true,
+  "existing_sql_migrations_modified": false,
+  "sql_migrations_added": [
+    "backend/migrations/017_local_fulfillment.sql"
+  ],
+  "dependencies_changed": false,
+  "validation": {
+    "flutter_analyze": "No issues found",
+    "flutter_tests_passed": 74,
+    "flutter_test_defines": [
+      "LOJA_BACKEND=railway"
+    ],
+    "backend_tests_passed": 96,
+    "tests_use_mock_database_gateway_and_postal_lookup": true,
+    "new_widget_widths_px": [
+      320,
+      390,
+      1200
+    ],
+    "widget_text_scales": [
+      1.0,
+      1.3
+    ],
+    "migration_017_executed_on_database": false,
+    "live_payments_executed": false,
+    "deployed_to_railway": false,
+    "physical_device_tested": false
+  }
+}

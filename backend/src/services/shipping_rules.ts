@@ -32,7 +32,8 @@ export function normalizeShippingRates(response:unknown):ShippingService[] {
     const r=candidate as Record<string,unknown>;
     if (r.error || r.id==null) continue;
     const id=String(r.id);
-    if (!/^\d{1,10}$/.test(id) || seen.has(id)) continue;
+    // ID 0 é reservado à entrega local, sem expedição de transportadora.
+    if (id==='0' || !/^\d{1,10}$/.test(id) || seen.has(id)) continue;
     const cost=decimalCents(r.custom_price ?? r.price);
     const days=Number(r.custom_delivery_time ?? r.delivery_time);
     if (cost==null || !Number.isInteger(days) || days<0 || days>120) continue;
