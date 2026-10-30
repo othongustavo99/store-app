@@ -710,7 +710,7 @@ export async function commerceRoutes(app:FastifyInstance) {
     const realEnabled=!demo && config.ENABLE_REAL_PAYMENTS && config.PAYMENT_PILOT_STORE_ID===storeId &&
       !!config.MERCADOPAGO_ACCESS_TOKEN && !!config.MERCADOPAGO_WEBHOOK_SECRET && !!config.PUBLIC_BASE_URL;
     const local=fulfillmentSettings((await pool.query('SELECT * FROM store_fulfillment_settings WHERE store_id=$1',[storeId])).rows[0]);
-    return {demo,localDelivery:!demo && local.localEnabled,demoLoginEnabled:demo && config.ENABLE_PUBLIC_DEMO_LOGIN,simulatedMethods:demo?['PIX','CARD']:[],
+    return {storeId,demo,localDelivery:!demo && local.localEnabled,demoLoginEnabled:demo && config.ENABLE_PUBLIC_DEMO_LOGIN,simulatedMethods:demo?['PIX','CARD']:[],
       offlineMethods,realEnabled,enabled:demo || realEnabled || offlineMethods.length>0,
       fulfillment:demo?['PICKUP']:['PICKUP',
         ...((local.localEnabled || !!config.SHIPPING_MELHOR_ENVIO_TOKEN && config.SHIPPING_PILOT_STORE_ID===storeId) ? ['DELIVERY']:[])]};

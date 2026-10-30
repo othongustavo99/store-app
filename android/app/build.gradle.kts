@@ -1,8 +1,25 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services")
+    id("com.google.gms.google-services") apply false
+}
+
+// Railway sem push não exige google-services.json de outra marca.
+val lojaUseFirebase = (project.findProperty("LOJA_USE_FIREBASE") as String?)?.toBoolean() ?: true
+if (lojaUseFirebase) apply(plugin = "com.google.gms.google-services")
+
+val lojaSigningFile = rootProject.file("key.properties")
+val lojaSigning = Properties()
+if (lojaSigningFile.exists()) lojaSigningFile.inputStream().use { lojaSigning.load(it) }
+val lojaRequireSigning = (project.findProperty("LOJA_REQUIRE_RELEASE_SIGNING") as String?)?.toBoolean() ?: false
+val lojaSigningReady = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { !lojaSigning.getProperty(it).isNullOrBlank() }
+if (lojaRequireSigning) {
+    require(lojaSigningReady) { "Build de produção exige android/key.properties com assinatura própria." }
+    require(file(lojaSigning.getProperty("storeFile")).exists()) { "Arquivo de assinatura não encontrado." }
 }
 
 dependencies {
@@ -36,11 +53,22 @@ android {
         manifestPlaceholders["lojaAppName"] = (project.findProperty("LOJA_DISPLAY_NAME") as String?) ?: "Loja de Roupas"
     }
 
+    signingConfigs {
+        if (lojaSigningReady) {
+            create("lojaRelease") {
+                storeFile = file(lojaSigning.getProperty("storeFile"))
+                storePassword = lojaSigning.getProperty("storePassword")
+                keyAlias = lojaSigning.getProperty("keyAlias")
+                keyPassword = lojaSigning.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Builds antigos de demonstração mantêm assinatura debug como alternativa.
+            // O helper por cliente exige assinatura própria para produção.
+            signingConfig = signingConfigs.getByName(if (lojaSigningReady) "lojaRelease" else "debug")
         }
     }
 }

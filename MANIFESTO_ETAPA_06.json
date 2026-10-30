@@ -1,0 +1,197 @@
+{
+  "stage": "06",
+  "previous_stage_required": "05",
+  "title": "Configuração por lojista e demonstração comercial",
+  "base_repository": "https://github.com/othongustavo99/store-app",
+  "base_commit": "1b41edb9cf152140697be9d80c220acdb46058f2",
+  "installation_root": "pasta que contém pubspec.yaml",
+  "deployment_order": [
+    "backend",
+    "aplicativo"
+  ],
+  "files": [
+    {
+      "path": ".gitignore",
+      "operation": "SUBSTITUIR",
+      "sha256": "58e4f12e0e96f8e8b6c9bca3dd2fe27b1f4862200b662dee4db383ae5071801b"
+    },
+    {
+      "path": "LEIA_ETAPA_06.md",
+      "operation": "ADICIONAR",
+      "sha256": "39e11de90aae52c0c7e639ae2f4fae2bb15a5fd0dbc25a9f6f696ec4b7ef28e2"
+    },
+    {
+      "path": "README.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "1108a13fb19b7ca98ade1b757faeb67493281941c347505b8947c79c4e1a4b23"
+    },
+    {
+      "path": "android/app/build.gradle.kts",
+      "operation": "SUBSTITUIR",
+      "sha256": "61fc10bb0af79d996539362b29543c0b68371824f07c3f8dd9457e7df879f890"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "operation": "SUBSTITUIR",
+      "sha256": "794b3b4ea087b5bee95110fa44c213a6f39ad0b6a56c18859ae246c11aec70af"
+    },
+    {
+      "path": "backend/README.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "ff2204d0d3a5f74fe32cae6dcf793975d8d9aa42f881c597d98a1edced3a378e"
+    },
+    {
+      "path": "backend/package.json",
+      "operation": "SUBSTITUIR",
+      "sha256": "5111788f0dfbc777596debe809aedc8a807132940bdc845678b010a856de8fb8"
+    },
+    {
+      "path": "backend/src/routes/commerce.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "c6bf52f39c06557fe6f259f304026ff5dd335274c47a331cc506998b051520d9"
+    },
+    {
+      "path": "backend/src/routes/store_profiles.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "2186e69966f7efa9607e027f1f767d3df726ef5e57f22484a1c7c19c2ccf6eee"
+    },
+    {
+      "path": "backend/src/scripts/prepare_client.ts",
+      "operation": "ADICIONAR",
+      "sha256": "6f90e155a722d73404a259218147440310aa4305e21162d2641fda2368f7fe6e"
+    },
+    {
+      "path": "backend/src/scripts/provision_store.ts",
+      "operation": "ADICIONAR",
+      "sha256": "7967822ad17120e8ed2cdacefe0c1c274062ec9388dceeaeee2b18b0e883b87d"
+    },
+    {
+      "path": "backend/src/scripts/seed_demo.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "29ef9a461442e5634beedfd174055582a2700305046671f9b82531924f1f5f55"
+    },
+    {
+      "path": "backend/src/services/client_config_files.ts",
+      "operation": "ADICIONAR",
+      "sha256": "69a0b2a98013b9558bcd373b6efd072b96bbe9ee1ae83cd4cdf145b8fa1deeab"
+    },
+    {
+      "path": "backend/src/services/client_configuration.ts",
+      "operation": "ADICIONAR",
+      "sha256": "d0847bced8eeacb008e8a323838f4fdc578ef9da56f3eb998f3f5f3a5a51345b"
+    },
+    {
+      "path": "backend/src/services/store_provisioning.ts",
+      "operation": "ADICIONAR",
+      "sha256": "05aee2b49a2cf242e7585007ac4c6b28db42c351c0c958981f564db0f6866f9d"
+    },
+    {
+      "path": "backend/src/services/store_readiness.ts",
+      "operation": "ADICIONAR",
+      "sha256": "3d148c87dc9a6cb8bb131c4bed92ab96a2881f3aa9a69bc421b3b08f2bdb10a0"
+    },
+    {
+      "path": "backend/src/tests/store_preparation.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "e21959d294563e99a311ac4a6887b2e6a46891104f5388b403fb2a8c02d9f3c0"
+    },
+    {
+      "path": "config/loja.example.json",
+      "operation": "ADICIONAR",
+      "sha256": "c39c5b187b79e24b0dc6ae53c3b57a9538114ca12a71b8782fd1052e4a4096c0"
+    },
+    {
+      "path": "docs/EVOLUCAO_MODELO_COMERCIAL.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "c9a007945ea97461eb0ec0656e0285b7e82234acd9e38152b801dc559ec1a45a"
+    },
+    {
+      "path": "lib/core/config/store_build_contract.dart",
+      "operation": "ADICIONAR",
+      "sha256": "6eb00263f2cb8ba2a57dbce52d7e346a8b5165c7c5464774262aad608687ee45"
+    },
+    {
+      "path": "lib/core/network/loja_api.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "1cc6f8fcb504a03a59bec56a549ba377366024da9157d9b35f8a85581ef05824"
+    },
+    {
+      "path": "lib/data/repositories/railway_order_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "c7a657f4a3efcb4c9b689e79fa8dbbd81387db223b6ce05a57ca73c46885c7b4"
+    },
+    {
+      "path": "lib/features/admin/store_settings/railway_store_settings_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "dea5433678a9ab8b9b25f850fdfa004be9eff7567e0ba4833ec828430eadb09b"
+    },
+    {
+      "path": "lib/features/admin/store_settings/store_brand_preview.dart",
+      "operation": "ADICIONAR",
+      "sha256": "64d21c6a1949fa3f39284ead21874d0fe161a329e5e9eb04c2ab85504e0d0d08"
+    },
+    {
+      "path": "lib/features/admin/store_settings/store_preparation_card.dart",
+      "operation": "ADICIONAR",
+      "sha256": "793b7009d744076cdb1527f5a901ee84282e9366d52e37355229c19a066366eb"
+    },
+    {
+      "path": "lib/features/client/widgets/store_connection_gate.dart",
+      "operation": "ADICIONAR",
+      "sha256": "55eb602074432a9813dfc612af1383858d0973925b1b2ad1ea01a9918e626d0c"
+    },
+    {
+      "path": "lib/main.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "937a7c54d0a30bc26abda3484042f5e1ce39bb230103c8091669073a5d5d587c"
+    },
+    {
+      "path": "test/stage06_store_setup_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "2237edcf6354e1e192623583fce238df4d80a1e8018aef48504c22dd4ea3b6dc"
+    },
+    {
+      "path": "tools/build-client.ps1",
+      "operation": "ADICIONAR",
+      "sha256": "617120e953188ba7e54d68179a241975617c72e148d8fbe05d676cac20d4473c"
+    }
+  ],
+  "remove": [],
+  "sql_migrations_changed": false,
+  "existing_delivered_migration_bytes_preserved": true,
+  "sql_migrations_added": [],
+  "dependencies_changed": false,
+  "validation": {
+    "flutter_analyze": "No issues found",
+    "flutter_tests_passed": 100,
+    "flutter_test_defines": [
+      "LOJA_BACKEND=railway"
+    ],
+    "flutter_test_concurrency": 1,
+    "stage_tests_rechecked_after_preview_typography_polish": 12,
+    "backend_tests_passed": 132,
+    "tests_use_mock_database_and_services": true,
+    "new_widget_widths_px": [
+      320,
+      390
+    ],
+    "widget_text_scales": [
+      1.0,
+      1.3
+    ],
+    "powershell_parser_and_generator_checked": true,
+    "helper_plan_and_build_failure_environment_restoration_checked": true,
+    "helper_production_debug_and_missing_signing_block_checked": true,
+    "android_gradle_configuration_validated": false,
+    "android_gradle_configuration_attempted": true,
+    "android_gradle_version_used": "9.3.1",
+    "android_gradle_configuration_error": "The settings are not yet available for build. Falha durante o carregamento das configurações; Kotlin/empacotamento não validados.",
+    "android_gradle_minimal_control_project_help_passed": true,
+    "apk_compiled": false,
+    "production_signature_tested_with_real_key": false,
+    "provisioning_executed_on_real_database": false,
+    "live_payments_executed": false,
+    "deployed_to_railway": false,
+    "physical_device_tested": false
+  }
+}

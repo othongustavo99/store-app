@@ -1,3 +1,5 @@
+import { storeReadiness } from '../services/store_readiness.js';
+import { fulfillmentSettings } from '../services/local_fulfillment.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
@@ -20,8 +22,8 @@ export async function storeProfileRoutes(app: FastifyInstance): Promise<void> {
   // Consulta pública: expõe somente campos destinados à vitrine.
   app.get('/v1/shops/:slug/profile', async req => {
     const {slug} = validated(publicParams, req.params);
-    const store = await pool.query<{id: string;name: string;slug: string}>(
-      "SELECT id,name,slug FROM stores WHERE slug=$1 AND status='ACTIVE'", [slug]);
+    const store = await pool.query<{id: string;name: string;slug: string;isDemo:boolean}>(
+      `SELECT id,name,slug,is_demo AS "isDemo" FROM stores WHERE slug=$1 AND status='ACTIVE'`, [slug]);
     if (!store.rowCount) throw new ApiError(404, 'Loja não encontrada.');
     const row = await readProfile(store.rows[0].id);
     return {store: store.rows[0], profile: {...publicProfile(row),
@@ -31,8 +33,8 @@ export async function storeProfileRoutes(app: FastifyInstance): Promise<void> {
   app.get('/v1/stores/:storeId/profile', async req => {
     const {storeId} = validated(privateParams, req.params);
     const {role} = await requireStoreRole(req, storeId, ['OWNER','MANAGER','STAFF']);
-    const store = await pool.query<{id: string;name: string;slug: string}>(
-      "SELECT id,name,slug FROM stores WHERE id=$1 AND status='ACTIVE'", [storeId]);
+    const store = await pool.query<{id: string;name: string;slug: string;isDemo:boolean}>(
+      `SELECT id,name,slug,is_demo AS "isDemo" FROM stores WHERE id=$1 AND status='ACTIVE'`, [storeId]);
     const row = await readProfile(storeId);
     return {store: store.rows[0], profile: {
       ...publicProfile(row), displayName: row.display_name ?? store.rows[0].name,
@@ -87,32 +89,21 @@ export async function storeProfileRoutes(app: FastifyInstance): Promise<void> {
       (SELECT count(*)::int FROM store_memberships sm WHERE sm.store_id=$1) AS member_count,
       (SELECT count(*)::int FROM store_shipping_settings ss WHERE ss.store_id=$1) AS origin_count`, [storeId]);
     const r = result.rows[0];
-    const profile = publicProfile(await readProfile(storeId));
-    const shippingPilot = !!config.SHIPPING_MELHOR_ENVIO_TOKEN &&
-      config.SHIPPING_PILOT_STORE_ID === storeId && !!config.SHIPPING_USER_AGENT;
-    const paymentPilot = !!config.MERCADOPAGO_ACCESS_TOKEN &&
-      config.PAYMENT_PILOT_STORE_ID === storeId;
-    return {
-      publishedProducts: r.published_products,
-      members: r.member_count,
-      missingParcels: r.variants_missing_parcel,
-      checks: {
-        identity: Boolean(profile.logoUrl && profile.supportEmail),
-        legal: Boolean(profile.privacyUrl && profile.termsUrl && profile.returnsUrl),
-        catalog: r.published_products > 0,
-        shippingOrigin: r.origin_count > 0,
-        shippingDimensions: r.published_products > 0 && r.variants_missing_parcel === 0,
-        shippingPilotConnected: shippingPilot,
-        paymentPilotCredentialsPresent: paymentPilot,
-        // Independente de tokens globais: onboarding de pagamento por lojista NÃO existe ainda.
-        merchantPaymentsReady: false,
-      },
-      limitations: [
-        'Cada lojista ainda precisa de sua integração financeira própria antes de receber pagamentos.',
-        'Frete por transportadora exige autorização por estabelecimento; a integração atual atende à loja-piloto.',
-        'Retirada na loja está disponível sem provedor de frete.',
-        'Entrega local pode ser configurada por faixa de CEP no painel de frete, sem token de transportadora.',
-      ],
-    };
+    const [shop,fulfillment,available]=await Promise.all([
+      pool.query<{is_demo:boolean}>("SELECT is_demo FROM stores WHERE id=$1 AND status='ACTIVE'",[storeId]),
+      pool.query('SELECT * FROM store_fulfillment_settings WHERE store_id=$1',[storeId]),
+      pool.query<{count:number}>(`SELECT count(*)::int AS count FROM product_variants v
+        JOIN products p ON p.id=v.product_id AND p.store_id=v.store_id
+        WHERE v.store_id=$1 AND v.status='ACTIVE' AND p.status='PUBLISHED' AND v.on_hand>v.reserved`,[storeId]),
+    ]);
+    const profile=publicProfile(await readProfile(storeId));
+    const online=config.ENABLE_REAL_PAYMENTS&&config.PAYMENT_PILOT_STORE_ID===storeId&&
+      !!config.MERCADOPAGO_ACCESS_TOKEN&&!!config.MERCADOPAGO_WEBHOOK_SECRET&&!!config.PUBLIC_BASE_URL;
+    const carrier=!!config.SHIPPING_MELHOR_ENVIO_TOKEN&&config.SHIPPING_PILOT_STORE_ID===storeId&&!!config.SHIPPING_USER_AGENT;
+    return storeReadiness({isDemo:shop.rows[0]?.is_demo===true,publicDemoLogin:config.ENABLE_PUBLIC_DEMO_LOGIN,
+      publishedProducts:r.published_products,availableVariants:available.rows[0]?.count??0,
+      missingParcels:r.variants_missing_parcel,originConfigured:r.origin_count>0,members:r.member_count,
+      profile,fulfillment:fulfillmentSettings(fulfillment.rows[0]),onlineConfigured:online,
+      carrierConfigured:carrier,carrierSandbox:config.SHIPPING_MELHOR_ENVIO_SANDBOX});
   });
 }

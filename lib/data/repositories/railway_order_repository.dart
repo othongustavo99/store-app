@@ -1,3 +1,4 @@
+import '../../core/config/store_build_contract.dart';
 import 'dart:async';
 
 import 'package:uuid/uuid.dart';
@@ -11,8 +12,19 @@ class RailwayOrderRepository {
   final LojaApi _api = LojaApi.instance;
   final RailwayAfterSalesRepository _afterSales = RailwayAfterSalesRepository();
 
-  Future<Map<String, dynamic>> checkoutAvailability() => _api.request(
-      'GET', '/v1/shops/${LojaBackend.storeSlug}/checkout/availability');
+  Future<Map<String, dynamic>> checkoutAvailability() async {
+    final data = await _api.request(
+        'GET', '/v1/shops/${LojaBackend.storeSlug}/checkout/availability');
+    const contract = StoreBuildContract.fromEnvironment();
+    if (contract.bound) {
+      contract.validateStore({
+        'id': data['storeId'],
+        'slug': LojaBackend.storeSlug,
+        'isDemo': data['demo']
+      });
+    }
+    return data;
+  }
 
   Future<bool> checkoutEnabled() async =>
       (await checkoutAvailability())['enabled'] == true;

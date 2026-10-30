@@ -49,6 +49,20 @@ Veja `../docs/FASE_1_RAILWAY_APLICACAO.md` para o roteiro completo, com testes.
 - Dockerfile reconhecido automaticamente na raiz `/backend`; configure healthcheck `/health/live` no painel do serviço. Ao iniciar, aplica SQL migrations por ordem, com lock.
 - Não publique credenciais, `.env`, dados sensíveis nem URL interna do banco.
 
+## Configuração por lojista — Etapa 06
+
+O provisionamento administrativo e o gerador público de parâmetros do app estão descritos em [LEIA_ETAPA_06.md](../LEIA_ETAPA_06.md). Compile antes de executar os comandos:
+
+```powershell
+npm run build
+npm run client:prepare -- --config=../config/minha-loja.local.json
+npm run store:provision -- --config=../config/novo-cliente.local.json
+```
+
+`client:prepare` exige UUID e não acessa o banco. `store:provision` executa plano somente leitura por padrão; `--apply` permite criar uma loja nova com o proprietário já cadastrado. Lojas existentes são conferidas e preservadas. Os comandos não criam senhas nem credenciais financeiras e não convertem uma loja comercial em demonstração.
+
+O provisionamento por CLI dispensa habilitar `ALLOW_STORE_SELF_SERVICE`. As integrações financeiras e de transportadora continuam limitadas ao piloto autorizado por UUID; esta etapa não implementa OAuth por lojista. A avaliação `/readiness` indica configurações cadastradas e canais compatíveis, sem testar provedores externos.
+
 ## Organização
 
 - `src/app.ts`: Fastify, middlewares e rotas.

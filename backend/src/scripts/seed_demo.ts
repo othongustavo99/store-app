@@ -89,6 +89,7 @@ async function main() {
       created=true;
     } else {
       storeId=store.rows[0].id;
+      if(!store.rows[0].is_demo)throw new Error('Esta loja não é de demonstração. Crie outro slug; o comando não converte lojas comerciais.');
       const count=await client.query<{products:string;orders:string}>(
         `SELECT (SELECT count(*)::text FROM products WHERE store_id=$1) AS products,
          (SELECT count(*)::text FROM orders WHERE store_id=$1) AS orders`,[storeId]);
@@ -101,7 +102,6 @@ async function main() {
         }
         throw new Error('Loja não vazia. Crie outra loja com slug próprio para demo; nenhum dado foi alterado.');
       }
-      await client.query('UPDATE stores SET is_demo=true,updated_at=now() WHERE id=$1',[storeId]);
     }
     if(ownerEmail){
       const owner=await client.query<{id:string}>('SELECT id FROM users WHERE email=$1 AND status=$2',

@@ -20,8 +20,8 @@ Etapa 04 entregue, a partir do commit 8a599a8a4e68682e5b62837ac011906b5ec4cb29: 
 
 Etapa 05 entregue, a partir do commit e21f715f4ba3bfcdd4bec0486491aecab16a80e0: preparo e retirada pronta separados do pagamento pendente; confirmação manual idempotente preservando preparo; filtros e busca de pedidos; ações conforme papel de gestão; prévia de ajuste de estoque com repetição da mesma operação em falhas de rede; cadastro com grade informada pelo lojista, imagem de categoria, preço em centavos e revisão contra sobrescrita de edição antiga. Inclui migration 018_pickup_preparation.sql. Instalação e operação em LEIA_ETAPA_05.md.
 
-Próxima etapa prevista: configuração repetível por lojista e preparação da demonstração comercial.
+Etapa 06 entregue, a partir do commit 1b41edb9cf152140697be9d80c220acdb46058f2: identidade com prévia e paletas, proteção do rascunho, consulta da preparação e indicação do modo do servidor; configuração pública validada por cliente; geração de defines e plano Android; provisionamento somente leitura por padrão e criação explícita de lojas sem sobrescrever existentes; conferência de UUID/slug/modo na abertura; helper Android com assinatura própria obrigatória em produção. Seed recusa converter loja comercial em demo. Sem SQL ou dependências novas. Instalação, configuração externa, limites do piloto e roteiro de apresentação em LEIA_ETAPA_06.md.
 
-Pendências seguintes: operação administrativa; provisionamento por lojista e demonstração comercial; validação de integrações e revisão de dependências antes da operação comercial.
+Próxima etapa prevista: homologação integrada e ajustes finais da demonstração. Pendências comerciais: validar assinatura e funcionamento em aparelhos reais, integração própria de cada lojista e cenários completos de compra; conexão OAuth por lojista e ampliação das listagens administrativas permanecem evoluções posteriores.
 
 Cada etapa deve partir da versão cumulativa anterior. Se o repositório ainda não tiver recebido o ZIP anterior, preservar as alterações já entregues ao preparar o próximo pacote.

@@ -4,9 +4,9 @@ Aplicativo Flutter para compradores e administração de lojas locais de roupas.
 
 ## Entrega atual
 
-**Etapa 05 — operação administrativa.**
+**Etapa 06 — configuração por lojista e demonstração comercial.**
 
-Leia [LEIA_ETAPA_05.md](LEIA_ETAPA_05.md) para instalar a etapa atual, sobre as Etapas 01 a 04. Esta etapa inclui a migration 018: aplique banco, depois backend e aplicativo. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
+Leia [LEIA_ETAPA_06.md](LEIA_ETAPA_06.md) para instalar a etapa atual, sobre as Etapas 01 a 05. Não há migration nova: preserve os SQL 001–018 e publique backend antes do aplicativo. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
 
 A base já contém catálogo, variantes, inventário, checkout, pedidos, atendimento, pós-venda, cupons e identidade de loja. A validação desta etapa não equivale à aprovação completa de operação comercial.
 
@@ -21,6 +21,8 @@ A aplicação possui caminhos Firebase legado e API Railway. O padrão ainda é 
 ~~~
 
 As telas e regras novas de comércio estão no caminho Railway. Preserve o legado enquanto houver necessidade de compatibilidade; sua remoção não faz parte desta etapa.
+
+Para novos clientes, use `config/loja.example.json`, o gerador `npm run client:prepare` no backend e `tools/build-client.ps1` conforme o guia da Etapa 06. O gerador inclui UUID e modo esperados da loja para conferência antes da abertura. Configurações locais e artefatos ficam fora do Git.
 
 ## Verificações
 
@@ -38,8 +40,9 @@ DATABASE_URL e JWT_SECRET são configurados no ambiente do servidor/backend loca
 - Vitrine por marca, filtros reais, ordenação, fotos por variante e ações de compra: entregues na Etapa 03.
 - Checkout revisado, retirada com orientações, entrega local por CEP e histórico de pedidos: entregues na Etapa 04.
 - Preparo antes do pagamento na retirada, filtros de pedidos, prévia de estoque e ajustes do cadastro: entregues na Etapa 05.
-- Próxima prioridade: preparação do modelo por lojista e demonstração comercial.
-- Tornar provisionamento, marca e integrações repetíveis por cliente.
+- Prévia da marca, checklist, provisionamento por CLI e parâmetros de build por cliente: entregues na Etapa 06.
+- Próxima prioridade: homologação integrada da demonstração e ajustes finais em aparelho real.
+- Evolução posterior: conexão das integrações externas por lojista; o backend atual conserva os limites do piloto.
 
 Pagamento online e frete por transportadora ainda dependem de configuração de loja piloto. Entrega local usa taxa fixa e faixas de CEP cadastradas pelo lojista, sem transportadora. Antes de operar com clientes reais, validar integração própria do lojista, assinatura de distribuição e os cenários completos de compra em homologação.
 

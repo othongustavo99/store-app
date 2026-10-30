@@ -43,6 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # Widget Preview related
 .widget_preview/
@@ -66,3 +67,7 @@ backend/coverage/
 backend/.env
 backend/.env.*
 !backend/.env.example
+
+# Configuração local por cliente e artefatos gerados (podem conter email de proprietário).
+.client-builds/
+config/*.local.json

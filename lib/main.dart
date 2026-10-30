@@ -7,7 +7,7 @@ import 'core/config/app_environment.dart';
 import 'core/network/loja_api.dart';
 import 'app.dart';
 import 'providers/product_providers.dart';
-
+import 'features/client/widgets/store_connection_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,7 +77,7 @@ Future<void> main() async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: const LojaRoupasApp(),
+      child: const StoreConnectionGate(child: LojaRoupasApp()),
     ),
   );
 }

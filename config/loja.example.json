@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "store": {
+    "name": "Vila Moda Demonstração",
+    "slug": "vila-moda-demo",
+    "mode": "DEMO",
+    "ownerEmail": "proprietario@example.com"
+  },
+  "app": {
+    "apiBaseUrl": "https://SUA-API.up.railway.app",
+    "applicationId": "br.com.suamarca.vilamoda.demo",
+    "displayName": "Vila Moda Demo",
+    "environment": "demo",
+    "pushEnabled": false,
+    "publicStorefrontUrl": ""
+  },
+  "brand": {
+    "tagline": "Leveza para vestir o seu dia.",
+    "description": "Loja de demonstração. Pedidos e pagamentos fictícios.",
+    "logoUrl": "",
+    "bannerUrl": "",
+    "primaryColor": "#145B55",
+    "secondaryColor": "#E9BB76",
+    "supportEmail": "",
+    "supportPhone": "",
+    "instagramUrl": "",
+    "privacyUrl": "",
+    "termsUrl": "",
+    "returnsUrl": "",
+    "offlineMethods": []
+  },
+  "fulfillment": {
+    "pickupAddress": "Endereço fictício para apresentação",
+    "pickupHours": "Demonstração sem atendimento comercial",
+    "localEnabled": false,
+    "localFeeCents": 0,
+    "localEstimate": "",
+    "localPostalRanges": []
+  }
+}
