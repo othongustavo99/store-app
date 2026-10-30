@@ -7,7 +7,9 @@ import '../data/repositories/railway_store_profile_repository.dart';
 /// O próprio backend define a marca, nunca o APK. Recarrega após publicação
 /// do perfil via evento da loja; fallback seguro enquanto a rede não responde.
 final storeProfileEventsProvider = StreamProvider<int>((ref) =>
-  LojaBackend.isRailway ? LojaApi.instance.catalogChanges() : const Stream<int>.empty());
+    LojaBackend.isRailway
+        ? LojaApi.instance.catalogChanges()
+        : const Stream<int>.empty());
 
 final storeProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   if (!LojaBackend.isRailway) return const {};
@@ -15,6 +17,18 @@ final storeProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.watch(storeProfileEventsProvider);
   final response = await RailwayStoreProfileRepository().publicProfile();
   return Map<String, dynamic>.from(response['profile'] as Map? ?? {});
+});
+
+final storeNameProvider = Provider<String>((ref) {
+  final name = ref
+      .watch(storeProfileProvider)
+      .valueOrNull?['displayName']
+      ?.toString()
+      .trim();
+  return name?.isNotEmpty == true
+      ? name!
+      : const String.fromEnvironment('LOJA_APP_NAME',
+          defaultValue: 'Loja de Roupas');
 });
 
 Color storeHex(dynamic value, Color fallback) {

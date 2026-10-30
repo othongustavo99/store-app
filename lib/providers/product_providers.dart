@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/product_repository.dart';
-import '../data/repositories/railway_catalog_repository.dart';
+import 'store_profile_providers.dart';
 import 'auth_providers.dart';
 import '../core/network/loja_api.dart';
 import '../models/product.dart';
@@ -83,5 +83,8 @@ class ProductsActions {
 }
 
 /// Detalhes independentes da página inicial (inclusive produtos após a página 500).
-final railwayProductByIdProvider = FutureProvider.family<Product?,String>((ref,id) =>
-  RailwayCatalogRepository().getProduct(id));
+final railwayProductByIdProvider =
+    FutureProvider.autoDispose.family<Product?, String>((ref, id) {
+  ref.watch(storeProfileEventsProvider);
+  return ref.watch(productRepositoryProvider).getById(id);
+});

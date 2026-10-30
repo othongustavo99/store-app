@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../models/product.dart';
 
 /// Cartão responsivo, com alvo de toque acessível e preço sem overflow.
@@ -21,16 +22,19 @@ class ProductCard extends ConsumerWidget {
     final soldOut = !product.isAvailable;
     final oldPrice = product.oldPrice;
     final discounted = oldPrice != null &&
-        oldPrice > 0 && oldPrice > product.price && product.price >= 0;
-    final discount = discounted
-        ? ((oldPrice - product.price) / oldPrice * 100).round()
-        : 0;
-    final isFavorite = ref.watch(favoriteIdsProvider.select((ids) => ids.contains(product.id)));
+        oldPrice > 0 &&
+        oldPrice > product.price &&
+        product.price >= 0;
+    final discount =
+        discounted ? ((oldPrice - product.price) / oldPrice * 100).round() : 0;
+    final isFavorite = ref
+        .watch(favoriteIdsProvider.select((ids) => ids.contains(product.id)));
     final imageUrl = product.images.isEmpty ? '' : product.images.first.trim();
 
     return Semantics(
       button: true,
-      label: '${product.name}, ${currency.format(product.price)}${soldOut ? ', esgotado' : ''}',
+      label:
+          '${product.name}, ${currency.format(product.price)}${soldOut ? ', esgotado' : ''}',
       child: Material(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(18),
@@ -52,43 +56,69 @@ class ProductCard extends ConsumerWidget {
                       if (imageUrl.isNotEmpty)
                         ColorFiltered(
                           colorFilter: soldOut
-                              ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
-                              : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+                              ? const ColorFilter.mode(
+                                  Colors.grey, BlendMode.saturation)
+                              : const ColorFilter.mode(
+                                  Colors.transparent, BlendMode.multiply),
                           child: CachedNetworkImage(
                             imageUrl: imageUrl,
                             fit: BoxFit.cover,
                             memCacheWidth: 600,
                             placeholder: (_, __) => const _ImagePlaceholder(),
-                            errorWidget: (_, __, ___) => const _ImagePlaceholder(),
+                            errorWidget: (_, __, ___) =>
+                                const _ImagePlaceholder(),
                           ),
                         )
                       else
                         const _ImagePlaceholder(),
-                      Positioned(right: 6, bottom: 6, child: Material(
-                        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                        shape: const CircleBorder(),
-                        child: IconButton(
-                          tooltip: isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos',
-                          onPressed: () => ref.read(favoriteIdsProvider.notifier).toggle(product.id),
-                          icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: isFavorite ? Colors.redAccent : Theme.of(context).colorScheme.primary),
-                        ),
-                      )),
+                      Positioned(
+                          right: 6,
+                          bottom: 6,
+                          child: Material(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surface
+                                .withValues(alpha: 0.95),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: isFavorite
+                                  ? 'Remover dos favoritos'
+                                  : 'Adicionar aos favoritos',
+                              onPressed: () => ref
+                                  .read(favoriteIdsProvider.notifier)
+                                  .toggle(product.id),
+                              icon: Icon(
+                                  isFavorite
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: isFavorite
+                                      ? Colors.redAccent
+                                      : Theme.of(context).colorScheme.primary),
+                            ),
+                          )),
                       if (soldOut)
                         const Positioned(
-                          left: 10, top: 10,
-                          child: _Pill(text: 'Esgotado', color: AppColors.textSecondary),
+                          left: 10,
+                          top: 10,
+                          child: _Pill(
+                              text: 'Esgotado', color: AppColors.textSecondary),
                         )
                       else ...[
                         if (product.isNew)
                           Positioned(
-                            left: 10, top: 10,
-                            child: _Pill(text: 'Novidade', color: Theme.of(context).colorScheme.primary),
+                            left: 10,
+                            top: 10,
+                            child: _Pill(
+                                text: 'Novidade',
+                                color: Theme.of(context).colorScheme.primary),
                           ),
                         if (discounted && discount > 0)
                           Positioned(
-                            right: 10, top: 10,
-                            child: _Pill(text: '-$discount%', color: Theme.of(context).colorScheme.secondary),
+                            right: 10,
+                            top: 10,
+                            child: _Pill(
+                                text: '-$discount%',
+                                color: Theme.of(context).colorScheme.secondary),
                           ),
                       ],
                     ],
@@ -107,7 +137,9 @@ class ProductCard extends ConsumerWidget {
                           fontSize: 14,
                           height: 1.25,
                           fontWeight: FontWeight.w600,
-                          color: soldOut ? AppColors.textSecondary : AppColors.textPrimary,
+                          color: soldOut
+                              ? AppColors.textSecondary
+                              : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -118,7 +150,9 @@ class ProductCard extends ConsumerWidget {
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
-                          color: soldOut ? AppColors.textLight : Theme.of(context).colorScheme.primary,
+                          color: soldOut
+                              ? AppColors.textLight
+                              : Theme.of(context).colorScheme.primary,
                         ),
                       ),
                       SizedBox(
@@ -155,7 +189,8 @@ class _ImagePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) => const ColoredBox(
         color: AppColors.divider,
         child: Center(
-          child: Icon(Icons.photo_outlined, color: AppColors.textLight, size: 32),
+          child:
+              Icon(Icons.photo_outlined, color: AppColors.textLight, size: 32),
         ),
       );
 }
@@ -174,11 +209,11 @@ class _Pill extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             height: 1,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: AppTheme.onColor(color),
           ),
         ),
       );

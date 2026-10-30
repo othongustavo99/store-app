@@ -1,6 +1,7 @@
 import 'package:loja_roupas/router/app_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/network/loja_api.dart';
@@ -32,7 +33,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   List<Product> _results(List<Product> all) {
-    final found = ref.read(productsActionsProvider).search(all, _query).toList();
+    final found =
+        ref.read(productsActionsProvider).search(all, _query).toList();
     if (_onlyAvailable) found.removeWhere((product) => !product.isAvailable);
     switch (_sort) {
       case _SortOrder.lowestPrice:
@@ -52,7 +54,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (LojaBackend.isRailway) return const RailwaySearchScreen();
+    if (LojaBackend.isRailway) {
+      return RailwaySearchScreen(
+          initialFilters: GoRouterState.of(context).uri.queryParameters);
+    }
     final products = ref.watch(productsProvider);
 
     return Scaffold(
@@ -100,17 +105,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Ordenar por',
                             contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10,
+                              horizontal: 12,
+                              vertical: 10,
                             ),
                           ),
                           items: const [
-                            DropdownMenuItem(value: _SortOrder.relevance,
+                            DropdownMenuItem(
+                                value: _SortOrder.relevance,
                                 child: Text('Relevância')),
-                            DropdownMenuItem(value: _SortOrder.lowestPrice,
+                            DropdownMenuItem(
+                                value: _SortOrder.lowestPrice,
                                 child: Text('Menor preço')),
-                            DropdownMenuItem(value: _SortOrder.highestPrice,
+                            DropdownMenuItem(
+                                value: _SortOrder.highestPrice,
                                 child: Text('Maior preço')),
-                            DropdownMenuItem(value: _SortOrder.newest,
+                            DropdownMenuItem(
+                                value: _SortOrder.newest,
                                 child: Text('Mais recentes')),
                           ],
                           onChanged: (value) {
@@ -130,7 +140,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               Expanded(
                 child: products.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (error, stackTrace) => EmptyState(
                     icon: Icons.wifi_off_outlined,
                     title: 'Não foi possível pesquisar',
@@ -151,7 +162,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       return EmptyState(
                         icon: Icons.search_off_rounded,
                         title: 'Nenhum produto encontrado',
-                        subtitle: 'Tente buscar por outro termo ou retirar o filtro.',
+                        subtitle:
+                            'Tente buscar por outro termo ou retirar o filtro.',
                         buttonLabel: 'Limpar filtros',
                         onButtonPressed: () {
                           _controller.clear();
@@ -181,10 +193,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                           sliver: SliverGrid(
                             delegate: SliverChildBuilderDelegate(
-                              (context, index) => ProductCard(product: results[index]),
+                              (context, index) =>
+                                  ProductCard(product: results[index]),
                               childCount: results.length,
                             ),
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
                               maxCrossAxisExtent: 235,
                               mainAxisExtent: 318,
                               mainAxisSpacing: 14,

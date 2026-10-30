@@ -1,6 +1,7 @@
 import '../../core/network/loja_api.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
+import '../../models/catalog_page.dart';
 
 /// Adapta o contrato original dos modelos Flutter ao JSON da API Railway.
 /// Não utiliza o Firestore e não permite registrar compras pelo cliente.
@@ -11,6 +12,25 @@ class RailwayCatalogRepository {
   // A vitrine consulta SEMPRE apenas produtos publicados.
   // Gestão de rascunhos ocorre na rota protegida /catalog/manage.
   String get _productPath => '${_api.publicCatalog}/products';
+
+  Future<CatalogFilters> getFilters() async {
+    final data = await _api.request('GET', '${_api.publicCatalog}/filters');
+    return CatalogFilters(
+      colors: List<String>.from(data['colors'] as List? ?? const []),
+      sizes: List<String>.from(data['sizes'] as List? ?? const []),
+    );
+  }
+
+  Future<CatalogPage> search(Map<String, String> query) async {
+    final data = await _api.request('GET',
+        '${_api.publicCatalog}/search?${Uri(queryParameters: query).query}');
+    return CatalogPage(
+        (data['products'] as List).map((raw) {
+          final value = Map<String, dynamic>.from(raw as Map);
+          return Product.fromJson(value['id'] as String, value);
+        }).toList(),
+        data['nextCursor'] as String?);
+  }
 
   Future<List<Product>> getProductsByIds(Iterable<String> ids) async {
     final unique = ids.toSet().toList(growable: false);

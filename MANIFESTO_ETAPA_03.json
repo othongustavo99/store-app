@@ -1,0 +1,188 @@
+{
+  "stage": "03",
+  "previous_stage_required": "02",
+  "title": "Vitrine, busca e produto",
+  "base_repository": "https://github.com/othongustavo99/store-app",
+  "base_commit": "4fa14a4d2a0c876530d9136f5a0d3232b788e2d7",
+  "installation_root": "pasta que contém pubspec.yaml",
+  "deployment_order": [
+    "backend",
+    "aplicativo"
+  ],
+  "files": [
+    {
+      "path": "LEIA_ETAPA_03.md",
+      "operation": "ADICIONAR",
+      "sha256": "1650a867a4b72db70932faf77dfd40235502697d0c989f242ea928facb26d20c"
+    },
+    {
+      "path": "README.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "0ea029d6891bfa81e7d22218b821e57f6d224c81476a787df0b1b5cf3320bfa5"
+    },
+    {
+      "path": "backend/src/routes/catalog.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "6604e62c9989392fcfff7a907473c188290a4c0b88ee58bdf3d157e927ba4e7d"
+    },
+    {
+      "path": "backend/src/services/catalog_discovery.ts",
+      "operation": "ADICIONAR",
+      "sha256": "0f3f58d5f2996d251f1a6c030b44434e4ccb88d7d0634fdb6fd9b0542adee10b"
+    },
+    {
+      "path": "backend/src/tests/catalog_discovery.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "1593c66471b9d9b634033563fe2deb54263e4b0f29dd5364986637f994647ef0"
+    },
+    {
+      "path": "docs/EVOLUCAO_MODELO_COMERCIAL.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "b407d2fa5297c71246124b220a852d4cad1e5054128e3307133ca62fabaa858a"
+    },
+    {
+      "path": "lib/core/constants/app_constants.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "68833337e4f219870e89f26e10b49106390771654ea96f97798830c2d0f9ab4d"
+    },
+    {
+      "path": "lib/core/theme/app_theme.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "e9c7c75549b5f8096ddcc076ce8b5fab15e19d4b2c0fc139c6242b3881846a98"
+    },
+    {
+      "path": "lib/core/utils/product_presentation.dart",
+      "operation": "ADICIONAR",
+      "sha256": "70c076e907cba7524021ba5389df9f3e8884031d2d9e82b03b43c7d91be3ff9e"
+    },
+    {
+      "path": "lib/data/repositories/cart_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "c328274ad559844425d6925eecef4f54af674aec2738ce914911813be967e121"
+    },
+    {
+      "path": "lib/data/repositories/railway_catalog_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "da4b0862c4a7879ed97fc1cfac98ae9b0c603e7579ab4519d1a8d68dd4011f4b"
+    },
+    {
+      "path": "lib/features/client/cart/cart_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "1c6be389a89b94b69126868c6a5700d2f65f4f94cdfd605bd72e3eeab82e4772"
+    },
+    {
+      "path": "lib/features/client/categories/category_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "154f41d5fbe87f9cab47fd25cdd2454833fc659d94846b5d4028546b8d4c8d6f"
+    },
+    {
+      "path": "lib/features/client/discounted/discounted_products_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "fb9e906bf00bc79194a288cc03b70841150545feb5b553309d6fbed0b79055bc"
+    },
+    {
+      "path": "lib/features/client/home/home_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "b959edc933a9371481487ee36b4b96d79e7bac8e0827fe82ed8da8af19e33f01"
+    },
+    {
+      "path": "lib/features/client/product_detail/product_detail_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "5aa2a33dfd87f936c518bd701625acf9a186343b50e9b321ca4d7d34596a33a6"
+    },
+    {
+      "path": "lib/features/client/search/railway_search_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "c032b8f748251c1c3ab5c0e7b3c6ca9cd48a1da873e7cce7634174b0239be041"
+    },
+    {
+      "path": "lib/features/client/search/search_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "d9b89b763d4d65065fc179e09bba4ff43c6205f74d01a4e2c913dfbdbea41d8a"
+    },
+    {
+      "path": "lib/features/client/widgets/empty_state.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "40f7e5995e71c660bdd18f383f907c48974095eeb4aa79d820b6f095ee10335a"
+    },
+    {
+      "path": "lib/features/client/widgets/product_card.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "13ae8c707a2a8de4d418acf3dd51c87d3ffbc887d7b6aa065c37d3e858171432"
+    },
+    {
+      "path": "lib/features/client/widgets/product_media_gallery.dart",
+      "operation": "ADICIONAR",
+      "sha256": "feb1fec9f8c687cc4ebebac64eaad58fcd6f0ff83d459a0d069ca2c1f99e333d"
+    },
+    {
+      "path": "lib/features/client/widgets/product_purchase_bar.dart",
+      "operation": "ADICIONAR",
+      "sha256": "31895425508f0a90870b757c704d6d8895bf0ddf6f7296b137b842b896bd7b97"
+    },
+    {
+      "path": "lib/features/client/widgets/railway_storefront_identity.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "7bd58a09b64d9149ae0173f0bf144d78e5ea3c75e1200bdb97f8ef8e746c746b"
+    },
+    {
+      "path": "lib/models/catalog_page.dart",
+      "operation": "ADICIONAR",
+      "sha256": "418972e29c0fffb019394fe4cd290f978270c61c04f3aeeb97c69bea08e1b298"
+    },
+    {
+      "path": "lib/providers/product_providers.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "f968e93279525ac4daed7cb3fa51d1d0407d733df74e89c6492a4c2637080fb3"
+    },
+    {
+      "path": "lib/providers/store_profile_providers.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "c4cbd58ca0d8876ce6bcbfaa69b9907a77f4d066760b2750b1d8632e17d43cec"
+    },
+    {
+      "path": "test/helpers/stage03_fixtures.dart",
+      "operation": "ADICIONAR",
+      "sha256": "7d302ceea529a008b32f9c4e3afc627c13f6745f6a0d802ec1828b8cec8848a1"
+    },
+    {
+      "path": "test/stage03_presentation_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "b3963ddf002c1c6c23d3fefb36099e3de3de3e932d1c672c4742e24923932380"
+    },
+    {
+      "path": "test/stage03_search_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "e942c3c384f09a94db37889319410a68dc4dfa3d7cc0acb19aeae2cf514277e1"
+    },
+    {
+      "path": "test/stage03_storefront_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "00d8f683d97dd260e5b3a4756200549bb7afb716ad077879cadca4051c7f4a99"
+    }
+  ],
+  "remove": [],
+  "sql_migrations_changed": false,
+  "dependencies_changed": false,
+  "validation": {
+    "flutter_analyze": "No issues found",
+    "flutter_tests_passed": 59,
+    "flutter_test_defines": [
+      "LOJA_BACKEND=railway"
+    ],
+    "backend_tests_passed": 78,
+    "widget_widths_px": [
+      320,
+      390,
+      1200
+    ],
+    "widget_text_scales": [
+      1.0,
+      1.3
+    ],
+    "live_database_migrations_executed": false,
+    "live_payments_executed": false,
+    "deployed_to_railway": false,
+    "physical_device_tested": false
+  }
+}

@@ -7,6 +7,7 @@ import { pool } from '../db/pool.js';
 import { ApiError } from '../security/errors.js';
 import { requireStoreRole } from '../security/identity.js';
 import { uuidParam, validated } from '../security/validation.js';
+import { catalogFacets } from '../services/catalog_discovery.js';
 
 const storeParams = z.object({ storeId: uuidParam });
 const productParams = z.object({ storeId: uuidParam, productId: uuidParam });
@@ -116,6 +117,7 @@ async function categories(storeId: string) {
 }
 
 type ProductRow = {
+  sort_price_cents?: string;
   id: string; name: string; description: string; category_id: string; size_guide: string; status: string;
   created_at: Date; images: string[]; videos: string[]; old_price_cents: string | null;
   is_featured: boolean; is_new: boolean;
@@ -139,7 +141,7 @@ async function products(storeId: string, includeUnpublished: boolean, productId:
            COALESCE((SELECT jsonb_agg(jsonb_build_object(
              'id',v.id,'color',v.attributes->>'color','size',v.attributes->>'size',
              'stock',v.on_hand-v.reserved,'imageUrl',v.attributes->>'imageUrl',
-             'priceCents',v.price_cents::text) ORDER BY v.created_at)
+             'priceCents',v.price_cents::text) ORDER BY v.created_at,v.id)
              FROM product_variants v WHERE v.product_id=p.id AND v.status='ACTIVE'), '[]'::jsonb) AS variants
     FROM products p WHERE p.store_id=$1 AND (($2::boolean AND p.status <> 'ARCHIVED') OR p.status='PUBLISHED')
     AND ($3::uuid IS NULL OR p.id=$3)
@@ -154,6 +156,16 @@ async function assertCategory(client: PoolClient, storeId: string, categoryId: s
 }
 
 export async function catalogRoutes(app: FastifyInstance) {
+  app.get('/v1/shops/:slug/catalog/filters', async req => {
+    const { slug } = validated(publicParams, req.params);
+    const storeId = await lookupStore(slug);
+    const data = await pool.query<{ color: string | null; size: string | null }>(`
+      SELECT DISTINCT v.attributes->>'color' AS color,v.attributes->>'size' AS size
+      FROM product_variants v JOIN products p ON p.id=v.product_id AND p.store_id=v.store_id
+      WHERE p.store_id=$1 AND p.status='PUBLISHED' AND v.status='ACTIVE'
+      ORDER BY color,size`, [storeId]);
+    return catalogFacets(data.rows);
+  });
   // Recupera somente produtos públicos desta loja, independentemente da página da vitrine.
   app.post('/v1/shops/:slug/catalog/products/resolve', async req => {
     const { slug } = validated(publicParams, req.params);
@@ -179,6 +191,7 @@ export async function catalogRoutes(app: FastifyInstance) {
     maxPrice: z.coerce.number().finite().min(0).max(1000000).optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
     cursor: z.string().max(200).optional(),
+    sort: z.enum(['newest','price_asc','price_desc']).default('newest'),
   }).strict();
   app.get('/v1/shops/:slug/catalog/search', async (req) => {
     const { slug } = validated(publicParams, req.params);
@@ -186,11 +199,15 @@ export async function catalogRoutes(app: FastifyInstance) {
     if (args.minPrice !== undefined && args.maxPrice !== undefined && args.minPrice > args.maxPrice) {
       throw new ApiError(400, 'Faixa de preço inválida.');
     }
-    let after: { t: string; id: string } | null = null;
+    let after: { t: string; id: string; price?: string; sort?: string } | null = null;
     if (args.cursor) {
       try {
         const raw = JSON.parse(Buffer.from(args.cursor, 'base64url').toString('utf8'));
-        after = validated(z.object({ t: z.string().datetime(), id: uuidParam }).strict(), raw);
+        after = validated(z.object({ t: z.string().datetime(), id: uuidParam,
+          price: z.string().regex(/^\d{1,16}$/).optional(),
+          sort: z.enum(['newest','price_asc','price_desc']).optional() }).strict(), raw);
+        if ((after.sort ?? 'newest') !== args.sort || (args.sort !== 'newest' && !after.price))
+          throw new Error('Ordenação diferente do cursor');
       } catch { throw new ApiError(400, 'Cursor inválido.'); }
     }
     const storeId = await lookupStore(slug);
@@ -206,7 +223,14 @@ export async function catalogRoutes(app: FastifyInstance) {
     if (args.new) conditions.push('p.is_new=TRUE');
     if (after) {
       const when = bind(after.t); const id = bind(after.id);
-      conditions.push(`(p.created_at,p.id)<(${when}::timestamptz,${id}::uuid)`);
+      const tie = `(p.created_at,p.id)<(${when}::timestamptz,${id}::uuid)`;
+      if (args.sort === 'newest') conditions.push(tie);
+      else {
+        const price = bind(after.price);
+        const comparison = args.sort === 'price_asc' ? '>' : '<';
+        conditions.push(`(COALESCE(pricing.price_cents,0)${comparison}${price}::bigint OR
+          (COALESCE(pricing.price_cents,0)=${price}::bigint AND ${tie}))`);
+      }
     }
     const variantConditions = ["v.product_id=p.id", "v.status='ACTIVE'"];
     if (args.color) variantConditions.push(`lower(v.attributes->>'color')=lower(${bind(args.color)})`);
@@ -218,19 +242,26 @@ export async function catalogRoutes(app: FastifyInstance) {
     const limitParam = bind(args.limit + 1);
     const data = await pool.query<ProductRow>(`
       SELECT p.id,p.name,p.description,p.category_id,p.size_guide,p.status,p.created_at,
+             COALESCE(pricing.price_cents,0)::text AS sort_price_cents,
              p.images,p.videos,p.old_price_cents,p.is_featured,p.is_new,
              COALESCE((SELECT jsonb_agg(jsonb_build_object(
                'id',v.id,'color',v.attributes->>'color','size',v.attributes->>'size',
                'stock',v.on_hand-v.reserved,'imageUrl',v.attributes->>'imageUrl',
-               'priceCents',v.price_cents::text) ORDER BY v.created_at)
+               'priceCents',v.price_cents::text) ORDER BY v.created_at,v.id)
                FROM product_variants v WHERE v.product_id=p.id AND v.status='ACTIVE'), '[]'::jsonb) AS variants
-      FROM products p WHERE ${conditions.join(' AND ')}
-      ORDER BY p.created_at DESC,p.id DESC LIMIT ${limitParam}`, params);
+      FROM products p
+      LEFT JOIN LATERAL (SELECT sv.price_cents FROM product_variants sv
+        WHERE sv.product_id=p.id AND sv.store_id=p.store_id AND sv.status='ACTIVE'
+        ORDER BY sv.created_at,sv.id LIMIT 1) pricing ON TRUE
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY ${args.sort === 'newest' ? '' : `COALESCE(pricing.price_cents,0) ${args.sort === 'price_asc' ? 'ASC' : 'DESC'},`}
+        p.created_at DESC,p.id DESC LIMIT ${limitParam}`, params);
     const hasMore = data.rows.length > args.limit;
     const rows = data.rows.slice(0, args.limit);
     const last = rows.at(-1);
     return { products: rows.map(toPublicProduct), nextCursor: hasMore && last
-      ? Buffer.from(JSON.stringify({ t: last.created_at.toISOString(), id: last.id })).toString('base64url')
+      ? Buffer.from(JSON.stringify({ t: last.created_at.toISOString(), id: last.id, sort: args.sort,
+        ...(args.sort !== 'newest' ? { price: last.sort_price_cents } : {}) })).toString('base64url')
       : null };
   });
 

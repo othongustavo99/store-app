@@ -14,8 +14,10 @@ Etapa 02 entregue, a partir do commit fca2116a46752e13bc2c46910f29e7b3618d914b: 
 
 A conexão com o banco foi confirmada como resolvida pelo usuário antes da Etapa 02.
 
-Próxima etapa prevista: polimento da vitrine e do produto — identidade consistente, navegação/filtros, apresentação das peças e ações de compra.
+Etapa 03 entregue, a partir do commit 4fa14a4d2a0c876530d9136f5a0d3232b788e2d7: vitrine com identidade compartilhada, seções sem repetição, busca com opções reais e ordenação paginada, navegação por categoria/oferta integrada aos filtros, fotos por variante, barra fixa de compra e contraste do tema. Limite de quantidade alinhado ao servidor: 20 por combinação. Sem SQL ou dependências novas. Backend antes do aplicativo. Instalação, configuração de marca e verificações em LEIA_ETAPA_03.md.
 
-Pendências seguintes: vitrine/produto; checkout e entrega local; operação administrativa; provisionamento por lojista e demonstração comercial.
+Próxima etapa prevista: checkout, entrega/retirada local e acompanhamento do pedido.
+
+Pendências seguintes: operação administrativa; provisionamento por lojista e demonstração comercial; validação de integrações e revisão de dependências antes da operação comercial.
 
 Cada etapa deve partir da versão cumulativa anterior. Se o repositório ainda não tiver recebido o ZIP anterior, preservar as alterações já entregues ao preparar o próximo pacote.

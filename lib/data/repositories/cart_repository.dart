@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/network/loja_api.dart';
+import '../../core/constants/app_constants.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import 'product_repository.dart';
@@ -57,7 +58,9 @@ class CartRepository {
       }
       final product = byId[id];
       if (product == null) continue;
-      final stock = product.getVariant(color, size)?.stock ?? 0;
+      final stock = (product.getVariant(color, size)?.stock ?? 0)
+          .clamp(0, AppConstants.maxQuantityPerVariant)
+          .toInt();
       if (stock <= 0 || amount <= 0) continue;
       final qty = amount.clamp(1, stock).toInt();
       final existing = _items.indexWhere(
@@ -100,7 +103,9 @@ class CartRepository {
       required String color,
       required String size,
       int quantity = 1}) {
-    final stock = product.getVariant(color, size)?.stock ?? 0;
+    final stock = (product.getVariant(color, size)?.stock ?? 0)
+        .clamp(0, AppConstants.maxQuantityPerVariant)
+        .toInt();
     if (quantity <= 0 || stock <= 0) return;
     final at = _items.indexWhere((i) =>
         i.product.id == product.id && i.color == color && i.size == size);
@@ -128,7 +133,9 @@ class CartRepository {
     final at = _items.indexWhere((i) => i.id == itemId);
     if (at < 0) return;
     final item = _items[at];
-    final stock = item.product.getVariant(item.color, item.size)?.stock ?? 0;
+    final stock = (item.product.getVariant(item.color, item.size)?.stock ?? 0)
+        .clamp(0, AppConstants.maxQuantityPerVariant)
+        .toInt();
     if (stock <= 0) {
       _items.removeAt(at);
     } else {

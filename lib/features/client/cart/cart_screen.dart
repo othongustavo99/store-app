@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../models/cart_item.dart';
 import '../../../providers/cart_providers.dart';
 import '../widgets/empty_state.dart';
@@ -170,7 +171,9 @@ class _CartLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available =
-        item.product.getVariant(item.color, item.size)?.stock ?? 0;
+        (item.product.getVariant(item.color, item.size)?.stock ?? 0)
+            .clamp(0, AppConstants.maxQuantityPerVariant)
+            .toInt();
     final atLimit = item.quantity >= available;
     return Card(
       child: Padding(
@@ -242,7 +245,7 @@ class _CartLine extends StatelessWidget {
                       ),
                       IconButton.outlined(
                         tooltip: atLimit
-                            ? 'Limite de estoque atingido'
+                            ? 'Limite desta combinação atingido'
                             : 'Aumentar quantidade',
                         visualDensity: VisualDensity.compact,
                         onPressed: atLimit ? null : onIncrease,

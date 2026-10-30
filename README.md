@@ -4,9 +4,9 @@ Aplicativo Flutter para compradores e administração de lojas locais de roupas.
 
 ## Entrega atual
 
-**Etapa 02 — confiabilidade da compra.**
+**Etapa 03 — vitrine, busca e produto.**
 
-Leia [LEIA_ETAPA_02.md](LEIA_ETAPA_02.md) para instalar a etapa atual. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
+Leia [LEIA_ETAPA_03.md](LEIA_ETAPA_03.md) para instalar a etapa atual, sobre as Etapas 01 e 02. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
 
 A base já contém catálogo, variantes, inventário, checkout, pedidos, atendimento, pós-venda, cupons e identidade de loja. A validação desta etapa não equivale à aprovação completa de operação comercial.
 
@@ -24,7 +24,7 @@ As telas e regras novas de comércio estão no caminho Railway. Preserve o legad
 
 ## Verificações
 
-Na raiz Flutter: flutter pub get, flutter analyze, flutter test.
+Na raiz Flutter: flutter pub get, flutter analyze, flutter test --dart-define=LOJA_BACKEND=railway.
 
 Em backend: npm ci, npm run build, npm test. O comando npm run db:check verifica conexão e migrations em transação somente leitura. Migrations reais continuam sendo aplicadas por npm run db:migrate:prod, após recompilar e confirmar o banco correto.
 
@@ -35,7 +35,9 @@ DATABASE_URL e JWT_SECRET são configurados no ambiente do servidor/backend loca
 - Recuperação de carrinho e favoritos por IDs, inclusive fora da Home: entregue na Etapa 02.
 - Montagem e conferência do valor cobrado com cupom: entregue na Etapa 02.
 - Mensagens após confirmação manual, revisão e cancelamento: entregues na Etapa 02.
-- Polir vitrine, produto, compra e rotina do lojista.
+- Vitrine por marca, filtros reais, ordenação, fotos por variante e ações de compra: entregues na Etapa 03.
+- Próxima prioridade: checkout, entrega/retirada local e acompanhamento do pedido.
+- Em seguida: polir a rotina do lojista.
 - Tornar provisionamento, marca e integrações repetíveis por cliente.
 
 Recebimento e frete externos ainda dependem de configuração de loja piloto. Antes de operar com clientes reais, validar integração própria do lojista, assinatura de distribuição e os cenários completos de compra em homologação.

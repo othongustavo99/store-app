@@ -21,60 +21,69 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = iconColor ?? AppColors.primary;
+    final color = iconColor ?? Theme.of(context).colorScheme.primary;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 48,
-                color: color.withValues(alpha: 0.65),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 15,
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-            ),
-            if (buttonLabel != null && onButtonPressed != null) ...[
-              const SizedBox(height: 28),
-              SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: onButtonPressed,
-                  child: Text(buttonLabel!),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+    return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+            primary: false,
+            child: ConstrainedBox(
+                constraints: BoxConstraints(
+                    minHeight: constraints.hasBoundedHeight
+                        ? constraints.maxHeight
+                        : 0),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            icon,
+                            size: 48,
+                            color: color.withValues(alpha: 0.65),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          subtitle,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (buttonLabel != null && onButtonPressed != null) ...[
+                          const SizedBox(height: 28),
+                          SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: onButtonPressed,
+                              child: Text(buttonLabel!),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ))));
   }
 }
