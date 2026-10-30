@@ -1,0 +1,166 @@
+{
+  "stage": "05",
+  "previous_stage_required": "04",
+  "title": "Operação administrativa",
+  "base_repository": "https://github.com/othongustavo99/store-app",
+  "base_commit": "e21f715f4ba3bfcdd4bec0486491aecab16a80e0",
+  "installation_root": "pasta que contém pubspec.yaml",
+  "deployment_order": [
+    "migration 018 no banco correto",
+    "backend",
+    "aplicativo"
+  ],
+  "files": [
+    {
+      "path": "LEIA_ETAPA_05.md",
+      "operation": "ADICIONAR",
+      "sha256": "e06322e07a0c47980d152d8d4bc737ab183b735ddefbe6c6d09e491f0833a095"
+    },
+    {
+      "path": "README.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "544157eebe0c50b83a23fd93a4ecaa76d6da6fd9840f0618339836abfe202cd6"
+    },
+    {
+      "path": "backend/migrations/018_pickup_preparation.sql",
+      "operation": "ADICIONAR",
+      "sha256": "d32ee299ab62595560d80bb5509f0e69484fc944c04f77b9c718c7732f1ba54a"
+    },
+    {
+      "path": "backend/src/routes/catalog_management.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "8427281624565d98cb78e2f8a1f4aaecb2c0c1798d8ade7cd7abc7076a38cfd8"
+    },
+    {
+      "path": "backend/src/routes/commerce.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "bfdc820398dd5e8f5c52c7f70066121fb605eeffc4e46fd4f0cd77a4d5a91f47"
+    },
+    {
+      "path": "backend/src/routes/fulfillment.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "6597e44f3afeef00c00756846145dc202cd156f8c81c68f7f8285429c33c900e"
+    },
+    {
+      "path": "backend/src/services/catalog_management.ts",
+      "operation": "SUBSTITUIR",
+      "sha256": "577e4154eb5fad967f1d0d3a97241f15340ae31cf169b083bdc66b56d00fc0b6"
+    },
+    {
+      "path": "backend/src/services/pickup_preparation.ts",
+      "operation": "ADICIONAR",
+      "sha256": "37d0ad052492855445cc5f23c7e1646ccb7380a3aa7d25cfac573e49f750c1ac"
+    },
+    {
+      "path": "backend/src/tests/catalog_revision.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "d560b528b453005154f256135f5f1ba8b9215259091dd9becd2f7fd7e7e0d9b8"
+    },
+    {
+      "path": "backend/src/tests/pickup_preparation.test.ts",
+      "operation": "ADICIONAR",
+      "sha256": "469ab7b2f77053c90eeb21b604746b0a02bde4879f35e21675d78a89033f32cf"
+    },
+    {
+      "path": "docs/EVOLUCAO_MODELO_COMERCIAL.md",
+      "operation": "SUBSTITUIR",
+      "sha256": "cf99f7f11c4535176d7e62558cc0be157725c9c8f70a9daee85ea51d3c865b84"
+    },
+    {
+      "path": "lib/core/utils/admin_catalog_rules.dart",
+      "operation": "ADICIONAR",
+      "sha256": "b2faa478be0479ac356047cfdbece09cbe004f730d5b39668d86ec9faf8201c8"
+    },
+    {
+      "path": "lib/data/repositories/railway_catalog_admin_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "836b07457f9c43ce03e38c7ffdc7321de4b8dc3d8404c3259ea8fdc3763505cf"
+    },
+    {
+      "path": "lib/data/repositories/railway_order_repository.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "3b2e2ad15ebbca38b74130867470ac6ed58bc96d50bdd27d253f4b35759de1c9"
+    },
+    {
+      "path": "lib/features/admin/admin_dialog.dart",
+      "operation": "ADICIONAR",
+      "sha256": "8dc5bb24bb76508e0d3e31c1b36e3c6b7b827b1a19f78d817661fb4d6351e057"
+    },
+    {
+      "path": "lib/features/admin/inventory/railway_inventory_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "9281f2b8669b9d2b8470134b949f459455035868bab4b66b174dc211cbfabecc"
+    },
+    {
+      "path": "lib/features/admin/inventory/stock_adjustment_dialog.dart",
+      "operation": "ADICIONAR",
+      "sha256": "0efdc27289a4b3cf6e57ff3cd5a19f8d7aef6325f87c8b2f73d4280c1331bf30"
+    },
+    {
+      "path": "lib/features/admin/orders/railway_admin_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "698634fe5fe77759c031b536603b037e3004af6277d6fa02558c4fb3657c8a0f"
+    },
+    {
+      "path": "lib/features/admin/products/railway_catalog_management_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "24525813c2ba45f40d5c957b886f514c972740a5b20b488411c7f6011deb5dfc"
+    },
+    {
+      "path": "lib/features/client/orders/railway_orders_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "eb1856a19bc4abe5d95c2936c07662ed355931e03d26dc270d50db1ee536439c"
+    },
+    {
+      "path": "lib/features/client/orders/widgets/order_receiving_info.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "0b44342ec5ec96cfa36985b671b8bfa4a5c66dac892023e56756383dfe543cb4"
+    },
+    {
+      "path": "lib/features/support/railway_order_timeline_dialog.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "4e64649e8ab2bb6fb0b09183c2cfca82629f57afb0811529ed8e5bbec6f9edc9"
+    },
+    {
+      "path": "test/stage05_catalog_stock_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "e4e40e323fde5b5392daaa1486f9e51becf17aa93deafb2189068d30663ef9d4"
+    },
+    {
+      "path": "test/stage05_orders_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "15a7d32da0beae90e37c360206e11f0736dc7f18f50423eca8382e0c57e3f979"
+    }
+  ],
+  "remove": [],
+  "sql_migrations_changed": true,
+  "existing_sql_migrations_modified": false,
+  "existing_delivered_migration_bytes_preserved": true,
+  "sql_migrations_added": [
+    "backend/migrations/018_pickup_preparation.sql"
+  ],
+  "dependencies_changed": false,
+  "validation": {
+    "flutter_analyze": "No issues found",
+    "flutter_tests_passed": 88,
+    "flutter_test_defines": [
+      "LOJA_BACKEND=railway"
+    ],
+    "flutter_test_concurrency": 1,
+    "stage_tests_rechecked_after_final_polish": 14,
+    "backend_tests_passed": 116,
+    "tests_use_mock_database_and_services": true,
+    "new_widget_widths_px": [
+      320,
+      390
+    ],
+    "widget_text_scales": [
+      1.0,
+      1.3
+    ],
+    "migration_018_executed_on_database": false,
+    "live_payments_executed": false,
+    "deployed_to_railway": false,
+    "physical_device_tested": false
+  }
+}

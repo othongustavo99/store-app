@@ -18,7 +18,9 @@ Etapa 03 entregue, a partir do commit 4fa14a4d2a0c876530d9136f5a0d3232b788e2d7: 
 
 Etapa 04 entregue, a partir do commit 8a599a8a4e68682e5b62837ac011906b5ec4cb29: revisão completa de contato/recebimento/pagamento, confirmação persistente na tela após registro, proteção contra respostas antigas de CEP/cotação/cupom, retirada com endereço/horário, entrega local por faixas de CEP e taxa fixa revalidada no servidor, saída/conclusão local sem rastreio artificial e histórico legível com nova tentativa. Inclui migration 017_local_fulfillment.sql. Ordem: migration, backend e aplicativo. Instruções em LEIA_ETAPA_04.md.
 
-Próxima etapa prevista: operação administrativa — cadastro, estoque, pedidos e clareza das ações do lojista.
+Etapa 05 entregue, a partir do commit e21f715f4ba3bfcdd4bec0486491aecab16a80e0: preparo e retirada pronta separados do pagamento pendente; confirmação manual idempotente preservando preparo; filtros e busca de pedidos; ações conforme papel de gestão; prévia de ajuste de estoque com repetição da mesma operação em falhas de rede; cadastro com grade informada pelo lojista, imagem de categoria, preço em centavos e revisão contra sobrescrita de edição antiga. Inclui migration 018_pickup_preparation.sql. Instalação e operação em LEIA_ETAPA_05.md.
+
+Próxima etapa prevista: configuração repetível por lojista e preparação da demonstração comercial.
 
 Pendências seguintes: operação administrativa; provisionamento por lojista e demonstração comercial; validação de integrações e revisão de dependências antes da operação comercial.
 

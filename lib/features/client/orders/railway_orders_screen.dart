@@ -166,10 +166,12 @@ class _RailwayOrdersScreenState extends ConsumerState<RailwayOrdersScreen>
                                     Chip(
                                         avatar:
                                             Icon(_statusIcon(status), size: 18),
-                                        label: Text(orderStatusLabel(status,
-                                            delivery: order['fulfillment'] ==
-                                                'DELIVERY',
-                                            local: isLocalDelivery(order))),
+                                        label: Text(unpaidPickupLabel(order) ??
+                                            orderStatusLabel(status,
+                                                delivery:
+                                                    order['fulfillment'] ==
+                                                        'DELIVERY',
+                                                local: isLocalDelivery(order))),
                                         visualDensity: VisualDensity.compact),
                                     Text(
                                         'Total: ${_money.format(total)}  •  ${order['fulfillment'] == 'DELIVERY' ? 'Entrega' : 'Retirada na loja'}'),

@@ -1,3 +1,4 @@
+import { canPrepareUnpaidPickup, canChangePickupPreparation, statusAfterOfflineConfirmation, type PickupPreparation } from '../services/pickup_preparation.js';
 import { fulfillmentSettings, localFingerprint, localRate } from '../services/local_fulfillment.js';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -59,6 +60,7 @@ type OrderRow = {
   id:string; store_id:string; customer_id:string; status:string; is_demo:boolean;
   subtotal_cents:string; shipping_cents:string; total_cents:string; discount_cents:string;
   reservation_expires_at:Date|null; created_at:Date;
+  pickup_preparation?:PickupPreparation; fulfillment_method?:string; shipping_address?:{offlineMethod?:string};
   checkout_url:string|null; checkout_reference:string|null; checkout_expires_at:Date|null;
 };
 type LockedVariant = { id:string; product_id:string; name:string; sku:string; attributes:{color?:string;size?:string}; price_cents:string; on_hand:number; reserved:number };
@@ -89,7 +91,7 @@ async function orderView(id:string, storeId:string) {
     o.total_cents::text AS "totalCents",o.discount_cents::text AS "discountCents",
     (SELECT c.code FROM order_coupons oc JOIN store_coupons c ON c.id=oc.coupon_id WHERE oc.order_id=o.id) AS "couponCode",o.fulfillment_method AS "fulfillment",
     o.reservation_expires_at AS "reservationExpiresAt",o.created_at AS "createdAt",
-    o.is_demo AS "isDemo",
+    o.is_demo AS "isDemo",o.pickup_preparation AS "pickupPreparation",
     o.shipping_address AS "customerContact",
     o.shipping_service_id AS "shippingServiceId",
     o.shipping_carrier AS "shippingCarrier",
@@ -511,6 +513,39 @@ export async function commerceRoutes(app:FastifyInstance) {
     return reply.code(201).send({order:await orderView(orderId,storeId),checkoutUrl:url,
       demo,simulated:demo,offlinePending:!!body.offlineMethod});
   });
+  app.patch('/v1/stores/:storeId/orders/:orderId/pickup-preparation',async req=>{
+    const {storeId,orderId}=validated(storeOrderParams,req.params);
+    const {identity}=await requireStoreRole(req,storeId,['OWNER','MANAGER']);
+    const {stage}=validated(z.object({stage:z.enum(['PREPARING','READY'])}).strict(),req.body);
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const order=await queryOrder(client,orderId);
+      if(order.store_id!==storeId)throw new ApiError(404,'Pedido não encontrado.');
+      const payment=await client.query<{provider:string;status:string}>(
+        'SELECT provider,status FROM payments WHERE order_id=$1 AND store_id=$2 FOR UPDATE',[orderId,storeId]);
+      if(!canPrepareUnpaidPickup({status:order.status,fulfillment:order.fulfillment_method??'',
+        offlineMethod:order.shipping_address?.offlineMethod,provider:payment.rows[0]?.provider??'',
+        paymentStatus:payment.rows[0]?.status??'',expiresAt:order.reservation_expires_at}))
+        throw new ApiError(409,'Preparo sem pagamento disponível apenas para reserva válida com pagamento na retirada. Atualize o pedido.');
+      const blocked=await client.query(`SELECT 1 FROM after_sales_requests WHERE order_id=$1 AND store_id=$2
+        AND status IN ('OPEN','IN_REVIEW','WAITING_CUSTOMER','MANUAL_ACTION')`,[orderId,storeId]);
+      if(blocked.rowCount)throw new ApiError(409,'Resolva a solicitação de pós-venda antes de preparar a retirada.');
+      const current=order.pickup_preparation??'NONE';
+      if(!canChangePickupPreparation(current,stage))throw new ApiError(409,'Etapa de preparo inválida. Atualize o pedido.');
+      if(current!==stage){
+        await client.query('UPDATE orders SET pickup_preparation=$3,updated_at=now() WHERE id=$1 AND store_id=$2',[orderId,storeId,stage]);
+        await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
+          VALUES($1,$2,$3,$4,$5)`,[orderId,storeId,identity.userId,stage==='READY'?'PICKUP_READY':'PICKUP_PREPARING',
+          stage==='READY'?'Pronto para retirada; pagamento continua pendente.':'Preparação iniciada; pagamento continua pendente.']);
+        await client.query(`INSERT INTO audit_logs(store_id,actor_id,event,entity_type,entity_id,metadata)
+          VALUES($1,$2,'PICKUP_PREPARATION_CHANGED','order',$3,$4::jsonb)`,
+          [storeId,identity.userId,orderId,JSON.stringify({from:current,to:stage,paymentUnchanged:true})]);
+      }
+      await client.query('COMMIT');
+    }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
+    return {order:await orderView(orderId,storeId)};
+  });
   // A confirmação MANUAL exige responsável autenticado. Não aceitar sinais do cliente
   // ou WhatsApp como prova de pagamento. Auditoria guarda quem confirmou.
   app.post('/v1/stores/:storeId/orders/:orderId/confirm-offline', async req => {
@@ -524,6 +559,10 @@ export async function commerceRoutes(app:FastifyInstance) {
       const payment=await client.query<{provider:string;status:string}>(
         'SELECT provider,status FROM payments WHERE order_id=$1 AND store_id=$2 FOR UPDATE',
         [orderId,storeId]);
+      if(payment.rows[0]?.provider==='offline' && payment.rows[0].status==='APPROVED' &&
+          ['PAID','PREPARING','SHIPPED','DELIVERED'].includes(order.status)){
+        await client.query('COMMIT');
+      }else{
       if(payment.rows[0]?.provider!=='offline' || payment.rows[0].status!=='PENDING')
         throw new ApiError(409,'Pedido não é uma reserva local pendente.');
       if(order.status!=='PENDING_PAYMENT' || !order.reservation_expires_at ||
@@ -544,12 +583,16 @@ export async function commerceRoutes(app:FastifyInstance) {
           VALUES($1,$2,$3,'SALE',$4,$5,'Pagamento local confirmado manualmente')`,
           [storeId,item.variant_id,identity.userId,-item.quantity,orderId]);
       }
-      await client.query("UPDATE orders SET status='PAID',paid_at=now(),updated_at=now() WHERE id=$1",[orderId]);
+      const nextStatus=statusAfterOfflineConfirmation(order.fulfillment_method==='PICKUP'?order.pickup_preparation:undefined);
+      await client.query('UPDATE orders SET status=$2,paid_at=now(),updated_at=now() WHERE id=$1',[orderId,nextStatus]);
       await client.query("UPDATE payments SET status='APPROVED',updated_at=now() WHERE order_id=$1 AND provider='offline'",[orderId]);
       await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
         VALUES($1,$2,$3,'PAID','Responsável atestou pagamento local após conferência externa')`,
         [orderId,storeId,identity.userId]);
+      if(nextStatus!=='PAID')await client.query(`INSERT INTO order_events(order_id,store_id,actor_id,status,notes)
+        VALUES($1,$2,$3,$4,'Etapa de preparo preservada após confirmação do pagamento')`,[orderId,storeId,identity.userId,nextStatus]);
       await client.query('COMMIT');
+      }
     } catch(e) { await client.query('ROLLBACK'); throw e; }
     finally { client.release(); }
     return {order:await orderView(orderId,storeId)};

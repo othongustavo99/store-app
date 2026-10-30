@@ -1,6 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+bool unpaidPickupOrder(Map<String, dynamic> order) =>
+    order['status'] == 'PENDING_PAYMENT' &&
+    order['fulfillment'] == 'PICKUP' &&
+    order['paymentProvider'] == 'offline' &&
+    order['paymentStatus'] == 'PENDING' &&
+    (order['customerContact'] as Map?)?['offlineMethod'] == 'PAY_ON_PICKUP';
+
+bool pickupReservationValid(Map<String, dynamic> order) =>
+    DateTime.tryParse('${order['reservationExpiresAt']}')
+        ?.isAfter(DateTime.now()) ==
+    true;
+
+String? unpaidPickupLabel(Map<String, dynamic> order) {
+  if (!unpaidPickupOrder(order) || !pickupReservationValid(order)) return null;
+  return switch (order['pickupPreparation']) {
+    'PREPARING' => 'Em preparação · pagamento na retirada',
+    'READY' => 'Pronto para retirada · pagamento pendente',
+    _ => null,
+  };
+}
+
 bool isLocalDelivery(Map<String, dynamic> order) =>
     order['fulfillment'] == 'DELIVERY' &&
     (order['shippingServiceId']?.toString() == '0' ||
@@ -11,6 +32,8 @@ String orderStatusLabel(String status,
         {bool delivery = false, bool local = false}) =>
     switch (status) {
       'PENDING_PAYMENT' => 'Aguardando pagamento',
+      'PICKUP_PREPARING' => 'Preparação iniciada · pagamento pendente',
+      'PICKUP_READY' => 'Pronto para retirada · pagamento pendente',
       'PAID' => 'Pagamento confirmado',
       'PREPARING' => 'Em preparação',
       'SHIPPED' => local
@@ -68,7 +91,13 @@ class OrderReceivingInfo extends StatelessWidget {
             Text('${contact['pickupAddress']}'),
           if (!delivery && '${contact['pickupHours'] ?? ''}'.isNotEmpty)
             Text('${contact['pickupHours']}'),
+          if (unpaidPickupLabel(order) != null) Text(unpaidPickupLabel(order)!),
+          if (unpaidPickupLabel(order) != null &&
+              order['pickupPreparation'] == 'READY')
+            const Text(
+                'Confira o horário e pague ao retirar. Seu pagamento ainda não foi confirmado.'),
           if (!delivery &&
+              unpaidPickupLabel(order) == null &&
               ['PENDING_PAYMENT', 'PAID', 'PREPARING'].contains(status))
             const Text('Aguarde o aviso de que está pronto antes de buscar.'),
           if (!delivery && status == 'SHIPPED')

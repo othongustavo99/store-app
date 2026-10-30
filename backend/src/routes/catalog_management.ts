@@ -42,7 +42,7 @@ export async function catalogManagementRoutes(app: FastifyInstance) {
     const {storeId}=validated(base,req.params);
     await requireStoreRole(req,storeId,['OWNER','MANAGER','STAFF']);
     const result=await pool.query(`
-      SELECT p.id,p.name,p.description,p.category_id AS "categoryId",p.status,
+      SELECT p.id,to_char(p.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS revision,p.name,p.description,p.category_id AS "categoryId",p.status,
              p.images,p.videos,p.size_guide AS "sizeGuide",p.old_price_cents::text AS "oldPriceCents",
              p.is_featured AS "isFeatured",p.is_new AS "isNew",p.created_at AS "createdAt",
              COALESCE((SELECT jsonb_agg(jsonb_build_object(
@@ -89,8 +89,12 @@ export async function catalogManagementRoutes(app: FastifyInstance) {
     const body=validated(productMetadataInput,req.body);
     await writeTransaction(async client=>{
       await categoryExists(client,storeId,body.categoryId);
-      const existing=await client.query('SELECT id FROM products WHERE id=$1 AND store_id=$2 AND status<>\'ARCHIVED\' FOR UPDATE',[productId,storeId]);
+      const existing=await client.query<{id:string;revision:string}>(`SELECT id,
+        to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS revision
+        FROM products WHERE id=$1 AND store_id=$2 AND status<>'ARCHIVED' FOR UPDATE`,[productId,storeId]);
       if (!existing.rowCount) throw new ApiError(404,'Produto não encontrado.');
+      if(body.expectedRevision && body.expectedRevision!==existing.rows[0].revision)
+        throw new ApiError(409,'Este produto foi alterado em outro dispositivo. Reabra a edição para conferir os dados atuais.');
       const hasActive=await client.query("SELECT 1 FROM product_variants WHERE product_id=$1 AND store_id=$2 AND status='ACTIVE'",[productId,storeId]);
       if(body.status==='PUBLISHED' && !hasActive.rowCount) throw new ApiError(409,'Cadastre pelo menos uma variante ativa para publicar.');
       await client.query(`UPDATE products SET name=$3,description=$4,category_id=$5,

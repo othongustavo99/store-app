@@ -4,9 +4,9 @@ Aplicativo Flutter para compradores e administração de lojas locais de roupas.
 
 ## Entrega atual
 
-**Etapa 04 — checkout, recebimento e acompanhamento.**
+**Etapa 05 — operação administrativa.**
 
-Leia [LEIA_ETAPA_04.md](LEIA_ETAPA_04.md) para instalar a etapa atual, sobre as Etapas 01 a 03. Esta etapa inclui a migration 017: aplique banco, depois backend e aplicativo. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
+Leia [LEIA_ETAPA_05.md](LEIA_ETAPA_05.md) para instalar a etapa atual, sobre as Etapas 01 a 04. Esta etapa inclui a migration 018: aplique banco, depois backend e aplicativo. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
 
 A base já contém catálogo, variantes, inventário, checkout, pedidos, atendimento, pós-venda, cupons e identidade de loja. A validação desta etapa não equivale à aprovação completa de operação comercial.
 
@@ -24,7 +24,7 @@ As telas e regras novas de comércio estão no caminho Railway. Preserve o legad
 
 ## Verificações
 
-Na raiz Flutter: flutter pub get, flutter analyze, flutter test --dart-define=LOJA_BACKEND=railway.
+Na raiz Flutter: flutter pub get, flutter analyze, flutter test --concurrency=1 --dart-define=LOJA_BACKEND=railway.
 
 Em backend: npm ci, npm run build, npm test. O comando npm run db:check verifica conexão e migrations em transação somente leitura. Migrations reais continuam sendo aplicadas por npm run db:migrate:prod, após recompilar e confirmar o banco correto.
 
@@ -37,7 +37,8 @@ DATABASE_URL e JWT_SECRET são configurados no ambiente do servidor/backend loca
 - Mensagens após confirmação manual, revisão e cancelamento: entregues na Etapa 02.
 - Vitrine por marca, filtros reais, ordenação, fotos por variante e ações de compra: entregues na Etapa 03.
 - Checkout revisado, retirada com orientações, entrega local por CEP e histórico de pedidos: entregues na Etapa 04.
-- Próxima prioridade: polir a rotina administrativa do lojista.
+- Preparo antes do pagamento na retirada, filtros de pedidos, prévia de estoque e ajustes do cadastro: entregues na Etapa 05.
+- Próxima prioridade: preparação do modelo por lojista e demonstração comercial.
 - Tornar provisionamento, marca e integrações repetíveis por cliente.
 
 Pagamento online e frete por transportadora ainda dependem de configuração de loja piloto. Entrega local usa taxa fixa e faixas de CEP cadastradas pelo lojista, sem transportadora. Antes de operar com clientes reais, validar integração própria do lojista, assinatura de distribuição e os cenários completos de compra em homologação.

@@ -14,42 +14,65 @@ class RailwayCatalogAdminRepository {
 
   Future<Map<String, dynamic>> load() async {
     final root = await _root();
-    final productResponse = await _api.request('GET', '$root/products', authenticated: true);
-    final categoriesResponse = await _api.request('GET', '${_api.publicCatalog}/categories');
-    final roles = await _api.request('GET', '/v1/stores/mine', authenticated: true);
-    final membership = (roles['stores'] as List? ?? const []).whereType<Map>().where(
-      (s) => s['id'] == _api.storeId,
-    ).toList();
-    final role = membership.isNotEmpty ? membership.first['role']?.toString() : '';
+    final productResponse =
+        await _api.request('GET', '$root/products', authenticated: true);
+    final categoriesResponse =
+        await _api.request('GET', '${_api.publicCatalog}/categories');
+    final roles =
+        await _api.request('GET', '/v1/stores/mine', authenticated: true);
+    final membership = (roles['stores'] as List? ?? const [])
+        .whereType<Map>()
+        .where(
+          (s) => s['id'] == _api.storeId,
+        )
+        .toList();
+    final role =
+        membership.isNotEmpty ? membership.first['role']?.toString() : '';
     return {
       'products': (productResponse['products'] as List? ?? const [])
-          .map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
       'categories': (categoriesResponse['categories'] as List? ?? const [])
-          .map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
       'canEdit': role == 'OWNER' || role == 'MANAGER',
     };
   }
 
   Future<void> createProduct(Map<String, dynamic> payload) async {
-    await _api.request('POST', '${await _root()}/products', authenticated: true, body: payload);
+    await _api.request('POST', '${await _root()}/products',
+        authenticated: true, body: payload);
   }
+
   Future<void> updateProduct(String id, Map<String, dynamic> payload) async {
-    await _api.request('PATCH', '${await _root()}/products/$id', authenticated: true, body: payload);
+    await _api.request('PATCH', '${await _root()}/products/$id',
+        authenticated: true, body: payload);
   }
-  Future<void> addVariant(String productId, Map<String, dynamic> payload) async {
-    await _api.request('POST', '${await _root()}/products/$productId/variants', authenticated: true, body: payload);
+
+  Future<void> addVariant(
+      String productId, Map<String, dynamic> payload) async {
+    await _api.request('POST', '${await _root()}/products/$productId/variants',
+        authenticated: true, body: payload);
   }
-  Future<void> editVariant(String variantId, Map<String, dynamic> payload) async {
-    await _api.request('PATCH', '${await _root()}/variants/$variantId', authenticated: true, body: payload);
+
+  Future<void> editVariant(
+      String variantId, Map<String, dynamic> payload) async {
+    await _api.request('PATCH', '${await _root()}/variants/$variantId',
+        authenticated: true, body: payload);
   }
+
   Future<void> archiveProduct(String productId) async {
     await _api.fetchStoreId();
-    await _api.request('DELETE', '${_api.adminCatalog}/products/$productId', authenticated: true);
+    await _api.request('DELETE', '${_api.adminCatalog}/products/$productId',
+        authenticated: true);
   }
-  Future<void> createCategory(String name) async {
+
+  Future<void> createCategory(String name,
+      {String icon = '🏷️', String imageUrl = ''}) async {
     await _api.fetchStoreId();
-    await _api.request('POST', '${_api.adminCatalog}/categories', authenticated: true,
-      body: {'name': name, 'icon': '🏷️', 'imageUrl': ''});
+    await _api.request('POST', '${_api.adminCatalog}/categories',
+        authenticated: true,
+        body: {'name': name, 'icon': icon, 'imageUrl': imageUrl});
   }
 
   /// Upload direto para Cloudinary, com assinatura fornecida APENAS após
@@ -63,10 +86,12 @@ class RailwayCatalogAdminRepository {
     if (bytes.isEmpty || bytes.length > 8 * 1024 * 1024) {
       throw const LojaApiException('A imagem deve ter até 8 MB.');
     }
-    final signed = await _api.request('POST', '${await _root()}/media/sign', authenticated: true);
+    final signed = await _api.request('POST', '${await _root()}/media/sign',
+        authenticated: true);
     final cloudName = signed['cloudName'] as String;
     final request = http.MultipartRequest(
-      'POST', Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload'),
+      'POST',
+      Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload'),
     );
     request.fields.addAll({
       'api_key': signed['apiKey'].toString(),
@@ -74,15 +99,18 @@ class RailwayCatalogAdminRepository {
       'folder': signed['folder'].toString(),
       'signature': signed['signature'].toString(),
     });
-    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: image.name));
+    request.files
+        .add(http.MultipartFile.fromBytes('file', bytes, filename: image.name));
     final client = http.Client();
     try {
-      final streamed = await client.send(request).timeout(const Duration(seconds: 45));
+      final streamed =
+          await client.send(request).timeout(const Duration(seconds: 45));
       final result = await http.Response.fromStream(streamed);
       final parsed = jsonDecode(utf8.decode(result.bodyBytes));
       if (result.statusCode < 200 || result.statusCode >= 300) {
         final message = parsed is Map ? parsed['error']?.toString() : null;
-        throw LojaApiException('Cloudinary recusou a imagem (${result.statusCode}): ${message ?? 'verifique as credenciais'}');
+        throw LojaApiException(
+            'Cloudinary recusou a imagem (${result.statusCode}): ${message ?? 'verifique as credenciais'}');
       }
       final url = parsed is Map ? parsed['secure_url']?.toString() : null;
       if (url == null || !url.startsWith('https://')) {

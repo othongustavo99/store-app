@@ -11,7 +11,12 @@ const shopParams = z.object({
 const adminParams = z.object({storeId:uuidParam,orderId:uuidParam}).strict();
 
 async function timeline(storeId:string,orderId:string,customerId?:string) {
-  const found=await pool.query(`SELECT id,status,fulfillment_method AS "fulfillment",
+  const found=await pool.query(`SELECT id,status,pickup_preparation AS "pickupPreparation",fulfillment_method AS "fulfillment",
+    reservation_expires_at AS "reservationExpiresAt",
+    (SELECT provider FROM payments WHERE order_id=orders.id AND store_id=orders.store_id
+      AND provider IN ('offline','mercadopago','demo') LIMIT 1) AS "paymentProvider",
+    (SELECT status FROM payments WHERE order_id=orders.id AND store_id=orders.store_id
+      AND provider IN ('offline','mercadopago','demo') LIMIT 1) AS "paymentStatus",
     shipping_service_id AS "shippingServiceId",shipping_address AS "customerContact",
     created_at AS "createdAt" FROM orders WHERE id=$1 AND store_id=$2
       AND ($3::uuid IS NULL OR customer_id=$3)`,[orderId,storeId,customerId??null]);

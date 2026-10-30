@@ -69,8 +69,9 @@ class _TimelineDialogState extends State<_TimelineDialog> {
                       .toList();
                   return ListView(children: [
                     Text(
-                        orderStatusLabel('${order['status']}',
-                            delivery: delivery, local: local),
+                        unpaidPickupLabel(order) ??
+                            orderStatusLabel('${order['status']}',
+                                delivery: delivery, local: local),
                         style: Theme.of(context).textTheme.titleMedium),
                     OrderReceivingInfo(order: order),
                     const Divider(),

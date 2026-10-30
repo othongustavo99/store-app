@@ -39,6 +39,7 @@ export const createProductInput = z.object({
 });
 // O PATCH altera APENAS metadados. Estoque nunca é aceito nesta rota.
 export const productMetadataInput = z.object({
+  expectedRevision: z.string().datetime().optional(),
   name: z.string().trim().min(2).max(200),
   description: z.string().trim().max(12000),
   sizeGuide: z.string().trim().max(3000).default(''),

@@ -109,6 +109,15 @@ class RailwayOrderRepository {
     return Map<String, dynamic>.from(response['order'] as Map);
   }
 
+  Future<Map<String, dynamic>> preparePickup(
+      String orderId, String stage) async {
+    final storeId = await _api.fetchStoreId();
+    final response = await _api.request(
+        'PATCH', '/v1/stores/$storeId/orders/$orderId/pickup-preparation',
+        authenticated: true, body: {'stage': stage});
+    return Map<String, dynamic>.from(response['order'] as Map);
+  }
+
   Future<Map<String, dynamic>> changeStatus(
       String orderId, String status) async {
     await _api.fetchStoreId();
