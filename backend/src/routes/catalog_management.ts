@@ -7,6 +7,7 @@ import { config } from '../config.js';
 import { ApiError } from '../security/errors.js';
 import { requireStoreRole } from '../security/identity.js';
 import { validated } from '../security/validation.js';
+import { assertActiveCategory } from '../services/catalog_categories.js';
 import { createProductInput, productMetadataInput, variantInput, editVariantInput, signCloudinaryUpload } from '../services/catalog_management.js';
 
 const base = z.object({storeId: z.string().uuid()});
@@ -18,10 +19,6 @@ function duplicateError(error: unknown): never {
     throw new ApiError(409, 'SKU ou identificador já cadastrado nesta loja.');
   }
   throw error;
-}
-async function categoryExists(client: PoolClient, storeId:string, categoryId:string) {
-  const r = await client.query("SELECT 1 FROM categories WHERE id=$1 AND store_id=$2 AND status='ACTIVE'", [categoryId,storeId]);
-  if (!r.rowCount) throw new ApiError(400, 'Categoria inválida para esta loja.');
 }
 async function audit(client: PoolClient, storeId:string, actor:string, event:string, entityType:string, id:string) {
   await client.query('INSERT INTO audit_logs(store_id,actor_id,event,entity_type,entity_id) VALUES($1,$2,$3,$4,$5)', [storeId,actor,event,entityType,id]);
@@ -63,7 +60,7 @@ export async function catalogManagementRoutes(app: FastifyInstance) {
     const {identity}=await requireStoreRole(req,storeId,['OWNER','MANAGER']);
     const body=validated(createProductInput,req.body);
     const id=await writeTransaction(async client=>{
-      await categoryExists(client,storeId,body.categoryId);
+      await assertActiveCategory(client,storeId,body.categoryId);
       const productId=randomUUID();
       await client.query(`INSERT INTO products(id,store_id,category_id,name,slug,description,status,
         images,videos,old_price_cents,is_featured,is_new,size_guide) VALUES($1,$2,$3,$4,$1,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11,$12)`,
@@ -88,7 +85,7 @@ export async function catalogManagementRoutes(app: FastifyInstance) {
     const {identity}=await requireStoreRole(req,storeId,['OWNER','MANAGER']);
     const body=validated(productMetadataInput,req.body);
     await writeTransaction(async client=>{
-      await categoryExists(client,storeId,body.categoryId);
+      await assertActiveCategory(client,storeId,body.categoryId);
       const existing=await client.query<{id:string;revision:string}>(`SELECT id,
         to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS revision
         FROM products WHERE id=$1 AND store_id=$2 AND status<>'ARCHIVED' FOR UPDATE`,[productId,storeId]);

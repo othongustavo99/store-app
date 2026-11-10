@@ -26,12 +26,15 @@ class CatalogAdmin extends RailwayCatalogAdminRepository {
   final created = <Map<String, dynamic>>[],
       updated = <Map<String, dynamic>>[],
       categories = <Map<String, dynamic>>[];
+  final availableCategories = <Map<String, dynamic>>[
+    {'id': 'cat-a', 'name': 'Camisas'}
+  ];
+  final removedCategories = <String>[];
+  bool canEdit = true;
   @override
   Future<Map<String, dynamic>> load() async => {
-        'canEdit': true,
-        'categories': [
-          {'id': 'cat-a', 'name': 'Camisas'}
-        ],
+        'canEdit': canEdit,
+        'categories': List.of(availableCategories),
         'products': [
           {
             'id': 'product-a',
@@ -75,6 +78,24 @@ class CatalogAdmin extends RailwayCatalogAdminRepository {
   Future<void> createCategory(String name,
       {String icon = '🏷️', String imageUrl = ''}) async {
     categories.add({'name': name, 'icon': icon, 'imageUrl': imageUrl});
+  }
+
+  @override
+  Future<void> updateCategory(String id, String name,
+      {required String icon, required String imageUrl}) async {
+    final index = availableCategories.indexWhere((item) => item['id'] == id);
+    availableCategories[index] = {
+      'id': id,
+      'name': name,
+      'icon': icon,
+      'imageUrl': imageUrl
+    };
+  }
+
+  @override
+  Future<void> removeCategory(String id) async {
+    removedCategories.add(id);
+    availableCategories.removeWhere((item) => item['id'] == id);
   }
 }
 
@@ -260,16 +281,61 @@ void main() {
         tester,
         RailwayCatalogManagementScreen(
             repository: repo, changes: const Stream<int>.empty()));
+    await tester.tap(find.text('Gerenciar categorias'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Nova categoria'));
     await tester.pumpAndSettle();
-    await textField(tester, 'Nome da categoria', 'Vestidos');
+    await textField(tester, 'Nome da categoria', '  óculos');
+    final field = tester
+        .widget<TextField>(find.widgetWithText(TextField, 'Nome da categoria'));
+    expect(field.textCapitalization, TextCapitalization.sentences);
+    expect(field.controller!.text, '  Óculos');
     await textField(tester, 'Imagem da categoria (URL HTTPS, opcional)',
         'https://example.invalid/category.jpg');
     await tester.tap(find.text('Criar'));
     await tester.pumpAndSettle();
+    expect(repo.categories.single['name'], 'Óculos');
     expect(repo.categories.single['imageUrl'],
         'https://example.invalid/category.jpg');
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('gerencia edição e remoção com confirmação', (tester) async {
+    final repo = CatalogAdmin();
+    await screen(
+        tester,
+        RailwayCatalogManagementScreen(
+            repository: repo, changes: const Stream<int>.empty()));
+    await tester.tap(find.text('Gerenciar categorias'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar Camisas'));
+    await tester.pumpAndSettle();
+    await textField(tester, 'Nome da categoria', 'blusas');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    expect(repo.availableCategories.single['name'], 'Blusas');
+
+    await tester.tap(find.byTooltip('Remover Blusas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(repo.removedCategories, isEmpty);
+
+    await tester.tap(find.byTooltip('Remover Blusas'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Remover'));
+    await tester.pumpAndSettle();
+    expect(repo.removedCategories, ['cat-a']);
+    expect(find.text('Nenhuma categoria cadastrada.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('equipe sem permissão não pode gerenciar categorias',
+      (tester) async {
+    final repo = CatalogAdmin()..canEdit = false;
+    await screen(
+        tester,
+        RailwayCatalogManagementScreen(
+            repository: repo, changes: const Stream<int>.empty()));
+    expect(find.text('Gerenciar categorias'), findsNothing);
   });
   testWidgets('saída acima do disponível é bloqueada e prévia mostra o saldo',
       (tester) async {

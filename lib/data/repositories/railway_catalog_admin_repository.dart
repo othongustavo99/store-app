@@ -75,6 +75,20 @@ class RailwayCatalogAdminRepository {
         body: {'name': name, 'icon': icon, 'imageUrl': imageUrl});
   }
 
+  Future<void> updateCategory(String id, String name,
+      {required String icon, required String imageUrl}) async {
+    await _api.fetchStoreId();
+    await _api.request('PUT', '${_api.adminCatalog}/categories/$id',
+        authenticated: true,
+        body: {'name': name, 'icon': icon, 'imageUrl': imageUrl});
+  }
+
+  Future<void> removeCategory(String id) async {
+    await _api.fetchStoreId();
+    await _api.request('DELETE', '${_api.adminCatalog}/categories/$id',
+        authenticated: true);
+  }
+
   /// Upload direto para Cloudinary, com assinatura fornecida APENAS após
   /// autenticação/autorizações pelo backend. Chave secreta jamais sai da API.
   Future<String> uploadImage(XFile image) async {

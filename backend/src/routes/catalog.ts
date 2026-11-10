@@ -8,6 +8,7 @@ import { ApiError } from '../security/errors.js';
 import { requireStoreRole } from '../security/identity.js';
 import { uuidParam, validated } from '../security/validation.js';
 import { catalogFacets } from '../services/catalog_discovery.js';
+import { assertActiveCategory, removeCategory, saveCategory, withCategoryTransaction } from '../services/catalog_categories.js';
 
 const storeParams = z.object({ storeId: uuidParam });
 const productParams = z.object({ storeId: uuidParam, productId: uuidParam });
@@ -35,7 +36,9 @@ const productSchema = z.object({
   status: z.enum(['DRAFT', 'PUBLISHED', 'HIDDEN', 'ARCHIVED']).optional(),
 }).strict();
 const categorySchema = z.object({
-  name: z.string().trim().min(2).max(120),
+  name: z.string().trim().min(2)
+    .transform((name) => name.replace(/^./u, (first) => first.toUpperCase()))
+    .pipe(z.string().max(120)),
   icon: z.string().max(24).default('🏷️'),
   imageUrl: z.union([url, z.literal('')]).default(''),
 }).strict();
@@ -150,10 +153,6 @@ async function products(storeId: string, includeUnpublished: boolean, productId:
   return result.rows.map(toPublicProduct);
 }
 
-async function assertCategory(client: PoolClient, storeId: string, categoryId: string) {
-  const found = await client.query("SELECT 1 FROM categories WHERE id=$1 AND store_id=$2 AND status='ACTIVE'", [categoryId, storeId]);
-  if (!found.rowCount) throw new ApiError(400, 'Categoria inválida para esta loja.');
-}
 
 export async function catalogRoutes(app: FastifyInstance) {
   app.get('/v1/shops/:slug/catalog/filters', async req => {
@@ -313,12 +312,21 @@ export async function catalogRoutes(app: FastifyInstance) {
     const { storeId } = validated(storeParams, req.params);
     const { identity } = await requireStoreRole(req, storeId, ['OWNER','MANAGER']);
     const body = validated(categorySchema, req.body);
-    const id = randomUUID();
-    await pool.query(`INSERT INTO categories (id,store_id,name,slug,icon,image_url)
-      VALUES ($1,$2,$3,$4,$5,$6)`, [id,storeId,body.name,id,body.icon,body.imageUrl]);
-    await pool.query(`INSERT INTO audit_logs(store_id,actor_id,event,entity_type,entity_id)
-      VALUES ($1,$2,'CATEGORY_CREATED','category',$3)`, [storeId,identity.userId,id]);
-    return reply.code(201).send({ category: { id, ...body } });
+    const category = await saveCategory(storeId, identity.userId, body);
+    return reply.code(201).send({ category });
+  });
+  app.put('/v1/stores/:storeId/catalog/categories/:categoryId', async (req) => {
+    const { storeId, categoryId } = validated(categoryParams, req.params);
+    const { identity } = await requireStoreRole(req, storeId, ['OWNER','MANAGER']);
+    const body = validated(categorySchema, req.body);
+    return { category: await saveCategory(storeId, identity.userId, body, categoryId) };
+  });
+  app.delete('/v1/stores/:storeId/catalog/categories/:categoryId', async (req, reply) => {
+    const { storeId, categoryId } = validated(categoryParams, req.params);
+    const { identity } = await requireStoreRole(req, storeId, ['OWNER','MANAGER']);
+    await withCategoryTransaction(storeId, (client) =>
+      removeCategory(client, storeId, categoryId, identity.userId));
+    return reply.code(204).send();
   });
 
   async function saveProduct(storeId: string, productId: string | null,
@@ -326,7 +334,7 @@ export async function catalogRoutes(app: FastifyInstance) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await assertCategory(client, storeId, body.categoryId);
+      await assertActiveCategory(client, storeId, body.categoryId);
       const id = productId ?? randomUUID();
       if (productId) {
         const existing = await client.query('SELECT id FROM products WHERE id=$1 AND store_id=$2 FOR UPDATE', [id,storeId]);

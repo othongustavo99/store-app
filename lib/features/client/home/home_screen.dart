@@ -187,8 +187,9 @@ class HomeScreen extends ConsumerWidget {
                               ])))
                     ],
                     error: (_, __) => [
-                      SliverFillRemaining(
-                          hasScrollBody: false,
+                      // EmptyState usa LayoutBuilder e rolagem própria. Não pode
+                      // receber a medição intrínseca de SliverFillRemaining.
+                      SliverToBoxAdapter(
                           child: EmptyState(
                               icon: Icons.wifi_off_outlined,
                               title: 'Não foi possível carregar a vitrine',
@@ -201,8 +202,7 @@ class HomeScreen extends ConsumerWidget {
                     data: (all) {
                       if (all.isEmpty) {
                         return [
-                          const SliverFillRemaining(
-                              hasScrollBody: false,
+                          const SliverToBoxAdapter(
                               child: EmptyState(
                                   icon: Icons.storefront_outlined,
                                   title: 'Estamos preparando a vitrine',

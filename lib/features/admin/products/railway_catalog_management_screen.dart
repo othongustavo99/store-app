@@ -3,6 +3,7 @@ import '../admin_dialog.dart';
 import 'package:loja_roupas/router/app_back_button.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -28,6 +29,7 @@ class _RailwayCatalogManagementScreenState
   late Future<Map<String, dynamic>> _data;
   StreamSubscription<int>? _subscription;
   String _filter = 'ALL';
+  bool _managingCategories = false;
   bool _busy = false;
   bool _pendingRefresh = false;
 
@@ -99,17 +101,45 @@ class _RailwayCatalogManagementScreenState
         _ => s,
       };
 
-  Future<void> _createCategory() async {
-    final name = TextEditingController(),
-        icon = TextEditingController(text: '🏷️'),
-        image = TextEditingController();
+  static final _categoryInitial = RegExp(r'\S', unicode: true);
+
+  String _capitalizeCategoryName(String text) => text.replaceFirstMapped(
+      _categoryInitial, (match) => match[0]!.toUpperCase());
+
+  TextEditingValue _formatCategoryName(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (!newValue.composing.isCollapsed ||
+        (oldValue.text == newValue.text && oldValue.composing.isCollapsed)) {
+      return newValue;
+    }
+    final first = _categoryInitial.firstMatch(newValue.text);
+    if (first == null) return newValue;
+    final text = _capitalizeCategoryName(newValue.text);
+    if (text == newValue.text) return newValue;
+    final delta = text.length - newValue.text.length;
+    int shift(int offset) => offset >= first.end ? offset + delta : offset;
+    return newValue.copyWith(
+        text: text,
+        selection: newValue.selection.copyWith(
+            baseOffset: shift(newValue.selection.baseOffset),
+            extentOffset: shift(newValue.selection.extentOffset)),
+        composing: TextRange.empty);
+  }
+
+  Future<void> _editCategory([Map<String, dynamic>? category]) async {
+    final name = TextEditingController(text: category?['name'] as String?),
+        icon =
+            TextEditingController(text: category?['icon'] as String? ?? '🏷️'),
+        image = TextEditingController(text: category?['imageUrl'] as String?);
     String? error;
     try {
       final accepted = await showAdminDialog<bool>(
           context: context,
           builder: (outer) => StatefulBuilder(
               builder: (ctx, update) => AlertDialog(
-                      title: const Text('Nova categoria'),
+                      title: Text(category == null
+                          ? 'Nova categoria'
+                          : 'Editar categoria'),
                       content: SizedBox(
                           width: 430,
                           child: SingleChildScrollView(
@@ -118,6 +148,12 @@ class _RailwayCatalogManagementScreenState
                                   children: [
                                 TextField(
                                     controller: name,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
+                                    inputFormatters: [
+                                      TextInputFormatter.withFunction(
+                                          _formatCategoryName),
+                                    ],
                                     maxLength: 120,
                                     decoration: const InputDecoration(
                                         labelText: 'Nome da categoria')),
@@ -145,22 +181,32 @@ class _RailwayCatalogManagementScreenState
                         FilledButton(
                             onPressed: () {
                               final uri = Uri.tryParse(image.text.trim());
-                              if (name.text.trim().length < 2 ||
+                              final normalized =
+                                  _capitalizeCategoryName(name.text.trim());
+                              if (normalized.length < 2 ||
+                                  normalized.length > 120 ||
                                   (image.text.trim().isNotEmpty &&
                                       (uri?.scheme != 'https' ||
                                           uri?.hasAuthority != true))) {
                                 update(() => error =
-                                    'Informe nome e, se houver imagem, uma URL HTTPS válida.');
+                                    'Informe um nome de 2 a 120 caracteres e, se houver imagem, uma URL HTTPS válida.');
                                 return;
                               }
                               Navigator.pop(ctx, true);
                             },
-                            child: const Text('Criar'))
+                            child: Text(category == null ? 'Criar' : 'Salvar'))
                       ])));
       if (accepted != true) return;
-      await _repo.createCategory(name.text.trim(),
-          icon: icon.text.trim(), imageUrl: image.text.trim());
-      if (mounted) await _refresh();
+      final normalizedName = _capitalizeCategoryName(name.text.trim());
+      if (category == null) {
+        await _repo.createCategory(normalizedName,
+            icon: icon.text.trim(), imageUrl: image.text.trim());
+      } else {
+        await _repo.updateCategory(category['id'] as String, normalizedName,
+            icon: icon.text.trim(), imageUrl: image.text.trim());
+      }
+      await _categoryChanged(
+          category == null ? 'Categoria criada.' : 'Categoria atualizada.');
     } catch (e) {
       _error(e);
     } finally {
@@ -169,6 +215,85 @@ class _RailwayCatalogManagementScreenState
       image.dispose();
     }
   }
+
+  Future<void> _removeCategory(Map<String, dynamic> category) async {
+    final accepted = await showAdminDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('Remover categoria?'),
+              content: Text(
+                  '“${category['name']}” sairá da vitrine. Se houver produtos vinculados, mova-os para outra categoria primeiro.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancelar')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Remover'))
+              ],
+            ));
+    if (accepted != true) return;
+    try {
+      await _repo.removeCategory(category['id'] as String);
+      await _categoryChanged('Categoria removida.');
+    } catch (e) {
+      _error(e);
+    }
+  }
+
+  Future<void> _categoryChanged(String message) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+    await _refresh();
+  }
+
+  Widget _categoryManagement(List<Map<String, dynamic>> categories) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [
+              FilledButton.icon(
+                  onPressed: _busy ? null : () => _run(_editCategory),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nova categoria')),
+              OutlinedButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() => _managingCategories = false),
+                  child: const Text('Voltar aos produtos')),
+            ]),
+          ),
+          Expanded(
+            child: categories.isEmpty
+                ? const Center(child: Text('Nenhuma categoria cadastrada.'))
+                : ListView.builder(
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      final category = categories[index];
+                      final name = category['name'] as String;
+                      return ListTile(
+                        title: Text(name),
+                        trailing:
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                          IconButton(
+                              tooltip: 'Editar $name',
+                              onPressed: _busy
+                                  ? null
+                                  : () => _run(() => _editCategory(category)),
+                              icon: const Icon(Icons.edit_outlined)),
+                          IconButton(
+                              tooltip: 'Remover $name',
+                              onPressed: _busy
+                                  ? null
+                                  : () => _run(() => _removeCategory(category)),
+                              icon: const Icon(Icons.delete_outline)),
+                        ]),
+                      );
+                    }),
+          ),
+        ],
+      );
 
   Future<void> _editProduct(Map<String, dynamic>? product,
       List<Map<String, dynamic>> categories) async {
@@ -950,7 +1075,8 @@ class _RailwayCatalogManagementScreenState
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
             leading: const AppBackButton(fallbackLocation: '/admin'),
-            title: const Text('Produtos e categorias'),
+            title: Text(
+                _managingCategories ? 'Categorias' : 'Produtos e categorias'),
             actions: [
               IconButton(
                   tooltip: 'Atualizar catálogo',
@@ -975,6 +1101,9 @@ class _RailwayCatalogManagementScreenState
               final canEdit = data['canEdit'] == true;
               final categories =
                   List<Map<String, dynamic>>.from(data['categories'] as List);
+              if (_managingCategories && canEdit) {
+                return _categoryManagement(categories);
+              }
               final products =
                   List<Map<String, dynamic>>.from(data['products'] as List);
               final query = _search.text.trim().toLowerCase();
@@ -1000,10 +1129,12 @@ class _RailwayCatalogManagementScreenState
                               label: const Text('Novo produto')),
                         if (canEdit)
                           OutlinedButton.icon(
-                              onPressed:
-                                  _busy ? null : () => _run(_createCategory),
+                              onPressed: _busy
+                                  ? null
+                                  : () => setState(
+                                      () => _managingCategories = true),
                               icon: const Icon(Icons.category_outlined),
-                              label: const Text('Nova categoria')),
+                              label: const Text('Gerenciar categorias')),
                         OutlinedButton.icon(
                             onPressed: () => context.push('/admin/inventory'),
                             icon: const Icon(Icons.inventory_2_outlined),

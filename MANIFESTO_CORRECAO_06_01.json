@@ -1,0 +1,65 @@
+{
+  "patch": "06.1",
+  "previous_stage_required": "06",
+  "title": "Correção de tela branca na Home vazia ou com erro",
+  "installation_root": "pasta que contém pubspec.yaml",
+  "files": [
+    {
+      "path": "lib/features/client/home/home_screen.dart",
+      "operation": "SUBSTITUIR",
+      "sha256": "e879e34899ea739ba456ca29446182127268d0fae2be7359bee07b615d2e37e1"
+    },
+    {
+      "path": "test/hotfix06_startup_test.dart",
+      "operation": "ADICIONAR",
+      "sha256": "f477ebfdc4feb820a95479628a0097100887054a90090fe48f009d376a465605"
+    },
+    {
+      "path": "LEIA_CORRECAO_06_01.md",
+      "operation": "ADICIONAR",
+      "sha256": "574127dd44be4ec682ec5b3b8ffd0d1cb4f86e3b79249b12c0460394672eff6b"
+    }
+  ],
+  "source_baseline_sha256": "b959edc933a9371481487ee36b4b96d79e7bac8e0827fe82ed8da8af19e33f01",
+  "received_archive_sha256": "f59c3ad8aad431164c1aea2f8a300c709c626ace8fa88f689f624e28c1bbadea",
+  "remove": [],
+  "sql_migrations_added": [],
+  "sql_migrations_changed": false,
+  "backend_changed": false,
+  "dependencies_changed": false,
+  "validation": {
+    "original_bug_reproduced_in_regression_test": true,
+    "flutter_analyze": "No issues found",
+    "flutter_tests_passed": 108,
+    "new_regression_tests": 8,
+    "test_backend": "railway",
+    "test_concurrency": 1,
+    "widget_widths_px": [
+      320,
+      390,
+      1200
+    ],
+    "widget_text_scales": [
+      1.0,
+      1.3
+    ],
+    "android_debug_apk_built": true,
+    "flutter_version": "3.47.2",
+    "installed_as_update_on_connected_android": true,
+    "device_empty_home_visually_verified": true,
+    "device_tab_return_visually_verified": true,
+    "device_second_launch_after_loading_visually_verified": true,
+    "device_default_impeller_preserved": true,
+    "network_error_and_retry_verified_in_widget_tests": true,
+    "real_orders_or_payments_executed": false,
+    "original_project_source_files_modified": false
+  },
+  "separate_debug_apk": {
+    "file": "loja-piloto-homologacao-corrigido-debug.apk",
+    "sha256": "d1f8e89670cecc0b2bd6cffecb377dad0e613107c21b6205c26d8b10b062c301",
+    "application_id": "br.com.othongustavo.lojaroupas.hml",
+    "environment": "homologacao",
+    "store_mode": "LIVE",
+    "already_installed_during_diagnosis": true
+  }
+}
