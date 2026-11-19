@@ -210,3 +210,73 @@ test('rotas permanecem desativadas ate habilitar explicitamente', async t => {
   const r = await app.inject({method:'GET',url:'/v1/external/events',headers:integrationAuth});
   assert.equal(r.statusCode,503);
 });
+
+
+test('dados pessoais de pedidos exigem scope adicional, mesmo com orders.read', async t => {
+  const app=await apiFixture(t,async (sql) => {
+    if(sql.includes('FROM external_integrations i JOIN stores')) return response([identity]);
+    return response([]);
+  });
+  const res=await app.inject({method:'GET',url:`/v1/external/orders/${variantId}/customer`,headers:integrationAuth});
+  assert.equal(res.statusCode,403,res.body);
+});
+
+test('scope separado orders.customer.read libera contato apenas da loja vinculada',async t=>{
+  const seen:unknown[][]=[];
+  const app=await apiFixture(t,async (sql,values) => {
+    if(sql.includes('FROM external_integrations i JOIN stores'))
+      return response([{...identity,scopes:[...identity.scopes,'orders.customer.read']}]);
+    if(sql.includes('JOIN users u ON u.id=o.customer_id')){
+      seen.push(values??[]);
+      return response([{orderId:variantId,customer:{name:'Cliente Teste',email:'cliente@exemplo.com'},deliveryAddress:null}]);
+    }
+    return response([]);
+  });
+  const res=await app.inject({method:'GET',url:`/v1/external/orders/${variantId}/customer`,headers:integrationAuth});
+  assert.equal(res.statusCode,200,res.body);
+  assert.equal(res.json().customer.name,'Cliente Teste');
+  assert.equal(seen[0][0],storeId);
+});
+
+
+test('OWNER habilita orders.write na credencial existente sem perder mapeamentos',async t=>{
+  const actorId='66666666-6666-4666-8666-666666666666';
+  const calls:string[]=[];
+  const handler=async(sql:string)=>{
+    calls.push(sql);
+    if(sql.includes('FROM refresh_sessions rs JOIN users'))return response([{}]);
+    if(sql.includes('FROM store_memberships sm'))return response([{role:'OWNER',status:'ACTIVE'}]);
+    if(sql.includes('SELECT order_authority FROM external_integrations'))return response([{order_authority:false}]);
+    return response([]);
+  };
+  const app=await apiFixture(t,handler);
+  t.mock.method(pool,'connect',async()=>({query:handler,release(){}}));
+  const jwt=await createAccessToken(actorId,randomUUID());
+  const r=await app.inject({method:'POST',url:`/v1/stores/${storeId}/integrations/${integrationId}/enable-orders`,
+    headers:{authorization:`Bearer ${jwt}`}});
+  assert.equal(r.statusCode,200,r.body);
+  assert.equal(r.json().orderAuthority,true);
+  assert.ok(calls.some(q=>q.includes("array_append(scopes,'orders.write')")));
+  assert.ok(calls.some(q=>q.includes('COMMIT')));
+  assert.ok(!calls.some(q=>q.includes('DELETE FROM external_variant_mappings')));
+});
+
+test('OWNER pode autorizar dados pessoais separadamente de orders.write',async t=>{
+  const actorId='66666666-6666-4666-8666-666666666666';
+  const calls:string[]=[];
+  const handler=async(sql:string)=>{
+    calls.push(sql);
+    if(sql.includes('FROM refresh_sessions rs JOIN users'))return response([{}]);
+    if(sql.includes('FROM store_memberships sm'))return response([{role:'OWNER',status:'ACTIVE'}]);
+    if(sql.includes('SELECT scopes FROM external_integrations'))return response([{scopes:['orders.read']}]);
+    return response([]);
+  };
+  const app=await apiFixture(t,handler);
+  t.mock.method(pool,'connect',async()=>({query:handler,release(){}}));
+  const jwt=await createAccessToken(actorId,randomUUID());
+  const r=await app.inject({method:'POST',url:`/v1/stores/${storeId}/integrations/${integrationId}/enable-customer-data`,
+    headers:{authorization:`Bearer ${jwt}`}});
+  assert.equal(r.statusCode,200,r.body);
+  assert.equal(r.json().customerDataAccess,true);
+  assert.ok(calls.some(q=>q.includes("array_append(scopes,'orders.customer.read')")));
+});

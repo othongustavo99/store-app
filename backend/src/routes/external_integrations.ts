@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { catalogImportRoutes } from './external_catalog_import.js';
+import { externalOrderSyncRoutes } from './external_order_sync.js';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { requireStoreRole } from '../security/identity.js';
@@ -18,6 +19,8 @@ const createBody = z.object({
   provider: z.string().trim().regex(/^[a-z][a-z0-9_-]{1,63}$/),
   stockAuthority: z.boolean().default(false),
   catalogAuthority: z.boolean().default(false),
+  orderAuthority: z.boolean().default(false),
+  customerDataAccess: z.boolean().default(false),
 }).strict();
 const mappingBody = z.object({ externalId: z.string().trim().min(1).max(180) }).strict();
 const stockBody = z.object({
@@ -42,7 +45,7 @@ const ackEventsBody = z.object({
 
 function conflict(error: unknown): never {
   if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505')
-    throw new ApiError(409, 'Identificador duplicado ou ja existe integracao responsavel pelo catalogo ou estoque desta loja.');
+    throw new ApiError(409, 'Identificador duplicado ou ja existe integracao responsavel por estoque, catalogo ou pedidos desta loja.');
   throw error;
 }
 
@@ -57,19 +60,21 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
     const scopes = ['catalog.read', 'orders.read', 'events.read', 'mapping.write'];
     if (body.stockAuthority) scopes.push('stock.write');
     if (body.catalogAuthority) scopes.push('catalog.write');
+    if (body.orderAuthority) scopes.push('orders.write');
+    if (body.customerDataAccess) scopes.push('orders.customer.read');
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       const result = await client.query<{ id: string }>(`
-        INSERT INTO external_integrations(store_id,name,provider,token_prefix,token_hash,scopes,stock_authority,catalog_authority,created_by)
-        VALUES ($1,$2,$3,$4,$5,$6::text[],$7,$8,$9) RETURNING id`,
-      [storeId, body.name, body.provider, secret.prefix, secret.hash, scopes, body.stockAuthority, body.catalogAuthority, identity.userId]);
+        INSERT INTO external_integrations(store_id,name,provider,token_prefix,token_hash,scopes,stock_authority,catalog_authority,order_authority,created_by)
+        VALUES ($1,$2,$3,$4,$5,$6::text[],$7,$8,$9,$10) RETURNING id`,
+      [storeId, body.name, body.provider, secret.prefix, secret.hash, scopes, body.stockAuthority, body.catalogAuthority, body.orderAuthority, identity.userId]);
       await client.query(`INSERT INTO audit_logs(store_id,actor_id,event,entity_type,entity_id,metadata)
         VALUES($1,$2,'INTEGRATION_CREATED','external_integration',$3,$4::jsonb)`,
-      [storeId, identity.userId, result.rows[0].id, JSON.stringify({ provider: body.provider, stockAuthority: body.stockAuthority, catalogAuthority: body.catalogAuthority })]);
+      [storeId, identity.userId, result.rows[0].id, JSON.stringify({ provider: body.provider, stockAuthority: body.stockAuthority, catalogAuthority: body.catalogAuthority, orderAuthority: body.orderAuthority, customerDataAccess: body.customerDataAccess })]);
       await client.query('COMMIT');
       return reply.code(201).send({ integrationId: result.rows[0].id, token: secret.key,
-        tokenPrefix: secret.prefix, scopes, stockAuthority: body.stockAuthority, catalogAuthority: body.catalogAuthority,
+        tokenPrefix: secret.prefix, scopes, stockAuthority: body.stockAuthority, catalogAuthority: body.catalogAuthority, orderAuthority: body.orderAuthority, customerDataAccess: body.customerDataAccess,
         warning: 'Guarde a credencial agora. Ela nao podera ser consultada novamente.' });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -82,7 +87,7 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
     const { storeId } = validated(storeParams, req.params);
     await requireStoreRole(req, storeId, ['OWNER']);
     const result = await pool.query(`SELECT id,name,provider,token_prefix AS "tokenPrefix",
-      scopes,stock_authority AS "stockAuthority",catalog_authority AS "catalogAuthority",created_at AS "createdAt",revoked_at AS "revokedAt"
+      scopes,stock_authority AS "stockAuthority",catalog_authority AS "catalogAuthority",order_authority AS "orderAuthority",created_at AS "createdAt",revoked_at AS "revokedAt"
       FROM external_integrations WHERE store_id=$1 ORDER BY created_at DESC`, [storeId]);
     return { integrations: result.rows };
   });
@@ -105,7 +110,58 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
     finally { client.release(); }
   });
 
+  // O proprietario pode promover uma integracao ja existente sem perder mapeamentos e versoes.
+  app.post('/v1/stores/:storeId/integrations/:integrationId/enable-orders', async req => {
+    assertIntegrationsEnabled();
+    const { storeId, integrationId } = validated(integrationParams, req.params);
+    const { identity } = await requireStoreRole(req, storeId, ['OWNER']);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const present = await client.query<{order_authority:boolean}>(`SELECT order_authority FROM external_integrations
+        WHERE id=$1 AND store_id=$2 AND revoked_at IS NULL FOR UPDATE`, [integrationId, storeId]);
+      if (!present.rowCount) throw new ApiError(404,'Integracao ativa nao encontrada.');
+      if (!present.rows[0].order_authority) {
+        await client.query(`UPDATE external_integrations
+          SET order_authority=TRUE,scopes=CASE WHEN 'orders.write'=ANY(scopes) THEN scopes
+          ELSE array_append(scopes,'orders.write') END WHERE id=$1 AND store_id=$2`, [integrationId,storeId]);
+        await client.query(`INSERT INTO audit_logs(store_id,actor_id,event,entity_type,entity_id)
+          VALUES($1,$2,'INTEGRATION_ORDER_AUTHORITY_GRANTED','external_integration',$3)`,
+        [storeId,identity.userId,integrationId]);
+      }
+      await client.query('COMMIT');
+      return { orderAuthority: true, alreadyEnabled: present.rows[0].order_authority };
+    } catch(e) { await client.query('ROLLBACK'); return conflict(e); }
+    finally { client.release(); }
+  });
+
+  // Acesso a dados pessoais e concedido separadamente pelo OWNER, e nao pela simples leitura de pedidos.
+  app.post('/v1/stores/:storeId/integrations/:integrationId/enable-customer-data', async req => {
+    assertIntegrationsEnabled();
+    const {storeId,integrationId}=validated(integrationParams,req.params);
+    const {identity}=await requireStoreRole(req,storeId,['OWNER']);
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const active=await client.query<{scopes:string[]}>(`SELECT scopes FROM external_integrations
+        WHERE id=$1 AND store_id=$2 AND revoked_at IS NULL FOR UPDATE`,[integrationId,storeId]);
+      if(!active.rowCount)throw new ApiError(404,'Integracao ativa nao encontrada.');
+      const alreadyEnabled=active.rows[0].scopes.includes('orders.customer.read');
+      if(!alreadyEnabled){
+        await client.query(`UPDATE external_integrations SET scopes=array_append(scopes,'orders.customer.read')
+          WHERE id=$1 AND store_id=$2`,[integrationId,storeId]);
+        await client.query(`INSERT INTO audit_logs(store_id,actor_id,event,entity_type,entity_id)
+          VALUES($1,$2,'INTEGRATION_CUSTOMER_ACCESS_GRANTED','external_integration',$3)`,
+        [storeId,identity.userId,integrationId]);
+      }
+      await client.query('COMMIT');
+      return {customerDataAccess:true,alreadyEnabled};
+    }catch(e){await client.query('ROLLBACK');throw e;}
+    finally{client.release();}
+  });
+
   await app.register(catalogImportRoutes);
+  await app.register(externalOrderSyncRoutes);
 
   // API externa: dados limitados EXCLUSIVAMENTE a loja vinculada a credencial.
   app.get('/v1/external/catalog/variants', async req => {
@@ -256,7 +312,10 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
       o.fulfillment_method AS "fulfillmentMethod",o.subtotal_cents::text AS "subtotalCents",
       o.shipping_cents::text AS "shippingCents",o.discount_cents::text AS "discountCents",
       o.total_cents::text AS "totalCents",o.created_at AS "createdAt",
-      o.updated_at AS "updatedAt",o.paid_at AS "paidAt"
+      o.updated_at AS "updatedAt",o.paid_at AS "paidAt",
+      o.shipping_service_id AS "shippingServiceId",o.shipping_carrier AS "shippingCarrier",
+      (SELECT p.status FROM payments p WHERE p.order_id=o.id AND p.store_id=o.store_id
+        ORDER BY p.updated_at DESC LIMIT 1) AS "paymentStatus"
       FROM orders o WHERE o.store_id=$1 AND o.id=$2`, [identity.storeId, orderId]);
     if (!result.rowCount) throw new ApiError(404, 'Pedido nao encontrado nesta loja.');
     const items = await pool.query(`SELECT oi.product_id AS "productId",oi.variant_id AS "variantId",
@@ -266,6 +325,23 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
         ON m.integration_id=$3 AND m.store_id=oi.store_id AND m.variant_id=oi.variant_id
       WHERE oi.store_id=$1 AND oi.order_id=$2 ORDER BY oi.id`, [identity.storeId, orderId, identity.id]);
     return { order: { ...result.rows[0], items: items.rows } };
+  });
+
+  // Dados pessoais somente para conectores autorizados separadamente pelo proprietario.
+  app.get('/v1/external/orders/:orderId/customer', async req => {
+    const identity=await requireIntegration(req,'orders.customer.read');
+    const {orderId}=validated(z.object({orderId:uuidParam}).strict(),req.params);
+    const r=await pool.query(`SELECT o.id AS "orderId",
+      jsonb_build_object('name',o.shipping_address->>'name',
+        'phone',o.shipping_address->>'phone','email',u.email) AS customer,
+      CASE WHEN o.fulfillment_method='DELIVERY' THEN
+        o.shipping_address - 'name' - 'phone' - 'notes' - 'offlineMethod' - 'demoPaymentMethod'
+        ELSE NULL END AS "deliveryAddress",
+      o.shipping_address->>'notes' AS notes
+      FROM orders o JOIN users u ON u.id=o.customer_id
+      WHERE o.store_id=$1 AND o.id=$2`,[identity.storeId,orderId]);
+    if(!r.rowCount)throw new ApiError(404,'Pedido nao encontrado nesta loja.');
+    return r.rows[0];
   });
 
   // O adaptador do ERP pode manter o ID proprio sem mudar SKU ou IDs internos do app.

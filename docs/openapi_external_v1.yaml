@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: Frequência40 Store App — ERP/PDV API (fases 1 e 2)
-  version: 1.1.0-phase2
+  title: Frequência40 Store App — ERP/PDV API (fases 1, 2 e 3)
+  version: 1.2.0-phase3
   description: Contrato genérico. Esta API não é um conector homologado para um ERP específico. O token f40i_ é
     destinado somente a componentes de servidor.
 servers:
@@ -39,6 +39,14 @@ components:
         catalogAuthority:
           type: boolean
           default: false
+        orderAuthority:
+          type: boolean
+          default: false
+          description: Exclusivo por loja. Concede orders.write.
+        customerDataAccess:
+          type: boolean
+          default: false
+          description: Permissao explicita para dados pessoais do comprador.
     MapVariant:
       type: object
       additionalProperties: false
@@ -95,6 +103,7 @@ components:
           - catalog.product.changed
           - catalog.variant.changed
           - order.changed
+          - order.external.changed
         resourceId: *id001
         createdAt:
           type: string
@@ -222,6 +231,62 @@ components:
           description: Atomicidade do lote; todos os produtos sao confirmados ou todos revertidos.
           items:
             $ref: '#/components/schemas/CatalogProductImport'
+    ExternalFiscalReference:
+      type: object
+      additionalProperties: false
+      required: [model, accessKey, number, series, issuedAt, status]
+      properties:
+        model:
+          type: string
+          enum: ['55', '65']
+        accessKey:
+          type: string
+          pattern: '^[0-9]{44}$'
+          description: Chave de NF-e/NFC-e com verificador, modelo, serie e numero coerentes
+        number:
+          type: string
+          pattern: '^[0-9]{1,9}$'
+        series:
+          type: string
+          pattern: '^[0-9]{1,3}$'
+        issuedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [AUTHORIZED, CANCELED]
+    ExternalOrderUpdate:
+      type: object
+      additionalProperties: false
+      required: [eventId, sourceVersion, externalOrderId, externalStatus]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: ID fixo de uma operacao logica; mesmo evento e payload sao idempotentes
+        sourceVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Revisao monotonicamente crescente por pedido/ERP
+        externalOrderId:
+          type: string
+          minLength: 1
+          maxLength: 180
+          description: Vinculo imutavel ao numero do pedido no ERP
+        externalStatus:
+          type: string
+          enum: [RECEIVED, ACCEPTED, PROCESSING, INVOICED, DISPATCHED, DELIVERED, CANCELED, ERROR]
+          description: Informativo; nao cancela, paga ou estorna pedidos
+        fulfillmentStatus:
+          type: string
+          enum: [PREPARING, SHIPPED, DELIVERED]
+          description: Transicao unica a partir de status ja pago; nao ignora regras de expedicao
+        notes:
+          type: string
+          maxLength: 300
+        invoice:
+          $ref: '#/components/schemas/ExternalFiscalReference'
 paths:
   /v1/stores/{storeId}/integrations:
     post:
@@ -613,3 +678,70 @@ paths:
         '401': { description: Credencial invalida }
         '403': { description: Sem catalog.write ou catalogAuthority }
         '409': { description: Rollback integral por conflito }
+
+  /v1/stores/{storeId}/integrations/{integrationId}/enable-orders:
+    post:
+      summary: OWNER habilita gravacao de pedidos na credencial existente
+      description: Nao revoga token anterior. Apenas uma autoridade de pedidos ativa por loja.
+      tags: [administracao]
+      security: [{StoreUserJWT: []}]
+      parameters:
+        - {name: storeId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: integrationId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Permissao concedida}
+        '403': {description: Somente OWNER}
+        '409': {description: Outra integracao ja possui autoridade de pedidos}
+  /v1/stores/{storeId}/integrations/{integrationId}/enable-customer-data:
+    post:
+      summary: OWNER concede acesso aos dados pessoais do comprador
+      tags: [administracao]
+      security: [{StoreUserJWT: []}]
+      parameters:
+        - {name: storeId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: integrationId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Permissao concedida}
+        '403': {description: Somente OWNER}
+  /v1/external/orders/{orderId}/customer:
+    get:
+      summary: Dados pessoais do comprador, somente com orders.customer.read
+      description: Nome, telefone, e-mail e endereco de entrega. Usar apenas se necessario ao ERP.
+      tags: [integracao externa]
+      security: [{IntegrationKey: []}]
+      parameters:
+        - {name: orderId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Contato e endereco da loja da credencial}
+        '403': {description: Scope orders.customer.read ausente}
+        '404': {description: Pedido nao encontrado nesta loja}
+  /v1/external/orders/{orderId}/sync:
+    get:
+      summary: Consultar vinculo ERP, status externo e referencias fiscais
+      description: Exige orders.read; nao exibe dados pessoais do comprador.
+      tags: [integracao externa]
+      security: [{IntegrationKey: []}]
+      parameters:
+        - {name: orderId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Estado da reconciliacao}
+        '403': {description: Scope orders.read ausente}
+        '404': {description: Pedido nao encontrado nesta loja}
+    post:
+      summary: Conciliar pedido com ID do ERP, estado, referencia fiscal e logistica permitida
+      description: Exige orders.write e orderAuthority. Nao confirma pagamento, baixa estoque nem emite nota.
+      tags: [integracao externa]
+      security: [{IntegrationKey: []}]
+      parameters:
+        - {name: orderId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExternalOrderUpdate'}
+      responses:
+        '200': {description: Aplicado ou replay idempotente}
+        '400': {description: Dados invalidos}
+        '403': {description: Scope ou autoridade ausente}
+        '404': {description: Pedido nao encontrado nesta loja}
+        '409': {description: Versao, mapeamento, pagamento, pos-venda ou transicao em conflito}

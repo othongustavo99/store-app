@@ -4,7 +4,7 @@ import { config } from '../config.js';
 import { pool } from '../db/pool.js';
 import { ApiError } from '../security/errors.js';
 
-export type IntegrationScope = 'catalog.read' | 'orders.read' | 'events.read' | 'mapping.write' | 'stock.write' | 'catalog.write';
+export type IntegrationScope = 'catalog.read' | 'orders.read' | 'events.read' | 'mapping.write' | 'stock.write' | 'catalog.write' | 'orders.write' | 'orders.customer.read';
 export type IntegrationIdentity = { id: string; storeId: string; provider: string; stockAuthority: boolean; scopes: IntegrationScope[] };
 
 export function assertIntegrationsEnabled(): void {
