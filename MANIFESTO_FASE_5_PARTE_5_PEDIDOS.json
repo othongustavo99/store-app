@@ -1,0 +1,29 @@
+{
+  "project": "Frequencia40 Store App",
+  "stage": "5.5",
+  "title": "Envio assistido de pedidos para Bling e Omie",
+  "application": "loja_roupas (raiz)",
+  "files": "see README/patch; all new",
+  "modified": [],
+  "deleted": [],
+  "migration": null,
+  "backend_environment_changes": [],
+  "commercial_homologation": false,
+  "test_result": "81/81 (connectors Omie, Bling, Olist plus shared) with simulated HTTP",
+  "notes": "No production vendor credentials or PostgreSQL integration used",
+  "added": [
+    "LEIA_FASE_5_PARTE_5_PEDIDOS_BLING_OMIE.md",
+    "backend/connectors/bling/order_export.mjs",
+    "backend/connectors/bling/order_export_adapter.mjs",
+    "backend/connectors/bling/order_export_api.mjs",
+    "backend/connectors/bling/orders.example.json",
+    "backend/connectors/omie/order_export.mjs",
+    "backend/connectors/omie/order_export_adapter.mjs",
+    "backend/connectors/omie/order_export_api.mjs",
+    "backend/connectors/omie/orders.example.json",
+    "backend/connectors/shared/order_export_cli.mjs",
+    "backend/connectors/shared/safe_order_export.mjs",
+    "backend/connectors/shared/test/orders.test.mjs",
+    "docs/INTEGRACOES_FASE_5_PARTE_5_PEDIDOS.md"
+  ]
+}

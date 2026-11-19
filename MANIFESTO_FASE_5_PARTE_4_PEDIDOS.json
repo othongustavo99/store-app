@@ -1,0 +1,28 @@
+{
+  "projeto": "Frequencia40 Store App",
+  "fase": "5.4",
+  "titulo": "Exportacao assistida de pedidos para Olist/Tiny",
+  "tipo": "patch_incremental",
+  "adicionar": [
+    "backend/connectors/olist/order_export_rules.mjs",
+    "backend/connectors/olist/order_export_clients.mjs",
+    "backend/connectors/olist/order_export_state.mjs",
+    "backend/connectors/olist/order_export.mjs",
+    "backend/connectors/olist/orders.example.json",
+    "backend/connectors/olist/test/orders.test.mjs",
+    "docs/INTEGRACOES_FASE_5_PARTE_4_PEDIDOS.md",
+    "LEIA_FASE_5_PARTE_4_PEDIDOS.md",
+    "MANIFESTO_FASE_5_PARTE_4_PEDIDOS.json"
+  ],
+  "substituir": [],
+  "excluir": [],
+  "migrations": [],
+  "variaveis_novas_backend_railway": [],
+  "comercialmente_homologado": false,
+  "observacoes": [
+    "Requer conectores Olist/Tiny Fase 5.3 ja aplicados",
+    "Somente pedidos pagos de retirada com contato e produtos mapeados",
+    "Sem retry automatico de criacao de pedido remoto",
+    "Configuracao por cliente fora do Git e journal persistente obrigatorio"
+  ]
+}
