@@ -1,0 +1,38 @@
+{
+  "projeto": "Frequencia40 Store App",
+  "fase": 4,
+  "tipo": "patch incremental sobre fases 1, 2 e 3",
+  "novasVariaveisBackendRailway": [],
+  "variaveisOpcionaisWorkerSeparado": [
+    "F40_API_URL",
+    "F40_INTEGRATION_TOKEN",
+    "F40_ADAPTER_FILE",
+    "F40_POLL_INTERVAL_MS",
+    "F40_BATCH_LIMIT",
+    "F40_ONCE"
+  ],
+  "migrationNova": "backend/migrations/022_external_event_delivery.sql",
+  "arquivos": [
+    "backend/migrations/022_external_event_delivery.sql",
+    "backend/src/integrations/core.ts",
+    "backend/src/routes/external_integrations.ts",
+    "backend/src/routes/external_delivery.ts",
+    "backend/src/services/external_delivery_rules.ts",
+    "backend/src/tests/external_delivery.test.ts",
+    "backend/connectors/reference/worker.mjs",
+    "backend/connectors/reference/adapter.example.mjs",
+    "docs/openapi_external_v1.yaml",
+    "docs/INTEGRACOES_FASE_4.md",
+    "LEIA_FASE_4_INTEGRACOES.md",
+    "MANIFESTO_FASE_4_INTEGRACOES.json"
+  ],
+  "arquivosAExcluir": [],
+  "naoIncluidos": [
+    "backend/.env",
+    "backend/node_modules",
+    "backend/dist",
+    "Flutter ou codigo de aplicativo",
+    "credenciais da Railway"
+  ],
+  "aviso": "Modo LEASED exige habilitacao explicita pelo OWNER. Nao homologado em banco real/ERP comercial."
+}

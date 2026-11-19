@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { catalogImportRoutes } from './external_catalog_import.js';
 import { externalOrderSyncRoutes } from './external_order_sync.js';
+import { externalDeliveryRoutes } from './external_delivery.js';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { requireStoreRole } from '../security/identity.js';
@@ -87,7 +88,7 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
     const { storeId } = validated(storeParams, req.params);
     await requireStoreRole(req, storeId, ['OWNER']);
     const result = await pool.query(`SELECT id,name,provider,token_prefix AS "tokenPrefix",
-      scopes,stock_authority AS "stockAuthority",catalog_authority AS "catalogAuthority",order_authority AS "orderAuthority",created_at AS "createdAt",revoked_at AS "revokedAt"
+      scopes,stock_authority AS "stockAuthority",catalog_authority AS "catalogAuthority",order_authority AS "orderAuthority",delivery_mode AS "deliveryMode",created_at AS "createdAt",revoked_at AS "revokedAt"
       FROM external_integrations WHERE store_id=$1 ORDER BY created_at DESC`, [storeId]);
     return { integrations: result.rows };
   });
@@ -162,6 +163,7 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
 
   await app.register(catalogImportRoutes);
   await app.register(externalOrderSyncRoutes);
+  await app.register(externalDeliveryRoutes);
 
   // API externa: dados limitados EXCLUSIVAMENTE a loja vinculada a credencial.
   app.get('/v1/external/catalog/variants', async req => {
@@ -231,6 +233,7 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
   // Entrega ao menos uma vez: eventos reaparecem ate ACK; nenhuma transacao atrasada e perdida por cursor.
   app.get('/v1/external/events', async req => {
     const identity = await requireIntegration(req, 'events.read');
+    if (identity.deliveryMode === 'LEASED') throw new ApiError(409, 'Use /v1/external/events/claim para esta integracao.');
     const { limit } = validated(eventQuery, req.query);
     const result = await pool.query(`SELECT e.id::text AS id,e.event_type AS type,
       e.resource_id AS "resourceId",e.created_at AS "createdAt"
@@ -245,6 +248,7 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
 
   app.post('/v1/external/events/ack', async req => {
     const identity = await requireIntegration(req, 'events.read');
+    if (identity.deliveryMode === 'LEASED') throw new ApiError(409, 'Use ACK por lease em /v1/external/events/:eventId/ack.');
     const { eventIds } = validated(ackEventsBody, req.body);
     if (new Set(eventIds).size !== eventIds.length) throw new ApiError(400, 'eventIds duplicados.');
     const client = await pool.connect();

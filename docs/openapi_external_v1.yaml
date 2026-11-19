@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: Frequência40 Store App — ERP/PDV API (fases 1, 2 e 3)
-  version: 1.2.0-phase3
+  title: Frequência40 Store App — ERP/PDV API (fases 1, 2, 3 e 4)
+  version: 1.3.0-phase4
   description: Contrato genérico. Esta API não é um conector homologado para um ERP específico. O token f40i_ é
     destinado somente a componentes de servidor.
 servers:
@@ -745,3 +745,103 @@ paths:
         '403': {description: Scope ou autoridade ausente}
         '404': {description: Pedido nao encontrado nesta loja}
         '409': {description: Versao, mapeamento, pagamento, pos-venda ou transicao em conflito}
+
+  /v1/stores/{storeId}/integrations/{integrationId}/enable-leased-delivery:
+    post:
+      summary: OWNER migra uma integracao do polling legado para leasing seguro
+      description: Operacao de opt-in, nao revoga o token. Antes da troca, parar workers antigos.
+      tags: [administracao]
+      security: [{StoreUserJWT: []}]
+      parameters:
+        - {name: storeId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: integrationId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Modo LEASED ativo ou ja habilitado}
+        '403': {description: Acesso restrito a OWNER}
+        '404': {description: Integracao nao encontrada ou revogada}
+  /v1/stores/{storeId}/integrations/{integrationId}/delivery:
+    get:
+      summary: Monitoramento de entregas e ultimas falhas, sem dados pessoais
+      tags: [administracao]
+      security: [{StoreUserJWT: []}]
+      parameters:
+        - {name: storeId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: integrationId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200': {description: Quantidades por estado, eventos ainda nao materializados e falhas recentes}
+        '403': {description: Somente OWNER}
+  /v1/stores/{storeId}/integrations/{integrationId}/events/{eventId}/retry:
+    post:
+      summary: OWNER devolve evento DEAD a fila de tentativas
+      tags: [administracao]
+      security: [{StoreUserJWT: []}]
+      parameters:
+        - {name: storeId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: integrationId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: eventId, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,17}$'}}
+      responses:
+        '200': {description: Evento reprogramado e auditado}
+        '409': {description: Estado nao e DEAD ou evento pertence a outra loja}
+  /v1/external/events/claim:
+    post:
+      summary: Reservar eventos por cinco minutos para processamento idempotente
+      description: Exige events.read e modo LEASED. Emite leaseToken unico por evento; nao expor o token a clientes.
+      tags: [integracao externa]
+      security: [{IntegrationKey: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                limit: {type: integer, minimum: 1, maximum: 30, default: 10}
+      responses:
+        '200': {description: events com id, type, resourceId, attempts, leaseToken e leaseExpiresAt}
+        '403': {description: Credencial invalida ou sem events.read}
+        '409': {description: Integracao ainda em modo POLL}
+  /v1/external/events/{eventId}/ack:
+    post:
+      summary: Confirmar persistencia de evento no ERP com lease valido
+      description: Replay do mesmo ACK e idempotente; ACK apos expirar o lease retorna 409.
+      tags: [integracao externa]
+      security: [{IntegrationKey: []}]
+      parameters:
+        - {name: eventId, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,17}$'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [leaseToken]
+              properties:
+                leaseToken: {type: string, pattern: '^f40l_[A-Za-z0-9_-]{43}$'}
+      responses:
+        '200': {description: ACK confirmado ou idempotente}
+        '409': {description: Lease expirado, desconhecido ou substituido}
+  /v1/external/events/{eventId}/nack:
+    post:
+      summary: Reportar falha com codigo seguro, backoff e limite de tentativas
+      tags: [integracao externa]
+      security: [{IntegrationKey: []}]
+      parameters:
+        - {name: eventId, in: path, required: true, schema: {type: string, pattern: '^[1-9][0-9]{0,17}$'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [leaseToken, code]
+              properties:
+                leaseToken: {type: string, pattern: '^f40l_[A-Za-z0-9_-]{43}$'}
+                code: {type: string, pattern: '^[A-Z][A-Z0-9_]{2,47}$'}
+                retryable: {type: boolean, default: true}
+      responses:
+        '200': {description: Evento PENDING com proxima tentativa ou DEAD para revisao}
+        '409': {description: Lease expirado, processado ou substituido}

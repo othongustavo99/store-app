@@ -5,7 +5,7 @@ import { pool } from '../db/pool.js';
 import { ApiError } from '../security/errors.js';
 
 export type IntegrationScope = 'catalog.read' | 'orders.read' | 'events.read' | 'mapping.write' | 'stock.write' | 'catalog.write' | 'orders.write' | 'orders.customer.read';
-export type IntegrationIdentity = { id: string; storeId: string; provider: string; stockAuthority: boolean; scopes: IntegrationScope[] };
+export type IntegrationIdentity = { id: string; storeId: string; provider: string; stockAuthority: boolean; scopes: IntegrationScope[]; deliveryMode: 'POLL' | 'LEASED' };
 
 export function assertIntegrationsEnabled(): void {
   if (!config.ENABLE_EXTERNAL_INTEGRATIONS) throw new ApiError(503, 'Integracoes externas desativadas neste ambiente.');
@@ -27,15 +27,15 @@ export async function requireIntegration(request: FastifyRequest, scope: Integra
   if (!credential) throw new ApiError(401, 'Credencial de integracao ausente ou invalida.');
   const hash = hashValue(credential[1]);
   const result = await pool.query<{
-    id: string; store_id: string; provider: string; stock_authority: boolean; scopes: IntegrationScope[];
-  }>(`SELECT i.id, i.store_id, i.provider, i.stock_authority, i.scopes
+    id: string; store_id: string; provider: string; stock_authority: boolean; scopes: IntegrationScope[]; delivery_mode?: 'POLL' | 'LEASED';
+  }>(`SELECT i.id, i.store_id, i.provider, i.stock_authority, i.scopes, i.delivery_mode
       FROM external_integrations i JOIN stores s ON s.id=i.store_id
       WHERE i.token_hash=$1 AND i.revoked_at IS NULL AND s.status='ACTIVE'`, [hash]);
   if (!result.rowCount) throw new ApiError(401, 'Credencial de integracao revogada ou desconhecida.');
   const identity = result.rows[0];
   if (!identity.scopes.includes(scope)) throw new ApiError(403, 'Permissao insuficiente para esta integracao.');
   return { id: identity.id, storeId: identity.store_id, provider: identity.provider,
-    stockAuthority: identity.stock_authority, scopes: identity.scopes };
+    stockAuthority: identity.stock_authority, scopes: identity.scopes, deliveryMode: identity.delivery_mode ?? 'POLL' };
 }
 
 export function encodeOrderCursor(date: string, id: string): string {
