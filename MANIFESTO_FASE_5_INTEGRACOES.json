@@ -1,0 +1,28 @@
+{
+  "projeto": "Frequencia40 Store App",
+  "fase": "5 - conector Omie (parte 1)",
+  "tipo": "patch_incremental",
+  "pre_requisitos": [
+    "Fases 1-4 aplicadas",
+    "migrations 019-022",
+    "Node 22+"
+  ],
+  "novas_migrations": [],
+  "arquivos_excluidos": [],
+  "arquivos_substituidos": [],
+  "observacao": "Apenas novos arquivos. Produto novo fica DRAFT. Aplicacao exige --apply e F40_APPLY=CONFIRMO_SINCRONIZACAO.",
+  "arquivos_adicionados": [
+    "backend/connectors/omie/.gitignore",
+    "backend/connectors/omie/README.md",
+    "backend/connectors/omie/clients.mjs",
+    "backend/connectors/omie/mapping.mjs",
+    "backend/connectors/omie/package.json",
+    "backend/connectors/omie/settings.example.json",
+    "backend/connectors/omie/state.mjs",
+    "backend/connectors/omie/sync.mjs",
+    "backend/connectors/omie/test/omie.test.mjs",
+    "docs/INTEGRACOES_FASE_5.md",
+    "LEIA_FASE_5_INTEGRACOES.md",
+    "MANIFESTO_FASE_5_INTEGRACOES.json"
+  ]
+}

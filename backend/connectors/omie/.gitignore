@@ -1,0 +1,7 @@
+# Credenciais e estado operacional exclusivos do conector
+settings.json
+*-state.json
+*-state.json.*
+*.lock
+.env
+.env.*
