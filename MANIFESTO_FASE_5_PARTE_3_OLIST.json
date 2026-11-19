@@ -1,0 +1,11 @@
+{
+  "projeto": "Frequencia40 Store App",
+  "fase": "5.3 - Conector Olist/Tiny ERP V3",
+  "modo": "patch_incremental",
+  "aplicacao": "Extrair na raiz loja_roupas; somente novos arquivos",
+  "migrations": [],
+  "novas_variaveis_railway_backend": [],
+  "novos_diretorios": ["backend/connectors/olist"],
+  "arquivos_substituidos": [],
+  "observacoes": ["Somente leitura Olist/Tiny, escrita controlada Store App", "Preview por padrao", "Nao homologado contra conta Olist real", "Sem exportacao de pedidos / fiscal"]
+}

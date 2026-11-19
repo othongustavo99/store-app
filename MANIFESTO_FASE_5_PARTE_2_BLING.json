@@ -1,0 +1,26 @@
+{
+  "projeto": "Frequencia40 Store App",
+  "fase": "5.2 - Conector Bling",
+  "base": "Fases 1-4 + Fase 5 Parte 1 (Omie)",
+  "operacao": "adicionar",
+  "substitui": [],
+  "exclui": [],
+  "nova_migration": false,
+  "variaveis_novas_backend_railway": [],
+  "arquivos_adicionar": [
+    "LEIA_FASE_5_PARTE_2_BLING.md",
+    "backend/connectors/bling/.gitignore",
+    "backend/connectors/bling/README.md",
+    "backend/connectors/bling/auth.mjs",
+    "backend/connectors/bling/clients.mjs",
+    "backend/connectors/bling/mapping.mjs",
+    "backend/connectors/bling/oauth.mjs",
+    "backend/connectors/bling/package.json",
+    "backend/connectors/bling/settings.example.json",
+    "backend/connectors/bling/state.mjs",
+    "backend/connectors/bling/sync.mjs",
+    "backend/connectors/bling/test/bling.test.mjs",
+    "docs/INTEGRACOES_FASE_5_PARTE_2_BLING.md"
+  ],
+  "observacao": "Codigo testado com mocks. Necessita homologacao Bling real antes de comercializacao."
+}

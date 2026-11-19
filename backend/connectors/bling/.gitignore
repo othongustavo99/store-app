@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+settings.json
+*-settings.json
+*token*.json
+*.pending.json
+*state*.json
+*.lock
+*.tmp
+*.log
