@@ -12,6 +12,7 @@ const schema = z.object({
   JWT_ISSUER: z.string().min(4).default('loja-api'),
   PG_POOL_MAX: z.coerce.number().int().min(1).max(30).default(5),
   ALLOW_STORE_SELF_SERVICE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  ENABLE_EXTERNAL_INTEGRATIONS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   TRUST_PROXY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   ENABLE_REAL_PAYMENTS: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   ENABLE_PUBLIC_DEMO_LOGIN: z.enum(['true','false']).default('false').transform(v=>v==='true'),

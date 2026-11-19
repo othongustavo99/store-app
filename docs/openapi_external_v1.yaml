@@ -1,0 +1,615 @@
+openapi: 3.0.3
+info:
+  title: Frequência40 Store App — ERP/PDV API (fases 1 e 2)
+  version: 1.1.0-phase2
+  description: Contrato genérico. Esta API não é um conector homologado para um ERP específico. O token f40i_ é
+    destinado somente a componentes de servidor.
+servers:
+- url: https://sua-api.example.com
+  description: Substituir pela URL HTTPS da API real
+components:
+  securitySchemes:
+    StoreUserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT de login do proprietario
+    IntegrationKey:
+      type: http
+      scheme: bearer
+      description: Chave de alta entropia f40i_ guardada apenas em servidor externo
+  schemas:
+    CreateIntegration:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - provider
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+        provider:
+          type: string
+          pattern: ^[a-z][a-z0-9_-]{1,63}$
+        stockAuthority:
+          type: boolean
+          default: false
+        catalogAuthority:
+          type: boolean
+          default: false
+    MapVariant:
+      type: object
+      additionalProperties: false
+      required:
+      - externalId
+      properties:
+        externalId:
+          type: string
+          minLength: 1
+          maxLength: 180
+    SetInventory:
+      type: object
+      additionalProperties: false
+      required:
+      - eventId
+      - sourceVersion
+      - onHand
+      properties:
+        eventId: &id001
+          type: string
+          format: uuid
+        sourceVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Revisao monotonicamente crescente por variante e integracao
+        onHand:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+          description: Quantidade fisica, incluindo unidades reservadas pelo Store App
+    AckEvents:
+      type: object
+      additionalProperties: false
+      required:
+      - eventIds
+      properties:
+        eventIds:
+          type: array
+          minItems: 1
+          maxItems: 200
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^[1-9][0-9]{0,17}$
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+          - catalog.product.changed
+          - catalog.variant.changed
+          - order.changed
+        resourceId: *id001
+        createdAt:
+          type: string
+          format: date-time
+    EventsResult:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        hasMore:
+          type: boolean
+        requiresAck:
+          type: boolean
+          enum:
+          - true
+    InventoryResult:
+      type: object
+      properties:
+        idempotent:
+          type: boolean
+        onHand:
+          type: integer
+        reserved:
+          type: integer
+        available:
+          type: integer
+        delta:
+          type: integer
+        sourceVersion:
+          type: integer
+    CatalogVariantImport:
+      type: object
+      additionalProperties: false
+      required: [externalVariantId, sku, priceCents]
+      properties:
+        externalVariantId:
+          type: string
+          minLength: 1
+          maxLength: 180
+        sku:
+          type: string
+          minLength: 2
+          maxLength: 90
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'
+        priceCents:
+          description: Centavos inteiros. Aceita numero ou string de digitos; sem decimais.
+          oneOf:
+          - type: integer
+            minimum: 1
+            maximum: 100000000
+          - type: string
+            pattern: '^[0-9]{1,9}$'
+        gtin:
+          type: string
+          nullable: true
+          description: GTIN-8, UPC-A (12), GTIN-13 ou GTIN-14 com digito verificador valido.
+        color:
+          type: string
+          maxLength: 60
+        size:
+          type: string
+          maxLength: 50
+        imageUrl:
+          type: string
+          nullable: true
+          format: uri
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+    CatalogProductImport:
+      type: object
+      additionalProperties: false
+      required: [eventId, sourceVersion, externalProductId, categoryId, name, variants]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        sourceVersion:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+          description: Versao crescente por produto e integracao.
+        externalProductId:
+          type: string
+          minLength: 1
+          maxLength: 180
+        categoryId:
+          type: string
+          format: uuid
+          description: Categoria ACTIVE desta loja, obtida em GET /v1/external/catalog/categories.
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 12000
+        images:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uri
+            description: HTTPS
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, HIDDEN]
+        variants:
+          type: array
+          minItems: 1
+          maxItems: 40
+          items:
+            $ref: '#/components/schemas/CatalogVariantImport'
+    CatalogBatchImport:
+      type: object
+      additionalProperties: false
+      required: [products]
+      properties:
+        products:
+          type: array
+          minItems: 1
+          maxItems: 10
+          description: Atomicidade do lote; todos os produtos sao confirmados ou todos revertidos.
+          items:
+            $ref: '#/components/schemas/CatalogProductImport'
+paths:
+  /v1/stores/{storeId}/integrations:
+    post:
+      summary: Criar credencial (retornada uma vez)
+      tags:
+      - administração
+      security:
+      - StoreUserJWT: []
+      responses:
+        '201':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: &id002
+                type: object
+                additionalProperties: true
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - &id003
+        name: storeId
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIntegration'
+    get:
+      summary: Listar conexões, sem tokens
+      tags:
+      - administração
+      security:
+      - StoreUserJWT: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - *id003
+  /v1/stores/{storeId}/integrations/{integrationId}/revoke:
+    post:
+      summary: Revogar credencial
+      tags:
+      - administração
+      security:
+      - StoreUserJWT: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - *id003
+      - name: integrationId
+        in: path
+        required: true
+        schema: *id001
+  /v1/external/catalog/variants:
+    get:
+      summary: Listar variantes por UUID
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - &id005
+        name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      - name: after
+        in: query
+        required: false
+        schema: *id001
+  /v1/external/catalog/variants/{variantId}:
+    get:
+      summary: Obter variante
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - &id004
+        name: variantId
+        in: path
+        required: true
+        schema: *id001
+  /v1/external/catalog/products/{productId}:
+    get:
+      summary: Obter produto e variantes
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema: *id001
+  /v1/external/mappings/variants/{variantId}:
+    put:
+      summary: Mapear ID do ERP para variante
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - *id004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapVariant'
+  /v1/external/orders:
+    get:
+      summary: Listar pedidos com cursor estável
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - *id005
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+  /v1/external/orders/{orderId}:
+    get:
+      summary: Obter pedido e itens
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema: *id001
+  /v1/external/events:
+    get:
+      summary: Listar eventos ainda não confirmados
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventsResult'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      description: 'Ao menos uma vez: os eventos retornam em novas consultas até receber ACK. Não usar cursor numérico.'
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+  /v1/external/events/ack:
+    post:
+      summary: Confirmar após persistir no ERP
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema: *id002
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckEvents'
+  /v1/external/inventory/{variantId}:
+    put:
+      summary: Aplicar quantidade física da integração dona do estoque
+      tags:
+      - integração externa
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Operação concluída
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryResult'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Sem permissão
+        '409':
+          description: Conflito de versão ou identificador
+      description: Somente credencial com stockAuthority. Requer eventId idempotente e sourceVersion monotônica.
+        Não altera reserved.
+      parameters:
+      - *id004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetInventory'
+
+  /v1/external/catalog/categories:
+    get:
+      summary: Listar categorias locais para mapear categorias do ERP
+      tags: [integração externa]
+      security:
+      - IntegrationKey: []
+      responses:
+        '200':
+          description: Categorias desta loja (ACTIVE e HIDDEN)
+        '401': { description: Credencial invalida }
+        '403': { description: Escopo insuficiente }
+  /v1/external/mappings/products/{productId}:
+    put:
+      summary: Vincular produto ja existente a identificador de produto do ERP
+      tags: [integração externa]
+      security:
+      - IntegrationKey: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapVariant'
+      responses:
+        '200': { description: Mapeamento persistido }
+        '401': { description: Credencial invalida }
+        '403': { description: Escopo insuficiente }
+        '409': { description: Mapeamento em conflito }
+  /v1/external/catalog/products/upsert:
+    post:
+      summary: Criar ou atualizar UM produto, incluindo variantes e precos, sem alterar estoque
+      tags: [integração externa]
+      security:
+      - IntegrationKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogProductImport'
+      responses:
+        '200': { description: Produto aplicado ou chamada idempotente }
+        '400': { description: Payload invalido }
+        '401': { description: Credencial invalida }
+        '403': { description: Sem catalog.write ou catalogAuthority }
+        '409': { description: Versao antiga, mapeamento incorreto ou SKU/GTIN duplicado }
+  /v1/external/catalog/batch:
+    post:
+      summary: Importar lote atomico de ate dez produtos
+      tags: [integração externa]
+      security:
+      - IntegrationKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogBatchImport'
+      responses:
+        '200': { description: Lote aplicado integralmente, com quantidade de replays }
+        '400': { description: Payload invalido }
+        '401': { description: Credencial invalida }
+        '403': { description: Sem catalog.write ou catalogAuthority }
+        '409': { description: Rollback integral por conflito }

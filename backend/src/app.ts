@@ -23,6 +23,7 @@ import { storeProfileRoutes } from './routes/store_profiles.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { couponRoutes } from './routes/coupons.js';
 import { pushRoutes } from './routes/push.js';
+import { externalIntegrationRoutes } from './routes/external_integrations.js';
 import { startPushDispatcher } from './services/push_dispatcher.js';
 
 export async function buildApp() {
@@ -75,6 +76,7 @@ export async function buildApp() {
   await app.register(reviewRoutes);
   await app.register(couponRoutes);
   await app.register(pushRoutes);
+  await app.register(externalIntegrationRoutes);
   await app.register(catalogManagementRoutes);
   await app.register(commerceRoutes);
   await app.register(inventoryRoutes);

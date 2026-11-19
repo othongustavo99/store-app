@@ -1,0 +1,60 @@
+{
+  "nome": "Frequencia40 Store App — Integrações ERP/PDV Fase 1",
+  "base": "loja_roupas(20261119-115312).zip",
+  "modo": "patch incremental (copiar por cima)",
+  "requer_env": "ENABLE_EXTERNAL_INTEGRATIONS=false (até homologação)",
+  "migration": "019_external_integrations.sql",
+  "excluir": [],
+  "arquivos": [
+    {
+      "path": "backend/src/app.ts",
+      "operacao": "alterado",
+      "sha256": "f264b0ef513ce0364b27ae4b7459a741384e1066d639b590c01adbfba59a7bf6"
+    },
+    {
+      "path": "backend/src/config.ts",
+      "operacao": "alterado",
+      "sha256": "4d4940b423d42d3af53d0e2dc45a658d300be6fac686ff42656d7b74b98961b7"
+    },
+    {
+      "path": "backend/.env.example",
+      "operacao": "alterado",
+      "sha256": "08bd5416bfd25200d43955a019e01348efb3d3e944c70ce3f664cf3780a9052a"
+    },
+    {
+      "path": "backend/migrations/019_external_integrations.sql",
+      "operacao": "novo",
+      "sha256": "608c19b86d223a07ca6837675560faf263603d8324918e029e402bae6bf0712f"
+    },
+    {
+      "path": "backend/src/integrations/core.ts",
+      "operacao": "novo",
+      "sha256": "2974051f1b76196849cf3d920cb8911abe8f7a1a0f28c62bf75eb6306ab1a580"
+    },
+    {
+      "path": "backend/src/routes/external_integrations.ts",
+      "operacao": "novo",
+      "sha256": "3dbe8fcd59191d384f62975d3c65bf5e7ef2d8ba735a0890ab46e80c1150d09d"
+    },
+    {
+      "path": "backend/src/tests/external_integrations.test.ts",
+      "operacao": "novo",
+      "sha256": "95f8d15ca39b74e11fbfbb57f985229ef31694fe891632ba275ce0792e83912d"
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_1.md",
+      "operacao": "novo",
+      "sha256": "c5df6646cd8690938bdbecfdf61aa041e45377045bcbfb0c92dfb1288b3821a3"
+    },
+    {
+      "path": "LEIA_FASE_1_INTEGRACOES.md",
+      "operacao": "novo",
+      "sha256": "4e53595d0bf3501efc1a8c2a160a56b5c9a57c29ad6bb794844da64c8b021747"
+    },
+    {
+      "path": "docs/openapi_external_v1.yaml",
+      "operacao": "novo",
+      "sha256": "49b9c332d54a28e07c59a73cf6648a78f65dab407c8e018b9ce71b36c0ca3026"
+    }
+  ]
+}

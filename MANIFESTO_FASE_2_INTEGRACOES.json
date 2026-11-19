@@ -1,0 +1,51 @@
+{
+  "pacote": "Frequencia40_StoreApp_ERP_PDV_Fase2_PATCH",
+  "base": "Fase 1 aplicada localmente (migration 019)",
+  "phase": 2,
+  "arquivos": [
+    {
+      "caminho": "backend/migrations/020_external_catalog_sync.sql",
+      "acao": "ADICIONAR"
+    },
+    {
+      "caminho": "backend/src/integrations/core.ts",
+      "acao": "SUBSTITUIR"
+    },
+    {
+      "caminho": "backend/src/routes/external_integrations.ts",
+      "acao": "SUBSTITUIR"
+    },
+    {
+      "caminho": "backend/src/routes/external_catalog_import.ts",
+      "acao": "ADICIONAR"
+    },
+    {
+      "caminho": "backend/src/services/external_catalog_sync.ts",
+      "acao": "ADICIONAR"
+    },
+    {
+      "caminho": "backend/src/tests/external_catalog_sync.test.ts",
+      "acao": "ADICIONAR"
+    },
+    {
+      "caminho": "docs/openapi_external_v1.yaml",
+      "acao": "SUBSTITUIR"
+    },
+    {
+      "caminho": "docs/INTEGRACOES_FASE_2.md",
+      "acao": "ADICIONAR"
+    },
+    {
+      "caminho": "LEIA_FASE_2_INTEGRACOES.md",
+      "acao": "ADICIONAR"
+    }
+  ],
+  "exclusoes": [],
+  "observacoes": [
+    "Nao contem credenciais",
+    "Nao altera migrations 001..019",
+    "Nao altera front end Flutter",
+    "Deployment inicialmente com ENABLE_EXTERNAL_INTEGRATIONS=false",
+    "Obrigatorio validar migration 020 em PostgreSQL de homologacao"
+  ]
+}
