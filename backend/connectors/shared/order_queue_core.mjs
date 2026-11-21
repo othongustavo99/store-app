@@ -25,12 +25,20 @@ export async function consumeOrderBatch({queue,allowedOrderIds,getSnapshot,expor
     throw new QueueError('QUEUE_HANDLER_INVALID');
   const events=await queue.claim(limit);
   const summary={claimed:events.length,acknowledged:0,review:0,retry:0,ackErrors:0};
+  // Um lote pode conter varios eventos order.changed do mesmo pedido.
+  // Evita dois envios ao ERP no mesmo ciclo (a fila reentrega o excedente).
+  const seenOrders=new Set();
   for(const event of events){
     let decision='';
     try{
       if(event.type!=='order.changed'||!uuid.test(event.resourceId??''))throw new QueueError('QUEUE_EVENT_INVALID');
       if(!allowedOrderIds.has(event.resourceId))throw new QueueError('ORDER_APPROVAL_REQUIRED');
-      const eligibility=orderEligibility(await getSnapshot(event.resourceId));
+      if(seenOrders.has(event.resourceId))throw new QueueError('QUEUE_DUPLICATE_ORDER_IN_BATCH',true);
+      seenOrders.add(event.resourceId);
+      const snapshot=await getSnapshot(event.resourceId);
+      // Falha fechada: resposta errada do Store App nunca autoriza venda de outro pedido.
+      if(snapshot?.order?.id!==event.resourceId)throw new QueueError('ORDER_SNAPSHOT_MISMATCH');
+      const eligibility=orderEligibility(snapshot);
       if(eligibility.kind==='REVIEW')throw new QueueError(eligibility.code);
       if(eligibility.kind==='ELIGIBLE'){
         const exported=await exportOne(event.resourceId);

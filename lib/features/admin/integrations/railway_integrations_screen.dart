@@ -149,6 +149,59 @@ class _RailwayIntegrationsScreenState extends State<RailwayIntegrationsScreen> {
     }
   }
 
+  /// Consolida requisitos técnicos e checklist declaratório. Não ativa o ERP.
+  Future<void> _preflight(Map<String, dynamic> integration) async {
+    setState(() => _busy = true);
+    try {
+      final report = await _repo.goLivePreflight('${integration['id']}');
+      if (!mounted) return;
+      final raw = (report['checks'] as List? ?? const []);
+      final checks = raw.whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item)).toList();
+      final summary = report['summary'] is Map
+          ? Map<String, dynamic>.from(report['summary'] as Map)
+          : <String, dynamic>{};
+      final ready = report['status'] == 'READY_FOR_SUPERVISED_VALIDATION';
+      await showDialog<void>(context: context, builder: (ctx) => AlertDialog(
+        title: const Text('Pré-homologação ERP/PDV'),
+        content: SizedBox(width: 540, child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(ready ? 'Pré-requisitos internos atendidos' :
+                  'Pendências antes do teste assistido',
+                  style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text('Verificações: ${summary['passed'] ?? 0} de '
+                  '${summary['total'] ?? checks.length}'),
+              const SizedBox(height: 10),
+              const Text('Isto NÃO é homologação comercial, fiscal ou autorização '
+                  'para ativar sincronizações. É obrigatório realizar testes '
+                  'reais com o ERP e validar o resultado com o cliente.'),
+              const SizedBox(height: 12),
+              for (final check in checks) ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: Icon(check['ok'] == true ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                    color: check['ok'] == true ? Colors.green : Colors.orange),
+                title: Text('${check['code'] ?? ''}'),
+                subtitle: Text('${check['detail'] ?? ''}'),
+              ),
+              const SizedBox(height: 8),
+              Text('${report['note'] ?? ''}'),
+            ],
+          ),
+        )),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar'))],
+      ));
+    } catch (_) {
+      _message('Não foi possível consultar a pré-homologação.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// Checklist operacional manual; não instala ou habilita o conector.
   Future<void> _configureDeployment(Map<String, dynamic> integration) async {
     setState(() => _busy = true);
@@ -607,6 +660,11 @@ class _RailwayIntegrationsScreenState extends State<RailwayIntegrationsScreen> {
                   onPressed: _busy ? null : () => _diagnose(item),
                   icon: const Icon(Icons.fact_check_outlined),
                   label: const Text('Diagnóstico de implantação'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _preflight(item),
+                  icon: const Icon(Icons.rule_folder_outlined),
+                  label: const Text('Pré-homologação'),
                 ),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : () => _configureDeployment(item),

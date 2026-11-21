@@ -43,6 +43,11 @@ class RailwayIntegrationsRepository {
       _api.request('GET', '${await _base()}/$integrationId/readiness',
           authenticated: true);
 
+  /// Pré-homologação: somente leitura. Nunca aprova produção nem ativa worker.
+  Future<Map<String, dynamic>> goLivePreflight(String integrationId) async =>
+      _api.request('GET', '${await _base()}/$integrationId/go-live-preflight',
+          authenticated: true);
+
   /// Perfil declaratório por loja. Não armazena tokens ou ativa workers.
   Future<Map<String, dynamic>> deployment(String integrationId) async =>
       _api.request('GET', '${await _base()}/$integrationId/deployment',

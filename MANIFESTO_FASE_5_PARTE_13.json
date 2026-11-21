@@ -1,0 +1,57 @@
+{
+  "phase": "5.13",
+  "base": "requires phases 1-5.12",
+  "files": [
+    {
+      "path": "backend/connectors/shared/order_queue_core.mjs",
+      "operation": "replace",
+      "sha256": "82d4786382d9ef50cc70374d9288513c6fc775078957c19d2fe4911d533b94a8"
+    },
+    {
+      "path": "backend/connectors/shared/test/order_queue.test.mjs",
+      "operation": "replace",
+      "sha256": "e6b812a7eb887b96b95acd753490645e47bc577719a5b611a01dcbb13a34aee3"
+    },
+    {
+      "path": "backend/connectors/shared/commercial_safety.mjs",
+      "operation": "add",
+      "sha256": "69c8dc326fb566f9e9b4fb15cc749d4abc091648d119516d63fce77e51023bb9"
+    },
+    {
+      "path": "backend/connectors/shared/commercial_safety_cli.mjs",
+      "operation": "add",
+      "sha256": "977a40067e2aea752ec62eb613db4165aced38e0c6c12520f2d1b569898a69b9"
+    },
+    {
+      "path": "backend/connectors/shared/test/commercial_safety.test.mjs",
+      "operation": "add",
+      "sha256": "e12772de3996fa7b1863fe65954d33bd569efb1b49b3b66ab6c6af6680013a6d"
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_13.md",
+      "operation": "add",
+      "sha256": "03b755e91d9baf7b6a47ca99adb16f10864deb2ca9b693ab71f05278ad46d5e4"
+    },
+    {
+      "path": "LEIA_FASE_5_PARTE_13_SEGURANCA.md",
+      "operation": "add",
+      "sha256": "41c40190b0d628801e22b8f32c3d65f637137d1f3669145c03e5f24a83d69b96"
+    },
+    {
+      "path": "MANIFESTO_FASE_5_PARTE_13.json",
+      "operation": "add"
+    }
+  ],
+  "newMigrations": [],
+  "newRailwayVariables": [],
+  "newFlutterFiles": [],
+  "nodeConnectorTestsPassed": 123,
+  "offlineSafetyChecksPassed": 12,
+  "scope": "offline hardening; not real ERP homologation",
+  "validationLimitations": [
+    "backend npm build blocked by incomplete @types dependencies in tool environment",
+    "no PostgreSQL migration",
+    "no real ERP credential or API used",
+    "no Flutter change"
+  ]
+}

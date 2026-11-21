@@ -103,3 +103,26 @@ test('elegibilidade valida pagamento e pedido demo',()=>{
   assert.equal(orderEligibility(order()).kind,'ELIGIBLE');
   assert.equal(orderEligibility({...order(),order:{...order().order,isDemo:true}}).code,'ORDER_DEMO_FORBIDDEN');
 });
+
+// F5.13: cenarios adversariais de lote e leitura incorreta do pedido.
+test('resposta de snapshot de outro pedido bloqueia exportacao e exige revisao',async()=>{
+  const wrong='44444444-4444-4444-8444-444444444444';
+  const x=setup({snapshot:{order:{...order().order,id:wrong}}});
+  const s=await consumeOrderBatch(x.job);
+  assert.equal(s.acknowledged,0);assert.equal(s.review,1);assert.equal(x.exported(),0);
+  assert.deepEqual(x.calls.at(-1),['nack','1','ORDER_SNAPSHOT_MISMATCH',false]);
+});
+test('dois eventos para o mesmo pedido no lote realizam no maximo um export',async()=>{
+  const x=setup({events:[event('1'),event('2')]});
+  const s=await consumeOrderBatch(x.job);
+  assert.equal(s.claimed,2);assert.equal(s.acknowledged,1);assert.equal(s.retry,1);
+  assert.equal(x.exported(),1);
+  assert.deepEqual(x.calls.at(-1),['nack','2','QUEUE_DUPLICATE_ORDER_IN_BATCH',true]);
+});
+test('lote com mesmo pedido e primeiro envio incerto nao repete criacao',async()=>{
+  const x=setup({events:[event('1'),event('2')],exportError:{code:'BLING_CREATE_UNCERTAIN'}});
+  const s=await consumeOrderBatch(x.job);
+  assert.equal(x.exported(),1);assert.equal(s.review,1);assert.equal(s.retry,1);
+  assert.deepEqual(x.calls.filter(c=>c[0]==='nack').map(c=>c[2]),
+    ['BLING_CREATE_UNCERTAIN','QUEUE_DUPLICATE_ORDER_IN_BATCH']);
+});
