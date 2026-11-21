@@ -1,0 +1,36 @@
+{
+  "projeto": "Frequência40 Store App",
+  "fase": "5.11 — Implantação por cliente",
+  "base": "Fases 1–5.10, inclusive hotfix pós-5.9",
+  "new_migration": "024_external_deployment_profiles.sql",
+  "environment_variables_new": [],
+  "new_files": [
+    "backend/migrations/024_external_deployment_profiles.sql",
+    "backend/src/services/external_deployment_profile.ts",
+    "backend/src/routes/external_deployment_profile.ts",
+    "backend/src/tests/external_deployment_profile.test.ts",
+    "test/phase511_deployment_screen_test.dart",
+    "docs/INTEGRACOES_FASE_5_PARTE_11.md",
+    "LEIA_FASE_5_PARTE_11_IMPLANTACAO.md"
+  ],
+  "replace_files": [
+    "backend/src/routes/external_integrations.ts",
+    "lib/data/repositories/railway_integrations_repository.dart",
+    "lib/features/admin/integrations/railway_integrations_screen.dart"
+  ],
+  "delete_files": [],
+  "flags": "Nenhuma ativação automática. ENABLE_EXTERNAL_INTEGRATIONS inicialmente false.",
+  "tests_executed": "Validação de sintaxe TypeScript e 4 verificações isoladas da função pura. Backend completo, Flutter e PostgreSQL não executados neste ambiente.",
+  "sha256": {
+    "backend/migrations/024_external_deployment_profiles.sql": "e866c2ceb88ef51871272f4bd4e4585f10460c6b2fb1d3cfa148992393a60d7d",
+    "backend/src/services/external_deployment_profile.ts": "22639d42fa0fbc1ab82e039a2b736f855254f80a0afe4941364f8c05c831ae1e",
+    "backend/src/routes/external_deployment_profile.ts": "6b94652823eed73981fb5cb4312cb50a433d8bc5b16a89eca3177b2d37c0273e",
+    "backend/src/tests/external_deployment_profile.test.ts": "5315907b13e210518f265fef93030ac75c960590159b02afcf5b27716db90957",
+    "test/phase511_deployment_screen_test.dart": "8034a29505c06657ef07f3603809342e5a4ec7942c20a244d09feee3dbb3652b",
+    "docs/INTEGRACOES_FASE_5_PARTE_11.md": "4704e6c20b161ba20e8651055a1b41ed004166f7cfd682a28b185761ca4c5e1f",
+    "LEIA_FASE_5_PARTE_11_IMPLANTACAO.md": "7f2c3fbcad1bbd3020b4ec034a7f3da638a1f9d01e8ebb054f2bc84c00ee8ac4",
+    "backend/src/routes/external_integrations.ts": "d885fc0010fa8b84e29a28f86ce801978916a3d8e6f790619bb2e285ceadfc70",
+    "lib/data/repositories/railway_integrations_repository.dart": "24b83dd55b59f4d6a5f29369579f1a5feb667fe696e75c1d544f2c1661f211f1",
+    "lib/features/admin/integrations/railway_integrations_screen.dart": "16b702175b6db84722a3234e3458623de9deda570b1fb37a2bc731adb0bb516b"
+  }
+}

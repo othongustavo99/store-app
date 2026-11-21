@@ -149,6 +149,118 @@ class _RailwayIntegrationsScreenState extends State<RailwayIntegrationsScreen> {
     }
   }
 
+  /// Checklist operacional manual; não instala ou habilita o conector.
+  Future<void> _configureDeployment(Map<String, dynamic> integration) async {
+    setState(() => _busy = true);
+    try {
+      final profile = await _repo.deployment('${integration['id']}');
+      if (!mounted) return;
+      var environment = '${profile['environment'] ?? 'HOMOLOGATION'}';
+      final rawChecks = profile['checks'];
+      final existing = rawChecks is Map
+          ? Map<String, dynamic>.from(rawChecks) : <String, dynamic>{};
+      final checks = <String, bool>{
+        'credentialsSecured': existing['credentialsSecured'] == true,
+        'providerAccessChecked': existing['providerAccessChecked'] == true,
+        'catalogChecked': existing['catalogChecked'] == true,
+        'ordersChecked': existing['ordersChecked'] == true,
+        'reconciliationChecked': existing['reconciliationChecked'] == true,
+      };
+      final alias = TextEditingController(text: '${profile['workerAlias'] ?? ''}');
+      Map<String, dynamic>? edited;
+      try {
+        edited = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (dialogContext) => StatefulBuilder(
+            builder: (dialogContext, update) => AlertDialog(
+              title: const Text('Implantação do conector'),
+              content: SizedBox(width: 520, child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Registro administrativo da instalação. '
+                        'Não digite senhas, tokens ou dados pessoais. '
+                        'Marcar os itens não ativa vendas automáticas '
+                        'nem comprova homologação.'),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: environment,
+                      decoration: const InputDecoration(
+                        labelText: 'Ambiente do conector',
+                        border: OutlineInputBorder()),
+                      items: const [
+                        DropdownMenuItem(value: 'HOMOLOGATION',
+                            child: Text('Homologação')),
+                        DropdownMenuItem(value: 'PRODUCTION',
+                            child: Text('Produção (registro apenas)')),
+                      ],
+                      onChanged: (value) => update(() =>
+                          environment = value ?? 'HOMOLOGATION'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(controller: alias, maxLength: 48,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Identificador do worker (opcional)',
+                        helperText: '3 a 48 caracteres minúsculos, números e hífens'),
+                    ),
+                    const Text('Conferências realizadas pelo responsável:',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                    for (final entry in const <(String, String)>[
+                      ('credentialsSecured', 'Credenciais protegidas fora do app'),
+                      ('providerAccessChecked', 'Acesso ao fornecedor verificado'),
+                      ('catalogChecked', 'Produtos e estoque conferidos'),
+                      ('ordersChecked', 'Fluxo de pedidos conferido'),
+                      ('reconciliationChecked', 'Reconciliação e falhas conferidas'),
+                    ]) CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(entry.$2),
+                      value: checks[entry.$1] ?? false,
+                      onChanged: (value) => update(() =>
+                          checks[entry.$1] = value ?? false),
+                    ),
+                  ],
+                ),
+              )),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Cancelar')),
+                FilledButton(onPressed: () {
+                  final value = alias.text.trim();
+                  if (value.isNotEmpty &&
+                      !RegExp(r'^[a-z0-9][a-z0-9-]{2,47}$').hasMatch(value)) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Identificador inválido: use letras minúsculas, números e hífens.')));
+                    return;
+                  }
+                  Navigator.pop(dialogContext, {
+                    'environment': environment,
+                    'workerAlias': value.isEmpty ? null : value,
+                    'checks': Map<String, bool>.from(checks),
+                  });
+                }, child: const Text('Salvar checklist')),
+              ],
+            ),
+          ),
+        );
+      } finally {
+        alias.dispose();
+      }
+      if (edited == null || !mounted) return;
+      await _repo.saveDeployment('${integration['id']}',
+        expectedRevision: (profile['revision'] as num?)?.toInt() ?? 0,
+        environment: '${edited['environment']}',
+        workerAlias: edited['workerAlias'] as String?,
+        checks: Map<String, bool>.from(edited['checks'] as Map),
+      );
+      _message('Checklist de implantação salvo. Não ativa a integração.');
+      await _refresh();
+    } catch (_) {
+      _message('Falha ao salvar implantação. Reabra e confira se outra edição foi salva.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _revoke(Map<String, dynamic> integration) async {
     final name = '${integration['name']}';
     final yes = await _confirm('Revogar integração?',
@@ -495,6 +607,11 @@ class _RailwayIntegrationsScreenState extends State<RailwayIntegrationsScreen> {
                   onPressed: _busy ? null : () => _diagnose(item),
                   icon: const Icon(Icons.fact_check_outlined),
                   label: const Text('Diagnóstico de implantação'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _configureDeployment(item),
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('Implantação'),
                 ),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : () => _revoke(item),

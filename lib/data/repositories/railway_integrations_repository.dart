@@ -43,6 +43,26 @@ class RailwayIntegrationsRepository {
       _api.request('GET', '${await _base()}/$integrationId/readiness',
           authenticated: true);
 
+  /// Perfil declaratório por loja. Não armazena tokens ou ativa workers.
+  Future<Map<String, dynamic>> deployment(String integrationId) async =>
+      _api.request('GET', '${await _base()}/$integrationId/deployment',
+          authenticated: true);
+
+  Future<Map<String, dynamic>> saveDeployment(
+    String integrationId, {
+    required int expectedRevision,
+    required String environment,
+    required String? workerAlias,
+    required Map<String, bool> checks,
+  }) async => _api.request(
+      'PUT', '${await _base()}/$integrationId/deployment',
+      authenticated: true, body: {
+        'expectedRevision': expectedRevision,
+        'environment': environment,
+        'workerAlias': workerAlias,
+        'checks': checks,
+      });
+
   /// A chave retornada não deve ser persistida, exibida em logs ou analytics.
   Future<Map<String, dynamic>> create({
     required String name,
