@@ -2,6 +2,7 @@
 import {readFile} from 'node:fs/promises';
 import {isAbsolute} from 'node:path';
 import {createLeasedQueueClient,QueueError} from './leased_queue_client.mjs';
+import {createConnectorHealthClient} from './connector_health_client.mjs';
 import {consumeOrderBatch,runOrderQueue} from './order_queue_core.mjs';
 import {createStoreOrderClient,exportOrder,loadState,lockState,validateSettings} from './safe_order_export.mjs';
 export function queueOptions(env=process.env,argv=process.argv.slice(2)){
@@ -21,6 +22,7 @@ export async function runQueueCLI({provider,configKey,createErp,env=process.env,
   const settings=validateSettings(JSON.parse(await readFile(path,'utf8')));
   const store=createStoreOrderClient({url:env.F40_API_URL,token:env.F40_INTEGRATION_TOKEN});
   const queue=createLeasedQueueClient({url:env.F40_API_URL,token:env.F40_INTEGRATION_TOKEN});
+  const onCycle=createConnectorHealthClient({url:env.F40_API_URL,token:env.F40_INTEGRATION_TOKEN});
   // Lock compartilhado com CLI assistido; armazenamento deve sobreviver a restart e deploy.
   const unlock=await lockState(statePath);
   let stop=false;
@@ -29,7 +31,7 @@ export async function runQueueCLI({provider,configKey,createErp,env=process.env,
   try{
     const state=await loadState(statePath,provider.id,settings.storeId);
     const erp=await createErp(env);
-    return await runOrderQueue({...options,logger,stopping:()=>stop,
+    return await runOrderQueue({...options,logger,stopping:()=>stop,onCycle,
       batch:()=>consumeOrderBatch({queue,limit:options.limit,logger,
         allowedOrderIds:new Set(settings.orderIds),
         getSnapshot:id=>store.request(`/v1/external/orders/${id}`),

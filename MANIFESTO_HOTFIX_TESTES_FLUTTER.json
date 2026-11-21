@@ -1,0 +1,15 @@
+{
+  "version": "hotfix_flutter_tests_5_9",
+  "files_replaced": [
+    "lib/features/admin/integrations/railway_integrations_screen.dart",
+    "test/phase58_integrations_screen_test.dart",
+    "test/stage04_checkout_test.dart"
+  ],
+  "files_added": [
+    "LEIA_HOTFIX_TESTES_FLUTTER.md"
+  ],
+  "railway_variables": [],
+  "migrations": [],
+  "flutter_tests_executed_here": false,
+  "why": "Fix flutter analyze lint; tap outside viewport; Firebase Auth instantiated in checkout tests."
+}

@@ -14,6 +14,7 @@ import 'package:loja_roupas/features/client/checkout/railway_checkout_screen.dar
 import 'package:loja_roupas/models/cart_item.dart';
 import 'package:loja_roupas/models/saved_address.dart';
 import 'package:loja_roupas/providers/cart_providers.dart';
+import 'package:loja_roupas/providers/auth_providers.dart';
 import 'helpers/stage03_fixtures.dart';
 
 class CheckoutOrders extends RailwayOrderRepository {
@@ -133,7 +134,12 @@ Future<CartRepository> setup(
   cart.addItem(product: previewProducts.first, color: 'Areia', size: 'M');
   await tester.pumpWidget(previewApp(
       ProviderScope(
-          overrides: [cartProvider.overrideWith((ref) => CartNotifier(cart))],
+          overrides: [
+            cartProvider.overrideWith((ref) => CartNotifier(cart)),
+            // O checkout lê o nome no authProvider. Nos testes não inicializamos
+            // Firebase; o provedor simulado evita FirebaseAuth.instance.
+            authProvider.overrideWith((ref) => AuthNotifier(null)),
+          ],
           child: RailwayCheckoutScreen(
               orders: orders,
               shipping: shipping,

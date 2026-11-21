@@ -63,15 +63,24 @@ export async function consumeOrderBatch({queue,allowedOrderIds,getSnapshot,expor
   }
   return summary;
 }
-export async function runOrderQueue({batch,once,intervalMs,stopping=()=>false,logger=console,delay=ms=>new Promise(r=>setTimeout(r,ms))}){
+export async function runOrderQueue({batch,once,intervalMs,stopping=()=>false,logger=console,
+  delay=ms=>new Promise(r=>setTimeout(r,ms)),onCycle=async()=>{}}){
   do{
+    let failure;
+    let report;
     try{
       const summary=await batch();
       logger.log(`[queue] claimed=${summary.claimed} ack=${summary.acknowledged} review=${summary.review} retry=${summary.retry} errors=${summary.ackErrors}`);
+      report={result:summary.review||summary.retry||summary.ackErrors?'WARNING':'OK',summary};
     }catch(error){
-      logger.error(`[queue] ${classifyQueueError(error).code}`);
-      if(once)throw error;
+      failure=error;
+      const errorCode=classifyQueueError(error).code;
+      logger.error(`[queue] ${errorCode}`);
+      report={result:'ERROR',errorCode};
     }
+    // Falha na telemetria NAO invalida ACK, nao provoca reenvio ao ERP.
+    try {await onCycle(report);} catch {logger.error('[queue] HEALTH_REPORT_FAILED');}
+    if(once&&failure)throw failure;
     if(once||stopping())break;
     await delay(intervalMs);
   }while(!stopping());

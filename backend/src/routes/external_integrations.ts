@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { catalogImportRoutes } from './external_catalog_import.js';
 import { externalOrderSyncRoutes } from './external_order_sync.js';
 import { externalDeliveryRoutes } from './external_delivery.js';
+import { externalConnectorHealthRoutes } from './external_connector_health.js';
+import { externalIntegrationReadinessRoutes } from './external_integration_readiness.js';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { requireStoreRole } from '../security/identity.js';
@@ -164,6 +166,8 @@ export async function externalIntegrationRoutes(app: FastifyInstance): Promise<v
   await app.register(catalogImportRoutes);
   await app.register(externalOrderSyncRoutes);
   await app.register(externalDeliveryRoutes);
+  await app.register(externalConnectorHealthRoutes);
+  await app.register(externalIntegrationReadinessRoutes);
 
   // API externa: dados limitados EXCLUSIVAMENTE a loja vinculada a credencial.
   app.get('/v1/external/catalog/variants', async req => {

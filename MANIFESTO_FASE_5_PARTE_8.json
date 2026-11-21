@@ -1,0 +1,23 @@
+{
+  "phase": "5.8",
+  "product": "Frequência40 Store App — Central de Integrações",
+  "base": "Fases 1 a 5.7 aplicadas",
+  "added": [
+    "lib/data/repositories/railway_integrations_repository.dart",
+    "lib/features/admin/integrations/railway_integrations_screen.dart",
+    "test/phase58_integrations_screen_test.dart",
+    "docs/INTEGRACOES_FASE_5_PARTE_8.md",
+    "LEIA_FASE_5_PARTE_8_CENTRAL.md"
+  ],
+  "modified": [
+    "lib/router/app_router.dart",
+    "lib/features/admin/remote_admin_home.dart"
+  ],
+  "deleted": [],
+  "backendMigration": null,
+  "railwayNewVariables": [],
+  "validation": {
+    "backendTests": "187 passed; existing backend unchanged",
+    "flutterTests": "Provided but unexecuted; Flutter SDK unavailable in this environment"
+  }
+}

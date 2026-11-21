@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/railway_inventory_repository.dart';
+import '../../data/repositories/railway_integrations_repository.dart';
 import '../../providers/auth_providers.dart';
 import '../client/widgets/demo_store_banner.dart';
 
@@ -21,6 +22,7 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
   final _repository = RailwayInventoryRepository();
   late Future<Map<String, dynamic>> _summary;
   late Future<Map<String, dynamic>> _analytics;
+  late Future<bool> _isOwner;
 
   @override
   void initState() {
@@ -31,6 +33,7 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
   void _load() {
     _summary = _repository.summary();
     _analytics = _repository.analytics();
+    _isOwner = RailwayIntegrationsRepository().isOwner().catchError((_) => false);
   }
 
   Future<void> _refresh() async {
@@ -188,6 +191,19 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                           )).toList(),
                         );
                       },
+                    ),
+                    FutureBuilder<bool>(
+                      future: _isOwner,
+                      builder: (context, snapshot) => snapshot.data == true
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: OutlinedButton.icon(
+                                onPressed: () => context.push('/admin/integrations'),
+                                icon: const Icon(Icons.hub_outlined),
+                                label: const Text('Central de Integrações ERP/PDV'),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                     const SizedBox(height: 20),
                     Text(
