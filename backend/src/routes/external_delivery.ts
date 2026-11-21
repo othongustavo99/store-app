@@ -13,7 +13,13 @@ import {
 const storeIntegrationParams = z.object({ storeId: uuidParam, integrationId: uuidParam }).strict();
 const storeEventParams = storeIntegrationParams.extend({ eventId: z.string().regex(/^[1-9]\d{0,17}$/) });
 const eventParams = z.object({ eventId: z.string().regex(/^[1-9]\d{0,17}$/) }).strict();
-const claimBody = z.object({ limit: z.number().int().min(1).max(MAX_CLAIM_BATCH).default(10) }).strict();
+// Fase 5.6: o consumidor de pedidos nao pode reservar nem confirmar eventos de catalogo.
+// Filtro opcional preserva integralmente o contrato da Fase 4 para consumidores existentes.
+const claimEventType = z.enum(['order.changed', 'catalog.product.changed', 'catalog.variant.changed', 'EXTERNAL_ORDER_SYNCED']);
+const claimBody = z.object({
+  limit: z.number().int().min(1).max(MAX_CLAIM_BATCH).default(10),
+  types: z.array(claimEventType).min(1).max(4).refine(v => new Set(v).size === v.length).optional(),
+}).strict();
 const leaseToken = z.string().regex(/^f40l_[A-Za-z0-9_-]{43}$/);
 const ackBody = z.object({ leaseToken }).strict();
 const nackBody = z.object({
@@ -114,7 +120,7 @@ export async function externalDeliveryRoutes(app: FastifyInstance): Promise<void
   app.post('/v1/external/events/claim', async req => {
     const identity=await requireIntegration(req,'events.read');
     assertLeasedDelivery(identity);
-    const {limit}=validated(claimBody,req.body);
+    const {limit,types}=validated(claimBody,req.body);
     const client=await pool.connect();
     try {
       await client.query('BEGIN');
@@ -127,12 +133,13 @@ export async function externalDeliveryRoutes(app: FastifyInstance): Promise<void
       await client.query(`INSERT INTO external_event_deliveries(integration_id,store_id,event_id)
         SELECT $2,e.store_id,e.id FROM external_change_events e
         WHERE e.store_id=$1 AND e.origin_integration_id IS DISTINCT FROM $2::uuid
+          AND ($4::text[] IS NULL OR e.event_type = ANY($4::text[]))
           AND NOT EXISTS (SELECT 1 FROM external_event_acks a
             WHERE a.integration_id=$2 AND a.event_id=e.id)
           AND NOT EXISTS (SELECT 1 FROM external_event_deliveries d
             WHERE d.integration_id=$2 AND d.event_id=e.id)
         ORDER BY e.id LIMIT $3 ON CONFLICT DO NOTHING`,
-      [identity.storeId,identity.id,Math.max(limit*4,100)]);
+      [identity.storeId,identity.id,Math.max(limit*4,100),types??null]);
       // Leases vencidos na ultima tentativa vao para revisao manual, nao ficam presos para sempre.
       await client.query(`UPDATE external_event_deliveries
         SET status='DEAD',lease_token_hash=NULL,lease_expires_at=NULL,
@@ -145,11 +152,12 @@ export async function externalDeliveryRoutes(app: FastifyInstance): Promise<void
           e.created_at AS "createdAt",d.attempts
         FROM external_event_deliveries d JOIN external_change_events e
           ON e.id=d.event_id AND e.store_id=d.store_id
-        WHERE d.integration_id=$1 AND d.store_id=$2 AND (
+        WHERE d.integration_id=$1 AND d.store_id=$2
+          AND ($5::text[] IS NULL OR e.event_type = ANY($5::text[])) AND (
           (d.status='PENDING' AND d.next_attempt_at<=now()) OR
           (d.status='IN_FLIGHT' AND d.lease_expires_at<=now() AND d.attempts<$3))
         ORDER BY d.event_id LIMIT $4 FOR UPDATE OF d SKIP LOCKED`,
-      [identity.id,identity.storeId,MAX_DELIVERY_ATTEMPTS,limit]);
+      [identity.id,identity.storeId,MAX_DELIVERY_ATTEMPTS,limit,types??null]);
       const events=[];
       for(const row of due.rows) {
         const token=leaseSecret();

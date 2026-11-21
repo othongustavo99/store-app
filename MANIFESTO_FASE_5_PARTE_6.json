@@ -1,0 +1,24 @@
+{
+  "project": "Frequencia40 Store App ERP/PDV",
+  "phase": "5.6",
+  "type": "incremental_patch",
+  "migration": null,
+  "backend_railway_new_env": [],
+  "replace": [
+    "backend/src/routes/external_delivery.ts",
+    "backend/src/tests/external_delivery.test.ts"
+  ],
+  "add": [
+    "backend/connectors/shared/leased_queue_client.mjs",
+    "backend/connectors/shared/order_queue_core.mjs",
+    "backend/connectors/shared/order_queue_cli.mjs",
+    "backend/connectors/shared/test/order_queue.test.mjs",
+    "backend/connectors/bling/order_queue.mjs",
+    "backend/connectors/omie/order_queue.mjs",
+    "backend/connectors/olist/order_queue.mjs",
+    "docs/INTEGRACOES_FASE_5_PARTE_6.md",
+    "LEIA_FASE_5_PARTE_6_FILA_PEDIDOS.md",
+    "MANIFESTO_FASE_5_PARTE_6.json"
+  ],
+  "notes": "Somente pedidos aprovados e mapeados. Workers desativados por padrao. Nao homologado com ERPs reais."
+}

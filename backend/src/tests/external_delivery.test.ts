@@ -204,3 +204,19 @@ test('somente OWNER da loja correta pode reabrir falha DEAD',async t=>{
   assert.equal(retried.statusCode,200,retried.body);
   assert.equal(db.state.status,'PENDING');assert.equal(db.state.attempts,0);
 });
+
+// Fase 5.6: filtro por tipo nao consome eventos de catalogo quando o worker e somente de pedidos.
+test('claim filtra tipos, sem alterar contrato antigo sem filtro',async t=>{
+  const db=fakeDb();const app=await fixture(t,db);
+  const filtered=await app.inject({method:'POST',url:'/v1/external/events/claim',headers:auth,
+    payload:{limit:1,types:['order.changed']}});
+  assert.equal(filtered.statusCode,200,filtered.body);
+  assert.ok(db.sqlLog.some(sql=>sql.includes('e.event_type = ANY($4::text[])')));
+  assert.ok(db.sqlLog.some(sql=>sql.includes('e.event_type = ANY($5::text[])')));
+  const invalid=await app.inject({method:'POST',url:'/v1/external/events/claim',headers:auth,
+    payload:{limit:1,types:['order.changed','order.changed']}});
+  assert.equal(invalid.statusCode,400,invalid.body);
+  const unknown=await app.inject({method:'POST',url:'/v1/external/events/claim',headers:auth,
+    payload:{limit:1,types:['unknown.event']}});
+  assert.equal(unknown.statusCode,400,unknown.body);
+});

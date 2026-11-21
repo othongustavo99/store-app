@@ -1,0 +1,32 @@
+{
+  "project": "Frequencia40 Store App",
+  "phase": "5.7",
+  "scope": "Conciliação de pedidos e diagnóstico dos três ERPs",
+  "kind": "patch_incremental",
+  "added": [
+    "backend/connectors/shared/order_status_core.mjs",
+    "backend/connectors/shared/order_status_cli.mjs",
+    "backend/connectors/shared/test/order_status.test.mjs",
+    "backend/connectors/bling/order_status.mjs",
+    "backend/connectors/omie/order_status.mjs",
+    "backend/connectors/olist/order_status.mjs",
+    "docs/INTEGRACOES_FASE_5_PARTE_7.md",
+    "LEIA_FASE_5_PARTE_7_CONCILIACAO.md"
+  ],
+  "replaced": [],
+  "deleted": [],
+  "migrations": [],
+  "backend_environment_changes": [],
+  "provider_homologation": "PENDING",
+  "behavior": "READ_ONLY_DEFAULT",
+  "automatic_order_creation": false,
+  "automatic_cancellation": false,
+  "external_order_status_write": "ONLY_EXPLICIT_TEST_CONFIRMATION",
+  "tests": {
+    "backend": 187,
+    "connectors_shared": 51,
+    "bling": 18,
+    "omie": 12,
+    "olist": 33
+  }
+}
