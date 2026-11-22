@@ -1,0 +1,82 @@
+{
+  "phase": "5.14",
+  "title": "Conector CSV configuravel para importacao assistida de produtos, variantes, precos e estoque opcional",
+  "base": "Fases 1 a 5.13 aplicadas; usa API existente do Store App",
+  "operations": [
+    {
+      "path": "LEIA_FASE_5_PARTE_14_CSV.md",
+      "operation": "add",
+      "sha256": "506b3cc862af6d09a193c27f72e9b1f219e9a5a4e3925a0c926809fd953fc650"
+    },
+    {
+      "path": "backend/connectors/csv/.gitignore",
+      "operation": "add",
+      "sha256": "dfc026839425ee3a97bcb69f863355f8299562371a23b47b560a74eabf03a29e"
+    },
+    {
+      "path": "backend/connectors/csv/README.md",
+      "operation": "add",
+      "sha256": "a060f04431a8af47a34f52bb74b906c6b3387bdb07738f2361d9c898ead63b59"
+    },
+    {
+      "path": "backend/connectors/csv/catalog.example.csv",
+      "operation": "add",
+      "sha256": "dcda1e0c1a2aad5c1a60517327748d38682ada48316e1d614d7c4a0b9d267a43"
+    },
+    {
+      "path": "backend/connectors/csv/mapping.mjs",
+      "operation": "add",
+      "sha256": "f16edab26070f6a3db3375a8a7c2a2fedfc8ef961e7f863b0761d133b6903bea"
+    },
+    {
+      "path": "backend/connectors/csv/settings.example.json",
+      "operation": "add",
+      "sha256": "e0ddd23f4841851c1ee6f124b27f99e6807129d4d50ef82e83f72060c61a3fe6"
+    },
+    {
+      "path": "backend/connectors/csv/state.mjs",
+      "operation": "add",
+      "sha256": "c66cb0f0e9fc8ac3f68998ac0584c9cf977ece6c507cc2dcf19a34077e8e9cbf"
+    },
+    {
+      "path": "backend/connectors/csv/store_client.mjs",
+      "operation": "add",
+      "sha256": "665bdebea1330e38fbebbad3af45b332d5374a4cc0a1894f84302c46216912f5"
+    },
+    {
+      "path": "backend/connectors/csv/sync.mjs",
+      "operation": "add",
+      "sha256": "c3286bb340c20e32acc6c1b6b8175ba3d1770b21b109c387d61aa0854d477f65"
+    },
+    {
+      "path": "backend/connectors/csv/test/csv.test.mjs",
+      "operation": "add",
+      "sha256": "e8f75d287281aa4f590c5ef82610ad039a848b19034d6c3edaccb647e49a2e2b"
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_14.md",
+      "operation": "add",
+      "sha256": "6d420369863a2a93a9fd0df8c8630d45ee6fde514d8dbf3593f448a6dd1dc3fa"
+    }
+  ],
+  "newMigrations": [],
+  "newRailwayBackendVariables": [],
+  "flutterChanged": false,
+  "backendApiChanged": false,
+  "tests": {
+    "nodeConnectorTestsPassed": 150,
+    "newCsvTestsPassed": 27,
+    "previewExample": {
+      "products": 2,
+      "variants": 3,
+      "mode": "PREVIEW"
+    }
+  },
+  "limitations": [
+    "Sem integracao direta com ERP/PDV; importacao manual por CSV UTF-8",
+    "Nao realiza exportacao de pedidos, pagamento ou emissao fiscal",
+    "Nao homologado em fornecedor/loja real",
+    "Modo APPLY exige credencial individual e aprovacao explicita",
+    "Estoques so por snapshot fisico confirmado; nao e tempo real"
+  ]
+}

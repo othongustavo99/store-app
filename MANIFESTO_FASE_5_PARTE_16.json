@@ -1,0 +1,90 @@
+{
+  "phase": "5.16",
+  "title": "Exportacao assistida de pedidos por CSV",
+  "base": "Store App ate F5.15 + hotfix Windows",
+  "applyRoot": "loja_roupas/",
+  "containsCredentials": false,
+  "containsMigrations": false,
+  "updatesBackendMain": false,
+  "updatesFlutter": false,
+  "files": [
+    {
+      "path": "LEIA_FASE_5_PARTE_16_PEDIDOS_CSV.md",
+      "action": "ADICIONAR",
+      "sha256": "3ae32e483c36a7cc49455d33ef932b2988676508d4903305e6f3cf657e9d4ae0",
+      "bytes": 3278
+    },
+    {
+      "path": "backend/connectors/assessment/assessment.mjs",
+      "action": "SUBSTITUIR",
+      "sha256": "e82d5c06ec37309de1ec8e4a97243fc85e81bcf419009eeb50674bf5d1d1a88b",
+      "bytes": 12070
+    },
+    {
+      "path": "backend/connectors/assessment/test/assessment.test.mjs",
+      "action": "SUBSTITUIR",
+      "sha256": "9422691070a9720b5bf4343b19816a0042d159b2da0a1567f20d699eccebc012",
+      "bytes": 8146
+    },
+    {
+      "path": "backend/connectors/csv/ORDER_EXPORT_README.md",
+      "action": "ADICIONAR",
+      "sha256": "6da9100a921864032a212bc4504dff0e680d51509a7b22c93d75f0c6a7da85b4",
+      "bytes": 6619
+    },
+    {
+      "path": "backend/connectors/csv/README.md",
+      "action": "SUBSTITUIR",
+      "sha256": "32aa919ce3217927a2446fe5f747df15b483169cdb1db734ccf7249dadb7bd4f",
+      "bytes": 6292
+    },
+    {
+      "path": "backend/connectors/csv/order_export.mjs",
+      "action": "ADICIONAR",
+      "sha256": "11b2a86a8a21f0a5ae8c285c7147e0c09d232ed5d11e674c8897182eed69f113",
+      "bytes": 7715
+    },
+    {
+      "path": "backend/connectors/csv/order_export_cli.mjs",
+      "action": "ADICIONAR",
+      "sha256": "29be71816a01914fe8d6b0d53173a43ca6d43b980240787498309f24a260118a",
+      "bytes": 2757
+    },
+    {
+      "path": "backend/connectors/csv/order_export_state.mjs",
+      "action": "ADICIONAR",
+      "sha256": "8aebb3883bf0a6b6ec6b13fa70c7218610b0ac6df91d90b20f36b38b3b64dc1e",
+      "bytes": 3908
+    },
+    {
+      "path": "backend/connectors/csv/orders.example.json",
+      "action": "ADICIONAR",
+      "sha256": "f549788b1cc24afc3c7bc48a65afe90935598884c9b4e3336ad4cd60adb3f8fa",
+      "bytes": 1445
+    },
+    {
+      "path": "backend/connectors/csv/orders.settings.example.json",
+      "action": "ADICIONAR",
+      "sha256": "1daca76e8d4142590b3f9c1003af6dcbeea88aa994736110cb751cb0e28fadca",
+      "bytes": 620
+    },
+    {
+      "path": "backend/connectors/csv/test/order_export.test.mjs",
+      "action": "ADICIONAR",
+      "sha256": "4833602408109098fcc20b62bb6049c08445d345c081f12425f9f77e865f3a3b",
+      "bytes": 15631
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_16.md",
+      "action": "ADICIONAR",
+      "sha256": "cdbddbd12e55513dc2d6cc2d2670b37077a9169dae7e6f8c1e45406c9ace48c9",
+      "bytes": 3518
+    }
+  ],
+  "notes": [
+    "ZIP incremental com arquivos completos.",
+    "Os tres arquivos SUBSTITUIR devem substituir os existentes no projeto.",
+    "Nenhum envio automatico a ERP, ACK fiscal ou de pedido.",
+    "Confira SHA da previa antes de gravar o CSV."
+  ]
+}

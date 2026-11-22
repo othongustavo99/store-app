@@ -1,0 +1,73 @@
+{
+  "phase": "5.17",
+  "title": "Conciliacao assistida e offline de pedidos exportados por CSV",
+  "base": "Store App ate Fase 5.16, com hotfix Windows F5.15",
+  "applyRoot": "loja_roupas/",
+  "newFilesOnly": true,
+  "containsCredentials": false,
+  "containsMigrations": false,
+  "updatesBackendMain": false,
+  "updatesFlutter": false,
+  "testResults": {
+    "nodeConnectorTests": "261/261",
+    "newReconciliationTests": "42/42",
+    "nodeRuntime": "22.16.0",
+    "erpRealTested": false
+  },
+  "files": [
+    {
+      "path": "LEIA_FASE_5_PARTE_17_CONCILIACAO_CSV.md",
+      "action": "ADICIONAR",
+      "sha256": "f3567fae9804575b16a6fa28d9f547326573972a34045a0cf60199bba9d62ecb",
+      "bytes": 2990
+    },
+    {
+      "path": "backend/connectors/csv/ORDER_RECONCILE_README.md",
+      "action": "ADICIONAR",
+      "sha256": "716db40e0b67510bf9ce9d33dbdb873c5a54f58cd062733755cfb2f5c8f38705",
+      "bytes": 6869
+    },
+    {
+      "path": "backend/connectors/csv/order_reconcile.mjs",
+      "action": "ADICIONAR",
+      "sha256": "d46471a5a3b83e7492dfe7085384c371e42db8e3bad423254ddcae687f263c43",
+      "bytes": 7133
+    },
+    {
+      "path": "backend/connectors/csv/order_reconcile_cli.mjs",
+      "action": "ADICIONAR",
+      "sha256": "84f99e90eb3774de9a88e3c5881e396868099e4f76642dd51a49e9a37c6b8e8b",
+      "bytes": 2864
+    },
+    {
+      "path": "backend/connectors/csv/order_reconcile_state.mjs",
+      "action": "ADICIONAR",
+      "sha256": "59b6b242b82a54b9d32574011a3efb71f8d90bd8200b588d3ad2ad027e1a4299",
+      "bytes": 4943
+    },
+    {
+      "path": "backend/connectors/csv/orders.reconciliation.example.json",
+      "action": "ADICIONAR",
+      "sha256": "fa67c480dcd670861b66a28641d5fcecaf35798f2479228c7a3aa2fd852b6d8d",
+      "bytes": 597
+    },
+    {
+      "path": "backend/connectors/csv/test/order_reconcile.test.mjs",
+      "action": "ADICIONAR",
+      "sha256": "0114a9563286a5f3d0db64f83b8fa72ef14a593fc664d8914dadf93cb5776510",
+      "bytes": 19753
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_17.md",
+      "action": "ADICIONAR",
+      "sha256": "207f4b47253e6b225d60997503257ccf41194600e982c934a8b30f5ba1a66e8a",
+      "bytes": 1663
+    }
+  ],
+  "notes": [
+    "Somente arquivos novos. Nenhuma alteracao de migrations, checkout ou backend principal.",
+    "Requer o MESMO statePath persistente usado no CSV da Fase 5.16.",
+    "IMPORTED no comprovante e relato humano, nao ACEITE do ERP autenticado.",
+    "A conciliacao nao libera reexportacao nem cria operacoes no ERP."
+  ]
+}

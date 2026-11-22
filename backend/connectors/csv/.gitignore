@@ -1,0 +1,7 @@
+# Exemplos versionados; arquivos reais, senhas e estado fora do repositorio
+state*.json
+*.lock
+*.tmp
+*.private.json
+exports/
+credentials/

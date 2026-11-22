@@ -1,0 +1,79 @@
+{
+  "phase": "5.15",
+  "title": "Auditoria offline de compatibilidade de ERP/PDV e qualificação comercial por loja",
+  "base": "Fases 1 a 5.14 aplicadas; patch isolado, sem substituição",
+  "operations": [
+    {
+      "path": "LEIA_FASE_5_PARTE_15_AUDITORIA.md",
+      "operation": "add",
+      "sha256": "7f5adf959a35a3887a1617c7a95c1f1696d765183b003ba0852c5e8f4e6bd446",
+      "bytes": 2913
+    },
+    {
+      "path": "backend/connectors/assessment/.gitignore",
+      "operation": "add",
+      "sha256": "2a27fd8a995b6d754c43bf7a7dc9c5f45e146f87bcf0088231fc573b623e23a9",
+      "bytes": 91
+    },
+    {
+      "path": "backend/connectors/assessment/README.md",
+      "operation": "add",
+      "sha256": "4fb0062d7548e81490225e0fd5d0fb6be04d022763d0b5c4d9359880b57cb383",
+      "bytes": 4488
+    },
+    {
+      "path": "backend/connectors/assessment/assessment.mjs",
+      "operation": "add",
+      "sha256": "9ad0ea8ce67fa2c1b56a5ce72f90811ef07c74533b32f9f37b1e87ec93393d4d",
+      "bytes": 11970
+    },
+    {
+      "path": "backend/connectors/assessment/cli.mjs",
+      "operation": "add",
+      "sha256": "88eaac1dec26a38f2284a965dd555453499c1c2d276112ac5fb3ffacc331aff2",
+      "bytes": 3140
+    },
+    {
+      "path": "backend/connectors/assessment/example_bling.json",
+      "operation": "add",
+      "sha256": "a4b690d3531c2c01028e0da9ee75636b5ad36a5169304fde41e9e11ac2f679f1",
+      "bytes": 946
+    },
+    {
+      "path": "backend/connectors/assessment/example_csv.json",
+      "operation": "add",
+      "sha256": "3655f049d101beadcf8fc1d3288b052c7fb2120246e9766053f94bd2b53ac708",
+      "bytes": 920
+    },
+    {
+      "path": "backend/connectors/assessment/test/assessment.test.mjs",
+      "operation": "add",
+      "sha256": "b33a5eb721aa93baec4570518d3a2557779fe9b2e691cda6dc9c92f13753b5d6",
+      "bytes": 7966
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_15.md",
+      "operation": "add",
+      "sha256": "4a73c33b8f22b7bfb777041b41cac3d3518a7baad4b809036feb52a351866b95",
+      "bytes": 4936
+    }
+  ],
+  "newMigrations": [],
+  "newRailwayBackendVariables": [],
+  "flutterChanged": false,
+  "backendApiChanged": false,
+  "tests": {
+    "nodeTestsPassed": 182,
+    "newAssessmentTestsPassed": 32,
+    "baselineConnectorTestsPassed": 150,
+    "backendTypeScriptRecompiled": false,
+    "flutterTestsRun": false
+  },
+  "limitations": [
+    "A auditoria é offline e declaratória; nenhuma API externa é consultada",
+    "Não adiciona conector para ERP novo, não automatiza CSV e não libera produção",
+    "Bling, Omie e Olist permanecem conectores iniciais dependentes de homologação",
+    "A importação CSV é assistida e não exporta pedidos ao ERP/PDV",
+    "O relatório sempre contém productionAuthorized=false e exige aprovação humana"
+  ]
+}

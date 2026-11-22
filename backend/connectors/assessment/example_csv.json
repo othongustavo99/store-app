@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "storeAlias": "loja_csv_teste",
+  "provider": "other",
+  "transport": "csv",
+  "requiredFlows": ["catalog_import", "stock_import", "order_export"],
+  "vendorCapabilities": {
+    "catalog_import": "unconfirmed",
+    "stock_import": "unconfirmed",
+    "order_export": "unsupported",
+    "order_status_read": "unsupported",
+    "fiscal_reference": "unsupported"
+  },
+  "operation": {
+    "variants": true,
+    "multipleWarehouses": false,
+    "fractionalStock": false,
+    "delivery": false,
+    "discounts": false,
+    "splitPayments": false
+  },
+  "evidence": {
+    "accessValidated": "unconfirmed",
+    "stableProductIds": "unconfirmed",
+    "stockAuthorityDefined": "unconfirmed",
+    "customerDataAuthorization": "unconfirmed",
+    "sandboxAvailable": "unconfirmed",
+    "catalogSampleTested": "unconfirmed",
+    "orderSampleTested": "unconfirmed",
+    "pilotReconciled": "unconfirmed"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "project": "Frequencia40 Store App",
+  "phase": "5.18",
+  "title": "Retorno tabular assistido CSV de pedidos ERP/PDV",
+  "requires": [
+    "Fase 5.16",
+    "Fase 5.17"
+  ],
+  "operation": "ADICIONAR",
+  "no_existing_files_replaced": true,
+  "no_migrations": true,
+  "no_railway_backend_env": true,
+  "no_backend_routes_changed": true,
+  "no_flutter_files_changed": true,
+  "tested": "Node.js 22 - 303 testes conectores aprovados; 42 novos F5.18. Nao testado Windows/ERP real.",
+  "files": [
+    {
+      "path": "LEIA_FASE_5_PARTE_18_RETORNO_CSV.md",
+      "action": "ADD",
+      "sha256": "2ec2c61e24372608f68ce3be3286744ebb9357717c9d4df12912a9965b1b8e7e",
+      "bytes": 2394
+    },
+    {
+      "path": "backend/connectors/csv/ACK_IMPORT_README.md",
+      "action": "ADD",
+      "sha256": "c023f1dda55ca6a6fb0a5084c6744d843f845ea2ab428268d7ae2cc882bea683",
+      "bytes": 7068
+    },
+    {
+      "path": "backend/connectors/csv/ack.example.csv",
+      "action": "ADD",
+      "sha256": "59f7b494973d3b9d57dff6bd4afb51853f38b355a6ab2d07c73a4c5ff1e69500",
+      "bytes": 140
+    },
+    {
+      "path": "backend/connectors/csv/ack.settings.example.json",
+      "action": "ADD",
+      "sha256": "32299d480e24679354a21de05024fbab225e0e941f5b3970b21d5ed115017957",
+      "bytes": 464
+    },
+    {
+      "path": "backend/connectors/csv/order_ack_import.mjs",
+      "action": "ADD",
+      "sha256": "620124c5d3d09f0a44a17a667150fce66d8f3e18c19bac3939e14f9a60ff4f68",
+      "bytes": 11823
+    },
+    {
+      "path": "backend/connectors/csv/order_ack_import_cli.mjs",
+      "action": "ADD",
+      "sha256": "21f3b02d840c66b8d82e7a3e1fce829f6d32bdafcf718db42e897f4c53d5f2f6",
+      "bytes": 5496
+    },
+    {
+      "path": "backend/connectors/csv/test/order_ack_import.test.mjs",
+      "action": "ADD",
+      "sha256": "a12d84496092f87369a26b9f5caecd966174f018ad30a45fa2eb903aa46de6d5",
+      "bytes": 15084
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_18.md",
+      "action": "ADD",
+      "sha256": "16bcae9f0dfbd586ef05a71615411af2b9824f63e8e1a92cbe26cb9c7e8a3a0e",
+      "bytes": 1247
+    }
+  ]
+}

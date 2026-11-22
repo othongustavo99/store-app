@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "storeAlias": "loja_exemplo",
+  "provider": "bling",
+  "transport": "connector",
+  "requiredFlows": ["catalog_import", "stock_import", "order_export", "order_status_read"],
+  "vendorCapabilities": {
+    "catalog_import": "unconfirmed",
+    "stock_import": "unconfirmed",
+    "order_export": "unconfirmed",
+    "order_status_read": "unconfirmed",
+    "fiscal_reference": "unconfirmed"
+  },
+  "operation": {
+    "variants": false,
+    "multipleWarehouses": false,
+    "fractionalStock": false,
+    "delivery": false,
+    "discounts": false,
+    "splitPayments": false
+  },
+  "evidence": {
+    "accessValidated": "unconfirmed",
+    "stableProductIds": "unconfirmed",
+    "stockAuthorityDefined": "unconfirmed",
+    "customerDataAuthorization": "unconfirmed",
+    "sandboxAvailable": "unconfirmed",
+    "catalogSampleTested": "unconfirmed",
+    "orderSampleTested": "unconfirmed",
+    "pilotReconciled": "unconfirmed"
+  }
+}

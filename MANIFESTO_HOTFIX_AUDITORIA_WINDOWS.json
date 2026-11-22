@@ -1,0 +1,10 @@
+{
+  "patch": "Frequencia40_StoreApp_Fase5_15_HOTFIX_Windows",
+  "base": "Fase 5.15 auditoria",
+  "changed": ["backend/connectors/assessment/test/assessment.test.mjs"],
+  "added": ["LEIA_HOTFIX_AUDITORIA_WINDOWS.md", "MANIFESTO_HOTFIX_AUDITORIA_WINDOWS.json"],
+  "removed": [],
+  "migration": false,
+  "railwayVariables": [],
+  "backendDeployRequired": false
+}

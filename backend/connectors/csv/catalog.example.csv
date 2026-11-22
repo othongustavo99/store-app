@@ -1,0 +1,4 @@
+codigo_produto;codigo_variacao;referencia;descricao;preco_venda;saldo_fisico;ean;cor;tamanho;situacao
+P001;P001-P;CAMISA-P;Camiseta basica;79,90;10;;Preto;P;A
+P001;P001-M;CAMISA-M;Camiseta basica;79,90;5;;Preto;M;A
+P002;P002-UN;CALCA-UN;Calca social;129,00;2;;Azul;Unico;A
