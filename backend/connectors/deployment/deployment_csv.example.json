@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "assessment": {
+    "schemaVersion": 1,
+    "storeAlias": "loja_csv_exemplo",
+    "provider": "other",
+    "transport": "csv",
+    "requiredFlows": [
+      "catalog_import",
+      "stock_import"
+    ],
+    "vendorCapabilities": {
+      "catalog_import": "unconfirmed",
+      "stock_import": "unconfirmed",
+      "order_export": "unsupported",
+      "order_status_read": "unsupported",
+      "fiscal_reference": "unsupported"
+    },
+    "operation": {
+      "variants": false,
+      "multipleWarehouses": false,
+      "fractionalStock": false,
+      "delivery": false,
+      "discounts": false,
+      "splitPayments": false
+    },
+    "evidence": {
+      "accessValidated": "unconfirmed",
+      "stableProductIds": "unconfirmed",
+      "stockAuthorityDefined": "unconfirmed",
+      "customerDataAuthorization": "unconfirmed",
+      "sandboxAvailable": "unconfirmed",
+      "catalogSampleTested": "unconfirmed",
+      "orderSampleTested": "unconfirmed",
+      "pilotReconciled": "unconfirmed"
+    }
+  },
+  "manualCsvOrders": true,
+  "binding": {
+    "storeId": "11111111-1111-4111-8111-111111111111",
+    "integrationId": "55555555-5555-4555-8555-555555555555"
+  },
+  "checklist": {
+    "scopeApproved": "pending",
+    "privacyReviewed": "pending",
+    "supplierProcedureReviewed": "pending",
+    "recoveryPlanReviewed": "pending",
+    "pilotEvidenceReviewed": "pending",
+    "commercialReleaseReviewed": "pending"
+  },
+  "artifacts": {
+    "exportCsv": null,
+    "exportManifest": null,
+    "erpReturnCsv": null,
+    "reconciliationReport": null
+  }
+}

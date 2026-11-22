@@ -1,0 +1,5 @@
+# Kits de clientes eventualmente gerados aqui não devem ser commitados.
+kit_*/
+*.local.json
+.env
+.env.*

@@ -1,0 +1,52 @@
+{
+  "project": "Frequência40 Store App — Integrações ERP/PDV",
+  "phase": "5.19",
+  "title": "Dossiê comercial e operacional de implantação por cliente",
+  "mode": "INCREMENTAL_ADDITIONS_ONLY",
+  "filesAdded": [
+    {
+      "path": "LEIA_FASE_5_PARTE_19_DOSSIE_COMERCIAL.md",
+      "sha256": "6b93284eb707f9e7587cf17385b1674a529abdec784b0ba538a76ec8f8f3deb4"
+    },
+    {
+      "path": "backend/connectors/deployment/.gitignore",
+      "sha256": "0838ec4b8ee09bb490567627697c69141cf4905caf4f95997cd91a82a405d0f6"
+    },
+    {
+      "path": "backend/connectors/deployment/README.md",
+      "sha256": "bc62423bd2b524ad426515408b5d1ddde521a4326199d93e1eb7393014128cda"
+    },
+    {
+      "path": "backend/connectors/deployment/cli.mjs",
+      "sha256": "ff98f888f8be81d2647d4030d4f492e6e2f04226426b2c35ff04b915c5080f35"
+    },
+    {
+      "path": "backend/connectors/deployment/deployment.example.json",
+      "sha256": "33dee58059f6b19967454a17b8a9f6ec0af7d8782d6dd8e321881622c81e44e5"
+    },
+    {
+      "path": "backend/connectors/deployment/deployment_csv.example.json",
+      "sha256": "62fe2330fd7b70ee2242ed92983048666681de06215cc5be9cef71185436f8d2"
+    },
+    {
+      "path": "backend/connectors/deployment/rollout.mjs",
+      "sha256": "2a335a20f5e4aae20401febe1debbafbf896c00f5001a7b3a3293b42de38ba6e"
+    },
+    {
+      "path": "backend/connectors/deployment/test/rollout.test.mjs",
+      "sha256": "4387ad2f32cb667de04a9e07117da67d95bed690543b925a6141318156f73516"
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_19.md",
+      "sha256": "3ae601850f39f991a4c316659a66d5c7e91d133e29079da8b0b11d99b508a652"
+    }
+  ],
+  "filesReplaced": [],
+  "filesRemoved": [],
+  "newMigrations": [],
+  "newRailwayVariables": [],
+  "backendDeployRequired": false,
+  "flutterChanged": false,
+  "liveERPIntegrationHomologated": false,
+  "notes": "Relatório offline e declaratório. Não autentica aceite de pedidos pelo ERP, não autoriza produção e não contém credenciais."
+}

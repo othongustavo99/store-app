@@ -1,0 +1,52 @@
+{
+  "project": "Frequência40 Store App — ERP/PDV",
+  "phase": "5.20",
+  "title": "Kit offline de prontidão de implantação por modalidade",
+  "scope": "No customer onboarding or supplier homologation performed",
+  "mode": "INCREMENTAL_ADDITIONS_ONLY",
+  "filesAdded": [
+    {
+      "path": "LEIA_FASE_5_PARTE_20_KIT_PRONTIDAO.md",
+      "sha256": "53df5ebab4a750aa0f30a7aedd1d4113cc643efadc9fca9eae472754490ddb3f"
+    },
+    {
+      "path": "backend/connectors/onboarding/.gitignore",
+      "sha256": "57e0e947de7e857707a455bf3800cd6ded99bff5813709c2176f3c0a05f11670"
+    },
+    {
+      "path": "backend/connectors/onboarding/README.md",
+      "sha256": "52dc32c918352c61eb88dcdb4a71891c7f2c2dfffbd4808acabc0a8fa5e5f6ba"
+    },
+    {
+      "path": "backend/connectors/onboarding/cli.mjs",
+      "sha256": "baea649bbcccce97845302d6c31f4c8f21eb98b7471f28228cb1f36730ab5615"
+    },
+    {
+      "path": "backend/connectors/onboarding/onboarding.mjs",
+      "sha256": "4bf7b7c6dd2448e0f5830c3e787b9f68c857f5437e0cef45b35aac531c0d9319"
+    },
+    {
+      "path": "backend/connectors/onboarding/test/onboarding.test.mjs",
+      "sha256": "49d4ce8a0e3672d92ebd8cfba7d1d8123ded73dedaeaa2e3a5e8d092b3a7d163"
+    },
+    {
+      "path": "docs/INTEGRACOES_FASE_5_PARTE_20.md",
+      "sha256": "944d5a7aba1a1fafa45dc0f1c28aa8b09ead13ffeb8fc9e84fbc09809bef3497"
+    }
+  ],
+  "filesReplaced": [],
+  "filesRemoved": [],
+  "newMigrations": [],
+  "newRailwayVariables": [],
+  "backendDeployRequired": false,
+  "flutterChanged": false,
+  "productionEnabled": false,
+  "ownErpImplemented": false,
+  "realSupplierHomologated": false,
+  "tests": {
+    "new": 43,
+    "all_connectors": 396,
+    "environment": "Node.js 22.16.0 (Linux)"
+  },
+  "note": "Verificacao offline de fontes e kits; nao autentica conectores nem autoriza producao."
+}

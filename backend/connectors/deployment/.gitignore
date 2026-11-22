@@ -1,0 +1,6 @@
+# Evidências e dados comerciais reais de cada cliente não pertencem ao Git.
+clientes/
+evidencias/
+*.private.json
+relatorio-cliente-*.json
+relatorio-cliente-*.md
