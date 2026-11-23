@@ -4,7 +4,32 @@ Aplicativo Flutter para compradores e administração de lojas locais de roupas.
 
 ## Entrega atual
 
-**Etapa 06 — configuração por lojista e demonstração comercial.**
+**Etapa 06 (aplicativo comercial) + infraestrutura ERP/PDV até a Fase 5.21.**
+
+A Fase 5.21 acrescenta proteção contra builds release sem backend explícito,
+pré-validação offline de artefatos white-label e rotina de qualidade no GitHub.
+Consulte [LEIA_FASE_5_PARTE_21_CONSOLIDACAO.md](LEIA_FASE_5_PARTE_21_CONSOLIDACAO.md).
+Ela não altera banco, checkout, pagamentos nem conectores já existentes.
+A homologação com ERPs/PDVs reais ficará para cada cliente contratado.
+
+**Builds release:** sempre informe `LOJA_BACKEND=railway` (ou `firebase`
+explicitamente em builds legados). A compilação sem seleção de backend
+não abrirá o aplicativo em release. Para novos clientes, use
+`tools/build-client.ps1`, que confere UUID, slug e ambiente antes do build.
+O script `tools/build_loja.ps1` é legado e, por segurança, só executa com
+`-PermitLegacyDemoBuild`, exclusivamente para demonstração não comercial.
+
+### Qualidade automatizada
+
+O workflow `.github/workflows/storeapp-quality.yml` executa testes offline
+no GitHub Actions. Para conferir a pré-validação localmente:
+
+```powershell
+node --test tools/test/check-client-build.test.mjs
+```
+
+A CI não publica aplicativos nem habilita integrações; não exige
+credenciais de ERP, Railway ou Mercado Pago.
 
 Leia [LEIA_ETAPA_06.md](LEIA_ETAPA_06.md) para instalar a etapa atual, sobre as Etapas 01 a 05. Não há migration nova: preserve os SQL 001–018 e publique backend antes do aplicativo. A configuração Windows/Railway e o diagnóstico do banco permanecem em [LEIA_ETAPA_01.md](LEIA_ETAPA_01.md). O histórico e as próximas etapas ficam em [docs/EVOLUCAO_MODELO_COMERCIAL.md](docs/EVOLUCAO_MODELO_COMERCIAL.md).
 

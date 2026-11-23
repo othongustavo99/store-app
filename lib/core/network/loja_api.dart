@@ -2,20 +2,32 @@ import 'dart:async';
 import 'dart:convert';
 import '../config/store_build_contract.dart';
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-/// Fase 2: ativação explícita, para não quebrar o Firebase anterior durante os testes.
+/// Backend legado é mantido nos builds de desenvolvimento.
+/// Em release, o backend deve ser selecionado explicitamente para impedir
+/// publicação acidental apontando para o Firebase anterior.
 /// --dart-define=LOJA_BACKEND=railway --dart-define=LOJA_API_BASE_URL=https://...
 /// --dart-define=LOJA_STORE_SLUG=sua-loja
 abstract final class LojaBackend {
   static const String provider =
-      String.fromEnvironment('LOJA_BACKEND', defaultValue: 'firebase');
+      String.fromEnvironment('LOJA_BACKEND',
+          defaultValue: kReleaseMode ? '' : 'firebase');
   static const String apiUrl = String.fromEnvironment('LOJA_API_BASE_URL');
   static const String storeSlug = String.fromEnvironment('LOJA_STORE_SLUG');
   static const bool isRailway = provider == 'railway';
 
+  static void validateSelection(String selected) {
+    if (selected != 'railway' && selected != 'firebase') {
+      throw StateError(
+          'Defina LOJA_BACKEND explicitamente como railway ou firebase.');
+    }
+  }
+
   static void validate() {
+    validateSelection(provider);
     if (!isRailway) return;
     const StoreBuildContract.fromEnvironment().validateConfiguration();
     final url = Uri.tryParse(apiUrl);

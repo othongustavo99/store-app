@@ -24,6 +24,10 @@ try {
     $clientOutput = Join-Path $clientProjectRoot ".client-builds\$($clientConfiguration.store.slug)-$($clientConfiguration.app.environment)"
     $clientPlan = Get-Content -LiteralPath (Join-Path $clientOutput 'android.plan.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $clientDefines = Join-Path $clientOutput 'flutter.defines.json'
+    # Falhar antes do Flutter/Gradle caso a loja ou os ambientes divergissem.
+    $clientGuardScript = Join-Path $clientProjectRoot 'tools\check-client-build.mjs'
+    & node $clientGuardScript "--defines=$clientDefines" "--plan=$(Join-Path $clientOutput 'android.plan.json')" "--mode=$Mode"
+    if ($LASTEXITCODE -ne 0) { throw 'Pré-validação da loja reprovada. Nenhum build foi iniciado.' }
     Write-Output "Loja: $($clientPlan.store.slug) | Ambiente: $($clientPlan.store.environment) | Android: $($clientPlan.android.applicationId)"
     Write-Output "Nome instalado: $($clientPlan.android.displayName) | Modo do APK: $Mode"
     if (!$Build) {

@@ -40,6 +40,17 @@ Future<void> main() async {
   );
 
   // ============================================================
+  // SELEÇÃO DO BACKEND: release sem configuração não abre um legado.
+  // A mensagem não expõe URLs ou dados do arquivo de configuração.
+  // ============================================================
+  try {
+    LojaBackend.validate();
+  } on StateError {
+    runApp(const _InvalidBackendApp());
+    return;
+  }
+
+  // ============================================================
   // FIREBASE
   // ============================================================
 
@@ -80,4 +91,29 @@ Future<void> main() async {
       child: const StoreConnectionGate(child: LojaRoupasApp()),
     ),
   );
+}
+
+/// Falha fechada para um APK sem backend explícito ou configuração válida.
+/// Nenhuma conexão é iniciada e o cliente não vê detalhes de infraestrutura.
+class _InvalidBackendApp extends StatelessWidget {
+  const _InvalidBackendApp();
+
+  @override
+  Widget build(BuildContext context) => const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(28),
+                child: Text(
+                  'Aplicativo não configurado para esta loja. '
+                  'Solicite uma nova versão ao responsável.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }

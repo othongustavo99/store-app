@@ -1,0 +1,51 @@
+name: Store App - Qualidade (sem credenciais)
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-and-connectors:
+    name: Backend e conectores offline
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Testes de backend com valores fictícios (sem banco real)
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://fake:fake@127.0.0.1:5432/offline_ci
+          JWT_SECRET: test_secret_secure_long_0123456789_0123456789
+      - name: Testes de conectores (sem contas de ERP)
+        run: node --test connectors/*/test/*.test.mjs
+      - name: Pré-validação white-label
+        working-directory: .
+        run: node --test tools/test/*.test.mjs
+
+  flutter:
+    name: Flutter (análise e testes unitários)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.2'
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test --concurrency=1 --dart-define=LOJA_BACKEND=railway

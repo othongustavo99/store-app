@@ -24,6 +24,7 @@ import { reviewRoutes } from './routes/reviews.js';
 import { couponRoutes } from './routes/coupons.js';
 import { pushRoutes } from './routes/push.js';
 import { externalIntegrationRoutes } from './routes/external_integrations.js';
+import { storeCommercialRolloutRoutes } from './routes/store_commercial_rollout.js';
 import { startPushDispatcher } from './services/push_dispatcher.js';
 
 export async function buildApp() {
@@ -72,6 +73,7 @@ export async function buildApp() {
   await app.register(accountSecurityRoutes);
   await app.register(storeRoutes);
   await app.register(storeProfileRoutes);
+  await app.register(storeCommercialRolloutRoutes);
   await app.register(catalogRoutes);
   await app.register(reviewRoutes);
   await app.register(couponRoutes);

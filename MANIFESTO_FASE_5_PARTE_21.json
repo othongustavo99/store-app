@@ -1,0 +1,102 @@
+{
+  "name": "Frequencia40 StoreApp Fase 5.21 - Consolidacao Tecnica",
+  "base_zip": "loja_roupas(20261122-235502).zip",
+  "application": "storeapp",
+  "scope": "white-label build preflight, backend release fail-closed, offline CI tests",
+  "new_migrations": [],
+  "new_railway_variables": [],
+  "does_not_modify": [
+    "backend production",
+    "checkout",
+    "payments",
+    "inventory",
+    "ERP connectors",
+    "PostgreSQL"
+  ],
+  "validation": {
+    "node_preflight_tests": "23/23 passed",
+    "backend_tests": "217/217 passed with dummy env",
+    "connector_tests": "396/396 passed",
+    "flutter": "not run; SDK unavailable",
+    "powershell": "not run; pwsh unavailable"
+  },
+  "files": [
+    {
+      "path": ".gitignore",
+      "action": "replace",
+      "sha256": "8817b256d5c55430c5b7b4ba91279a60e48a8e593cef728425df7666183f6b2b",
+      "source_sha256": "58e4f12e0e96f8e8b6c9bca3dd2fe27b1f4862200b662dee4db383ae5071801b",
+      "bytes": 1636
+    },
+    {
+      "path": "README.md",
+      "action": "replace",
+      "sha256": "43f47a9893a3d2ff44385fa05141a98f70da8cdb93c1075ba1be0ae858fdf918",
+      "source_sha256": "1108a13fb19b7ca98ade1b757faeb67493281941c347505b8947c79c4e1a4b23",
+      "bytes": 4983
+    },
+    {
+      "path": "lib/main.dart",
+      "action": "replace",
+      "sha256": "e49b087bd0253bf4cfd66ca715d00bfd02ba0ca1bfe8a93adccf0ee9429b3b63",
+      "source_sha256": "937a7c54d0a30bc26abda3484042f5e1ce39bb230103c8091669073a5d5d587c",
+      "bytes": 4016
+    },
+    {
+      "path": "lib/core/network/loja_api.dart",
+      "action": "replace",
+      "sha256": "d5533d46ac384aab9f521e5f6434da337cf5e4826583e1ce72a2b4aadbd0c795",
+      "source_sha256": "1cc6f8fcb504a03a59bec56a549ba377366024da9157d9b35f8a85581ef05824",
+      "bytes": 12422
+    },
+    {
+      "path": "tools/build-client.ps1",
+      "action": "replace",
+      "sha256": "5340c77afd29fb4e99ad062eb99fb62b32ac7ba16ac3d9258fa97ab57db45caa",
+      "source_sha256": "617120e953188ba7e54d68179a241975617c72e148d8fbe05d676cac20d4473c",
+      "bytes": 4840
+    },
+    {
+      "path": "tools/build_loja.ps1",
+      "action": "replace",
+      "sha256": "51bd931ee1644974fe7c21d60937ad05cf4f3c4f31b4e4f4c70d1433b2021671",
+      "source_sha256": "d98c9ee2b5201cb2b60f147b0d1eeaabe65d77063756528404e4cdaf0d79fb2d",
+      "bytes": 3536
+    },
+    {
+      "path": ".github/workflows/storeapp-quality.yml",
+      "action": "add",
+      "sha256": "1c419ebae10140dad0ca7b5800df4f312b8a4ebbfbf32254fc7fb0271630790b",
+      "source_sha256": null,
+      "bytes": 1449
+    },
+    {
+      "path": "tools/check-client-build.mjs",
+      "action": "add",
+      "sha256": "68353ff626b6402f4021e79adc482ed7c0c9287847ed793592f7d803909a89b5",
+      "source_sha256": null,
+      "bytes": 5680
+    },
+    {
+      "path": "tools/test/check-client-build.test.mjs",
+      "action": "add",
+      "sha256": "f19b9cbcf4c9a94216b32b7989d125b09ec34a400a7fb892a7f2345838cb83c6",
+      "source_sha256": null,
+      "bytes": 5896
+    },
+    {
+      "path": "test/phase521_backend_selection_test.dart",
+      "action": "add",
+      "sha256": "7247cc0710d94ed5046a65bb563beeda1530e4eb1d78302b87ea029165c5d114",
+      "source_sha256": null,
+      "bytes": 656
+    },
+    {
+      "path": "LEIA_FASE_5_PARTE_21_CONSOLIDACAO.md",
+      "action": "add",
+      "sha256": "7dc1502cb95ae599d184a75acf1d100f37bc4e57f7093a4c5e53189f956d97a9",
+      "source_sha256": null,
+      "bytes": 6738
+    }
+  ]
+}

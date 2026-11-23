@@ -71,3 +71,15 @@ backend/.env.*
 # Configuração local por cliente e artefatos gerados (podem conter email de proprietário).
 .client-builds/
 config/*.local.json
+
+# Fase 5.21: nunca versionar estado ou credenciais de workers por loja.
+# Os modelos *.example.json continuam versionáveis.
+backend/connectors/**/settings.json
+backend/connectors/**/orders.settings.json
+backend/connectors/**/credentials.json
+backend/connectors/**/secrets.json
+backend/connectors/**/state.json
+backend/connectors/**/state.*.json
+backend/connectors/**/output/
+backend/connectors/**/reports/
+backend/connectors/**/kits/

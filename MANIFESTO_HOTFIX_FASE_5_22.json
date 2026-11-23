@@ -1,0 +1,15 @@
+{
+  "phase": "5.22",
+  "type": "hotfix-test",
+  "scope": "Flutter widget test only",
+  "replace": [
+    "test/phase522_commercial_rollout_screen_test.dart"
+  ],
+  "add": [
+    "LEIA_HOTFIX_FASE_5_22_FLUTTER.md"
+  ],
+  "migrations": [],
+  "env_changes": [],
+  "production_code_changed": false,
+  "file_sha256": "f420069e538c03ef41670750732ea7e24d7f69fbd8df138425174a8a7d89ab27"
+}

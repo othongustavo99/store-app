@@ -1,0 +1,38 @@
+{
+  "phase": "5.22",
+  "source": "loja_roupas(20261122-235502).zip + patch 5.21",
+  "mode": "incremental patch",
+  "new": [
+    "backend/migrations/025_store_commercial_rollout.sql",
+    "backend/src/services/store_commercial_rollout.ts",
+    "backend/src/routes/store_commercial_rollout.ts",
+    "backend/src/tests/store_commercial_rollout.test.ts",
+    "lib/data/repositories/railway_commercial_rollout_repository.dart",
+    "lib/features/admin/commercial/railway_commercial_rollout_screen.dart",
+    "test/phase522_commercial_rollout_screen_test.dart",
+    "LEIA_FASE_5_PARTE_22_MULTI_LOJA.md",
+    "MANIFESTO_FASE_5_PARTE_22.json"
+  ],
+  "replace": [
+    "backend/src/app.ts",
+    "lib/router/app_router.dart",
+    "lib/features/admin/remote_admin_home.dart"
+  ],
+  "delete": [],
+  "migration": "025_store_commercial_rollout.sql",
+  "envNew": [],
+  "autoEnable": false,
+  "sha256": {
+    "backend/migrations/025_store_commercial_rollout.sql": "a34d6473de4032b2e0968e7e7833f8f315680203f5d1b2ee01125982cb512ff4",
+    "backend/src/services/store_commercial_rollout.ts": "3ef3bc8cf52b3e7b1b31005568d89a53586db1d6bf5bfa8b3266d93eec0a09dd",
+    "backend/src/routes/store_commercial_rollout.ts": "f20ce69ba7e36751b9278125f7638502a23c2a90fb267bc5aac32a73bd91c968",
+    "backend/src/tests/store_commercial_rollout.test.ts": "4a672049c4d8318f61cc92e39a510d72de576c0572908c9049636c9c9043f29f",
+    "lib/data/repositories/railway_commercial_rollout_repository.dart": "d7837a7f666f59edac5cc3319b482bc27597e3d8bcee7626532772ec5580605a",
+    "lib/features/admin/commercial/railway_commercial_rollout_screen.dart": "3845724323d2c8e1aaf18181f85a64c45ba8b22c698a8a2e32eecaa0c329f007",
+    "test/phase522_commercial_rollout_screen_test.dart": "37af1233cfd9d80745981d89521990bea5cb28877c70f174ca0dbf9c875a4c82",
+    "LEIA_FASE_5_PARTE_22_MULTI_LOJA.md": "14fe42e1bdd7d17677b39d8f7d0addc1e8fefa588ca9b0cc53e4c74cc9c35c5d",
+    "backend/src/app.ts": "a46dba7b8482f4d314035ce4f5528f8660ff9749007ea641a9c3d071eb482093",
+    "lib/router/app_router.dart": "e353842e113b1314e1ba6fa54017f0230a354ee6ed7080abbfa613f104552f37",
+    "lib/features/admin/remote_admin_home.dart": "5b9ca7e2266e0a4f16b7050a6b4de43137784b2d430b4777e4c45ee695791edc"
+  }
+}

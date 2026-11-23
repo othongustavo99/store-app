@@ -31,6 +31,7 @@ import '../features/admin/team/railway_team_screen.dart';
 import '../features/admin/shipping/railway_shipping_screen.dart';
 import '../features/admin/store_settings/railway_store_settings_screen.dart';
 import '../features/admin/integrations/railway_integrations_screen.dart';
+import '../features/admin/commercial/railway_commercial_rollout_screen.dart';
 import '../features/client/invite/railway_accept_invite_screen.dart';
 import '../features/admin/login/admin_login_screen.dart';
 import '../providers/auth_providers.dart';
@@ -298,6 +299,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           fallbackLocation: '/admin',
           child: LojaBackend.isRailway
               ? const RailwayStoreSettingsScreen()
+              : const RemotePendingScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/commercial-rollout',
+        builder: (context, state) => AppRouteBackGuard(
+          fallbackLocation: '/admin',
+          child: LojaBackend.isRailway
+              ? const RailwayCommercialRolloutScreen()
               : const RemotePendingScreen(),
         ),
       ),

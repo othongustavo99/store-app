@@ -195,13 +195,26 @@ class _RemoteAdminHomeState extends ConsumerState<RemoteAdminHome> {
                     FutureBuilder<bool>(
                       future: _isOwner,
                       builder: (context, snapshot) => snapshot.data == true
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: OutlinedButton.icon(
-                                onPressed: () => context.push('/admin/integrations'),
-                                icon: const Icon(Icons.hub_outlined),
-                                label: const Text('Central de Integrações ERP/PDV'),
-                              ),
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => context.push('/admin/integrations'),
+                                    icon: const Icon(Icons.hub_outlined),
+                                    label: const Text('Central de Integrações ERP/PDV'),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => context.push('/admin/commercial-rollout'),
+                                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                                    label: const Text('Preparação de pagamentos e frete'),
+                                  ),
+                                ),
+                              ],
                             )
                           : const SizedBox.shrink(),
                     ),

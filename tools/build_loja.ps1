@@ -5,9 +5,16 @@ param(
   [Parameter(Mandatory=$true)][string]$StoreSlug,
   [Parameter(Mandatory=$true)][string]$AppName,
   [string]$ApplicationId='com.loja.roupas.loja_roupas',
-  [string]$GoogleServicesJson=''
+  [string]$GoogleServicesJson='',
+  [switch]$PermitLegacyDemoBuild
 )
 $ErrorActionPreference='Stop'
+# Caminho histórico sem UUID/vínculo de loja: opt-in EXPLÍCITO para demonstração.
+# Para entregar APK comercial, sempre usar tools/build-client.ps1.
+if (-not $PermitLegacyDemoBuild) {
+  throw 'Build legado sem UUID da loja bloqueado. Use tools/build-client.ps1 -Config caminho.json -Mode release -Build. Para teste legado de demonstração, confirme -PermitLegacyDemoBuild.'
+}
+Write-Warning 'LEGADO: este helper NÃO vincula UUID/mode ao APK e não serve para distribuição comercial.'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ($BackendUrl -notmatch '^https://[^/]+') { throw 'BackendUrl deve usar HTTPS.' }
 if ($StoreSlug -notmatch '^[a-z0-9]+(-[a-z0-9]+)*$') { throw 'StoreSlug invalido.' }
